@@ -7,7 +7,7 @@ use crate::{
             Replay,
         },
         recording::{
-            KeyState,
+            KeyState, ContextMenu,
             window::{
                 Window,
                 Openable,
@@ -25,7 +25,11 @@ pub struct InputEditWindow {
     last_frame: usize,
     scroll_y: f32,
     hovered_text: Option<&'static str>,
-    scroll_to_current_frame: bool
+    scroll_to_current_frame: bool,
+    context_menu: bool,
+    context_menu_pos: imgui::Vec2<f32>,
+    context_menu_indicies: (usize, usize),
+    context_menu_keystate: KeyState,
 }
 
 const INPUT_TABLE_WIDTH: f32 = 50.0;
@@ -46,6 +50,10 @@ const BGCOLOR_DISABLED_ALT: u32 = rgb!(165, 120, 120);
 
 impl Window for InputEditWindow {
     fn show_window(&mut self, info: &mut DisplayInformation) {
+        if info.context_menu.is_none() {
+            self.context_menu = false;
+        }
+
         // todo: figure out a better system on when to update this.
         if self.last_frame != info.config.current_frame {
             self.last_frame = info.config.current_frame;
@@ -104,6 +112,10 @@ impl Window for InputEditWindow {
 
         unsafe { cimgui_sys::igPopStyleVar(1); }
         info.frame.end();
+
+        if self.context_menu {
+            self.show_context_menu(info);
+        }
     }
 
     fn is_open(&self) -> bool {
@@ -134,7 +146,74 @@ impl InputEditWindow {
             scroll_y: 0.0,
             hovered_text: None,
             scroll_to_current_frame: false,
+            context_menu: false,
+            context_menu_pos: imgui::Vec2(0.0, 0.0),
+            context_menu_indicies: (0, 0),
+            context_menu_keystate: KeyState::Neutral,
         }
+    }
+
+    fn show_context_menu(&mut self, info: &mut DisplayInformation) {
+        let DisplayInformation {
+            frame,
+            replay,
+            context_menu,
+            ..
+        } = info;
+
+        frame.begin_context_menu(self.context_menu_pos);
+
+        if !self.context_menu_keystate.menu(frame, self.context_menu_pos) {
+            let frame_index = self.context_menu_indicies.0;
+            let key_index = self.context_menu_indicies.1;
+
+            self.update_replay_keystate(frame_index, key_index, self.context_menu_keystate, replay);
+
+            self.context_menu = false;
+            **context_menu = None;
+        }
+
+        frame.end();
+    }
+
+    fn update_replay_keystate(&mut self, frame_index: usize, key_index: usize, new_keystate: KeyState, replay: &mut Replay) {
+        let old_keystate = &self.states[frame_index][key_index];
+        let old_press = old_keystate.ends_in_press();
+        let new_press = new_keystate.ends_in_press();
+
+        if old_press != new_press {
+            if let Some(next_keystates) = self.states.get_mut(frame_index + 1) {
+                if let Some(new_state) = match next_keystates[key_index] {
+                    KeyState::Held
+                        | KeyState::HeldWillDouble
+                        | KeyState::HeldDoubleEveryFrame
+                        => if new_press { None } else { Some(KeyState::NeutralWillPress) },
+
+                    KeyState::HeldWillRelease
+                        => if new_press { None } else { Some(KeyState::Neutral) },
+
+                    KeyState::HeldWillTriple
+                        => if new_press { None } else { Some(KeyState::NeutralWillDouble) },
+
+                    KeyState::Neutral
+                        | KeyState::NeutralWillDouble
+                        | KeyState::NeutralDoubleEveryFrame
+                        | KeyState::NeutralWillCactus
+                        => if new_press { Some(KeyState::HeldWillRelease) } else { None },
+
+                    KeyState::NeutralWillPress
+                        => if new_press { Some(KeyState::Held) } else { None }
+
+                    KeyState::NeutralWillTriple
+                        => if new_press { Some(KeyState::HeldWillDouble) } else { None },
+                } {
+                    // If the next frame will have to be adjusted, do that.
+                    self.update_replay(frame_index + 1, key_index, replay, new_state);
+                }
+            }
+        }
+        
+        self.update_replay(frame_index, key_index, replay, new_keystate);
     }
 
     fn update_keys(&mut self, info: &mut DisplayInformation) {
@@ -202,6 +281,7 @@ impl InputEditWindow {
             replay,
             frame,
             config,
+            context_menu,
             ..
         } = info;
 
@@ -240,44 +320,19 @@ impl InputEditWindow {
                 if hovered {
                     self.hovered_text = Some(keystate.repr());
                     // if we clicked on an editable frame
-                    if i >= config.current_frame && frame.left_clicked() {
-                        let mut target_state = keystate.clone();
-                        target_state.click();
+                    if i >= config.current_frame {
+                        if frame.left_clicked() {
+                            let mut target_state = keystate.clone();
+                            target_state.click();
 
-                        match keystate {
-                            KeyState::Held
-                                | KeyState::NeutralWillPress
-                                | KeyState::NeutralWillTriple
-                                | KeyState::HeldWillDouble
-                                | KeyState::HeldDoubleEveryFrame
-                                | KeyState::NeutralWillCactus
-                            => {
-                                if let Some(next_keystates) = self.states.get_mut(i + 1) {
-                                    match next_keystates[j] {
-                                        KeyState::Held | KeyState::HeldWillDouble | KeyState::HeldDoubleEveryFrame => self.update_replay(i + 1, j, replay, KeyState::NeutralWillPress),
-                                        KeyState::HeldWillRelease => self.update_replay(i + 1, j, replay, KeyState::NeutralWillCactus),
-                                        KeyState::HeldWillTriple => self.update_replay(i + 1, j, replay, KeyState::NeutralWillDouble),
-                                        _ => (),
-                                    }
-                                }
-                            },
-                            KeyState::Neutral
-                                | KeyState::NeutralWillDouble
-                                | KeyState::NeutralDoubleEveryFrame
-                                | KeyState::HeldWillRelease
-                                | KeyState::HeldWillTriple
-                            => {
-                                if let Some(next_keystates) = self.states.get_mut(i + 1) {
-                                    match next_keystates[j] {
-                                        KeyState::Neutral | KeyState::NeutralWillCactus => self.update_replay(i + 1, j, replay, KeyState::HeldWillRelease),
-                                        KeyState::NeutralWillPress => self.update_replay(i + 1, j, replay, KeyState::Held),
-                                        _ => (),
-                                    }
-                                }
-                            }
-                        };
-
-                        self.update_replay(i, j, replay, target_state);
+                            self.update_replay_keystate(i, j, target_state, replay);
+                        } else if frame.right_clicked() {
+                            self.context_menu = true;
+                            self.context_menu_pos = frame.mouse_pos();
+                            self.context_menu_indicies = (i, j);
+                            self.context_menu_keystate = *keystate;
+                            **context_menu = Some(ContextMenu::Any);
+                        }
                     }
                 }
             }
