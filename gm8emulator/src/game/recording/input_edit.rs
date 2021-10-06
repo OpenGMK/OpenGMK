@@ -29,6 +29,17 @@ const INPUT_TABLE_HEIGHT: f32 = 20.0;
 const INPUT_TABLE_YPOS: f32 = 44.0;
 const TABLE_CLIPPING: f32 = INPUT_TABLE_HEIGHT*5.0;
 
+macro_rules! rgb {
+    ($r:expr, $g:expr, $b:expr) => {
+        // create rgb value with 0.5 alpha
+        0x80000000|($b&0xFF)<<16|($g&0xFF)<<8|($r&0xFF)
+    };
+}
+const BGCOLOR_CURRENT: u32 = rgb!(145, 210, 145);
+const BGCOLOR_CURRENT_ALT: u32 = rgb!(120, 165, 121);
+const BGCOLOR_DISABLED: u32 = rgb!(210, 145, 145);
+const BGCOLOR_DISABLED_ALT: u32 = rgb!(165, 120, 120);
+
 impl Window for InputEditWindow {
     fn show_window(&mut self, info: &mut DisplayInformation) {
         // todo: figure out a better system on when to update this.
@@ -176,6 +187,7 @@ impl InputEditWindow {
         let DisplayInformation {
             replay,
             frame,
+            config,
             ..
         } = info;
 
@@ -188,6 +200,17 @@ impl InputEditWindow {
         frame.table_next_row(0, clipped_above * INPUT_TABLE_HEIGHT);
 
         for i in (clipped_above as usize)..(clipped_below as usize) {
+            if i < config.current_frame {
+                unsafe {
+                    cimgui_sys::igPushStyleColorU32(cimgui_sys::ImGuiCol__ImGuiCol_TableRowBg as _, BGCOLOR_DISABLED);
+                    cimgui_sys::igPushStyleColorU32(cimgui_sys::ImGuiCol__ImGuiCol_TableRowBgAlt as _, BGCOLOR_DISABLED_ALT);
+                }
+            } else if i == config.current_frame {
+                unsafe {
+                    cimgui_sys::igPushStyleColorU32(cimgui_sys::ImGuiCol__ImGuiCol_TableRowBg as _, BGCOLOR_CURRENT);
+                    cimgui_sys::igPushStyleColorU32(cimgui_sys::ImGuiCol__ImGuiCol_TableRowBgAlt as _, BGCOLOR_CURRENT_ALT);
+                }
+            }
             frame.table_next_row(0, INPUT_TABLE_HEIGHT);
 
             frame.table_set_column_index(0);
@@ -203,6 +226,10 @@ impl InputEditWindow {
                 if hovered {
                     self.hovered_text = Some(keystate.repr());
                 }
+            }
+
+            if i <= config.current_frame {
+                unsafe { cimgui_sys::igPopStyleColor(2);}
             }
         }
 
