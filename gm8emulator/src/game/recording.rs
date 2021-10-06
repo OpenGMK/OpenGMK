@@ -18,7 +18,7 @@ use crate::{
                 DisplayInformation,
             },
         },
-        replay::Replay,
+        replay::{self, Replay},
         Game, SceneChange,
     },
     gml::rand::Random,
@@ -205,6 +205,36 @@ impl KeyState {
             },
         }
         frame.rect_outline(position + wpos, position + size + wpos, Colour::new(0.4, 0.4, 0.65), u8::MAX);
+    }
+
+    pub fn push_key_inputs(&self, key: u8, inputs: &mut Vec<replay::Input>) {
+        match self {
+            Self::NeutralWillPress => {
+                inputs.push(replay::Input::KeyPress(key));
+            },
+            Self::NeutralWillDouble | Self::NeutralDoubleEveryFrame => {
+                inputs.push(replay::Input::KeyPress(key));
+                inputs.push(replay::Input::KeyRelease(key));
+            },
+            Self::NeutralWillTriple => {
+                inputs.push(replay::Input::KeyPress(key));
+                inputs.push(replay::Input::KeyRelease(key));
+                inputs.push(replay::Input::KeyPress(key));
+            },
+            Self::HeldWillRelease | Self::NeutralWillCactus => {
+                inputs.push(replay::Input::KeyRelease(key));
+            },
+            Self::HeldWillDouble | Self::HeldDoubleEveryFrame => {
+                inputs.push(replay::Input::KeyRelease(key));
+                inputs.push(replay::Input::KeyPress(key));
+            },
+            Self::HeldWillTriple => {
+                inputs.push(replay::Input::KeyRelease(key));
+                inputs.push(replay::Input::KeyPress(key));
+                inputs.push(replay::Input::KeyRelease(key));
+            },
+            Self::Neutral | Self::Held => (),
+        }
     }
 }
 

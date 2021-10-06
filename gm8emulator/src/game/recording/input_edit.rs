@@ -2,7 +2,10 @@ use crate::{
     imgui,
     input::Button,
     game::{
-        replay::Input,
+        replay::{
+            Input,
+            Replay,
+        },
         recording::{
             KeyState,
             window::{
@@ -235,6 +238,46 @@ impl InputEditWindow {
                 keystate.draw_keystate(frame, frame.get_item_rect_min()-frame.window_position(), frame.get_item_rect_size());
                 if hovered {
                     self.hovered_text = Some(keystate.repr());
+                    // if we clicked on an editable frame
+                    if i >= config.current_frame && frame.left_clicked() {
+                        let mut target_state = keystate.clone();
+                        target_state.click();
+
+                        match keystate {
+                            KeyState::Held
+                                | KeyState::NeutralWillPress
+                                | KeyState::NeutralWillTriple
+                                | KeyState::HeldWillDouble
+                                | KeyState::HeldDoubleEveryFrame
+                                | KeyState::NeutralWillCactus
+                            => {
+                                if let Some(next_keystates) = self.states.get_mut(i + 1) {
+                                    match next_keystates[j] {
+                                        KeyState::Held | KeyState::HeldWillDouble | KeyState::HeldDoubleEveryFrame => self.update_replay(i + 1, j, replay, KeyState::NeutralWillPress),
+                                        KeyState::HeldWillRelease => self.update_replay(i + 1, j, replay, KeyState::NeutralWillCactus),
+                                        KeyState::HeldWillTriple => self.update_replay(i + 1, j, replay, KeyState::NeutralWillDouble),
+                                        _ => (),
+                                    }
+                                }
+                            },
+                            KeyState::Neutral
+                                | KeyState::NeutralWillDouble
+                                | KeyState::NeutralDoubleEveryFrame
+                                | KeyState::HeldWillRelease
+                                | KeyState::HeldWillTriple
+                            => {
+                                if let Some(next_keystates) = self.states.get_mut(i + 1) {
+                                    match next_keystates[j] {
+                                        KeyState::Neutral | KeyState::NeutralWillCactus => self.update_replay(i + 1, j, replay, KeyState::HeldWillRelease),
+                                        KeyState::NeutralWillPress => self.update_replay(i + 1, j, replay, KeyState::Held),
+                                        _ => (),
+                                    }
+                                }
+                            }
+                        };
+
+                        self.update_replay(i, j, replay, target_state);
+                    }
                 }
             }
 
@@ -244,6 +287,22 @@ impl InputEditWindow {
         }
 
         frame.table_next_row(0, (float_count - clipped_above) * INPUT_TABLE_HEIGHT);
+    }
+
+    fn update_replay(&mut self, frame_index: usize, key_index: usize, replay: &mut Replay, target_state: KeyState) {
+        if let Some(replay_frame) = replay.get_frame_mut(frame_index) {
+            let mut new_inputs: Vec<Input> = replay_frame.inputs.iter().filter(|input|
+                match input {
+                    Input::KeyPress(key) | Input::KeyRelease(key) => *key != self.keys[key_index],
+                    _ => true,
+                }
+            ).cloned().collect();
+
+            target_state.push_key_inputs(self.keys[key_index], &mut new_inputs);
+            replay_frame.inputs = new_inputs;
+
+            self.states[frame_index][key_index] = target_state;
+        }
     }
 
     fn update_keystate(&mut self, frame_index: usize, key_index: usize, pressed: bool) {

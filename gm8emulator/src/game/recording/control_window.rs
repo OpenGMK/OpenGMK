@@ -266,33 +266,7 @@ impl ControlWindow {
     fn update_keyboard_state(&self, keyboard_state: &mut [KeyState; 256], frame: &mut Frame) {
         for (i, state) in keyboard_state.iter().enumerate() {
             let i = i as u8;
-            match state {
-                KeyState::NeutralWillPress => {
-                    frame.inputs.push(replay::Input::KeyPress(i));
-                },
-                KeyState::NeutralWillDouble | KeyState::NeutralDoubleEveryFrame => {
-                    frame.inputs.push(replay::Input::KeyPress(i));
-                    frame.inputs.push(replay::Input::KeyRelease(i));
-                },
-                KeyState::NeutralWillTriple => {
-                    frame.inputs.push(replay::Input::KeyPress(i));
-                    frame.inputs.push(replay::Input::KeyRelease(i));
-                    frame.inputs.push(replay::Input::KeyPress(i));
-                },
-                KeyState::HeldWillRelease | KeyState::NeutralWillCactus => {
-                    frame.inputs.push(replay::Input::KeyRelease(i));
-                },
-                KeyState::HeldWillDouble | KeyState::HeldDoubleEveryFrame => {
-                    frame.inputs.push(replay::Input::KeyRelease(i));
-                    frame.inputs.push(replay::Input::KeyPress(i));
-                },
-                KeyState::HeldWillTriple => {
-                    frame.inputs.push(replay::Input::KeyRelease(i));
-                    frame.inputs.push(replay::Input::KeyPress(i));
-                    frame.inputs.push(replay::Input::KeyRelease(i));
-                },
-                KeyState::Neutral | KeyState::Held => (),
-            }
+            state.push_key_inputs(i, &mut frame.inputs);
         }
     }
 
