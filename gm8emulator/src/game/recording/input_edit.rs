@@ -22,6 +22,7 @@ pub struct InputEditWindow {
     last_frame: usize,
     scroll_y: f32,
     hovered_text: Option<&'static str>,
+    scroll_to_current_frame: bool
 }
 
 const INPUT_TABLE_WIDTH: f32 = 50.0;
@@ -45,6 +46,7 @@ impl Window for InputEditWindow {
         // todo: figure out a better system on when to update this.
         if self.last_frame != info.config.current_frame {
             self.last_frame = info.config.current_frame;
+            self.scroll_to_current_frame = true;
             self.update_keys(info);
         }
         unsafe { cimgui_sys::igPushStyleVarVec2(cimgui_sys::ImGuiStyleVar__ImGuiStyleVar_WindowPadding.try_into().unwrap(), imgui::Vec2(0.0, 0.0).into()); }
@@ -71,6 +73,12 @@ impl Window for InputEditWindow {
             }
             info.frame.table_setup_scroll_freeze(0, 1); // freeze header row
             info.frame.table_headers_row();
+
+            if self.scroll_to_current_frame {
+                self.scroll_to_current_frame = false;
+                info.frame.set_scroll_y(info.config.current_frame as f32 * INPUT_TABLE_HEIGHT - INPUT_TABLE_HEIGHT * 2.0);
+            }
+
             self.draw_input_rows(info);
 
             self.scroll_y = info.frame.get_scroll_y();
@@ -120,6 +128,7 @@ impl InputEditWindow {
             last_frame: 0,
             scroll_y: 0.0,
             hovered_text: None,
+            scroll_to_current_frame: false,
         }
     }
 

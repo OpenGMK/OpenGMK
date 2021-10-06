@@ -212,6 +212,10 @@ impl Frame<'_> {
         unsafe { c::igSameLine(offset_from_start_x, spacing) };
     }
 
+    pub fn set_scroll_y(&self, position: f32) {
+        unsafe { c::igSetScrollYFloat(position); }
+    }
+
     pub fn get_scroll_x(&self) -> f32 {
         unsafe { c::igGetScrollX() }
     }
