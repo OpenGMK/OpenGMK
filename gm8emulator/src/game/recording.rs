@@ -6,6 +6,8 @@ mod input_window;
 mod instance_report;
 mod keybinds;
 mod console;
+mod menu_bar;
+mod input_edit;
 
 use crate::{
     game::{
@@ -17,7 +19,7 @@ use crate::{
                 DisplayInformation,
             },
         },
-        replay::Replay,
+        replay::{self, Replay},
         Game, SceneChange,
     },
     gml::rand::Random,
@@ -146,7 +148,7 @@ impl KeyState {
         open
     }
 
-    fn repr(&self) -> &'static str {
+    pub fn repr(&self) -> &'static str {
         match self {
             Self::Neutral => "Neutral",
             Self::NeutralWillPress => "Neutral; will press",
@@ -204,6 +206,36 @@ impl KeyState {
             },
         }
         frame.rect_outline(position + wpos, position + size + wpos, Colour::new(0.4, 0.4, 0.65), u8::MAX);
+    }
+
+    pub fn push_key_inputs(&self, key: u8, inputs: &mut Vec<replay::Input>) {
+        match self {
+            Self::NeutralWillPress => {
+                inputs.push(replay::Input::KeyPress(key));
+            },
+            Self::NeutralWillDouble | Self::NeutralDoubleEveryFrame => {
+                inputs.push(replay::Input::KeyPress(key));
+                inputs.push(replay::Input::KeyRelease(key));
+            },
+            Self::NeutralWillTriple => {
+                inputs.push(replay::Input::KeyPress(key));
+                inputs.push(replay::Input::KeyRelease(key));
+                inputs.push(replay::Input::KeyPress(key));
+            },
+            Self::HeldWillRelease | Self::NeutralWillCactus => {
+                inputs.push(replay::Input::KeyRelease(key));
+            },
+            Self::HeldWillDouble | Self::HeldDoubleEveryFrame => {
+                inputs.push(replay::Input::KeyRelease(key));
+                inputs.push(replay::Input::KeyPress(key));
+            },
+            Self::HeldWillTriple => {
+                inputs.push(replay::Input::KeyRelease(key));
+                inputs.push(replay::Input::KeyPress(key));
+                inputs.push(replay::Input::KeyRelease(key));
+            },
+            Self::Neutral | Self::Held => (),
+        }
     }
 }
 
@@ -556,22 +588,13 @@ impl Game {
         keybind_path.push("keybindings.cfg");
         let mut keybindings = keybinds::Keybindings::from_file_or_default(&keybind_path);
 
-        let mut game_window = game_window::GameWindow::new();
-        let mut control_window = control_window::ControlWindow::new();
-        let mut savestate_window = savestate_window::SaveStateWindow::new(16);
-        let mut input_windows = input_window::InputWindows::new();
-        let mut instance_report_windows = instance_report::InstanceReportWindow::new();
-        let mut keybinding_window = keybinds::KeybindWindow::new();
-        let mut console_window = console::ConsoleWindow::new();
-
-        let mut windows = vec![
-            &mut game_window as &mut dyn Window,
-            &mut control_window,
-            &mut savestate_window,
-            &mut input_windows,
-            &mut instance_report_windows,
-            &mut console_window,
-            &mut keybinding_window,
+        let mut windows: Vec<(Box<dyn Window>, bool)> = vec![
+            (Box::new(game_window::GameWindow::new()), true),
+            (Box::new(control_window::ControlWindow::new()), false),
+            (Box::new(savestate_window::SaveStateWindow::new(16)), false),
+            (Box::new(input_window::InputWindows::new()), false),
+            (Box::new(instance_report::InstanceReportWindow::new()), false),
+            // (Box::new(keybinds::KeybindWindow::new()), false),
         ];
 
         /* ----------------------
@@ -656,7 +679,16 @@ impl Game {
             let win_padding = context.window_padding();
             let mut frame = context.new_frame();
 
+            // ImGui windows
+            // todo: maybe separate control logic from the windows at some point so we can close control/savestate/input windows
+            //       and still have the keyboard shortcuts and everything working. Collapsing them is good enough for now.
             {
+                let mut close: bool = false;
+                menu_bar::show_menu_bar(&mut frame, &mut windows, &mut close);
+                if close {
+                    break 'gui;
+                }
+
                 keybindings.update_disable_bindings();
 
                 let mut display_info = DisplayInformation {
@@ -691,10 +723,14 @@ impl Game {
                     keybindings: &mut keybindings,
                 };
 
-                for win in &mut windows {
+                for (win, focus) in &mut windows {
+                    if *focus {
+                        display_info.frame.set_next_window_focus();
+                        *focus = false;
+                    }
                     win.show_window(&mut display_info);
                 }
-                windows.retain(|win| win.is_open());
+                windows.retain(|(win, _)| win.is_open());
             }
 
             // Context menu windows (aka right-click menus)

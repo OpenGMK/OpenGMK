@@ -159,6 +159,11 @@ impl Replay {
         self.frames.get(index)
     }
 
+    // Gets the data associated with a given frame, if any
+    pub fn get_frame_mut(&mut self, index: usize) -> Option<&mut Frame> {
+        self.frames.get_mut(index)
+    }
+
     // Gets the replay's frame count
     pub fn frame_count(&self) -> usize {
         self.frames.len()

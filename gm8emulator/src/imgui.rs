@@ -117,6 +117,10 @@ impl Frame<'_> {
         }
     }
 
+    pub fn set_next_window_focus(&self) {
+        unsafe { c::igSetNextWindowFocus(); }
+    }
+
     pub fn begin_window(
         &mut self,
         name: &str,
@@ -199,6 +203,14 @@ impl Frame<'_> {
         unsafe { c::igEndTable() };
     }
 
+    pub fn table_setup_scroll_freeze(&self, columns: i32, rows: i32) {
+        unsafe { c::igTableSetupScrollFreeze(columns, rows); }
+    }
+
+    pub fn table_headers_row(&self) {
+        unsafe { c::igTableHeadersRow(); }
+    }
+
     pub fn table_next_row(&self, row_flags: c::ImGuiTableRowFlags, min_row_height: f32) {
         unsafe { c::igTableNextRow(row_flags, min_row_height) };
     }
@@ -218,6 +230,26 @@ impl Frame<'_> {
 
     pub fn same_line(&self, offset_from_start_x: f32, spacing: f32) {
         unsafe { c::igSameLine(offset_from_start_x, spacing) };
+    }
+
+    pub fn set_scroll_y(&self, position: f32) {
+        unsafe { c::igSetScrollYFloat(position); }
+    }
+
+    pub fn get_scroll_x(&self) -> f32 {
+        unsafe { c::igGetScrollX() }
+    }
+
+    pub fn get_scroll_max_x(&self) -> f32 {
+        unsafe { c::igGetScrollMaxX() }
+    }
+
+    pub fn get_scroll_y(&self) -> f32 {
+        unsafe { c::igGetScrollY() }
+    }
+
+    pub fn get_scroll_max_y(&self) -> f32 {
+        unsafe { c::igGetScrollMaxY() }
     }
 
     pub fn window_position(&self) -> Vec2<f32> {
@@ -312,6 +344,23 @@ impl Frame<'_> {
         }
     }
 
+    pub fn begin_menu_main_bar(&self) -> bool {
+        unsafe { c::igBeginMainMenuBar() }
+    }
+
+    pub fn end_menu_main_bar(&self) {
+        unsafe { c::igEndMainMenuBar(); }
+    }
+
+    pub fn begin_menu(&mut self, label: &str, enabled: bool) -> bool {
+        self.cstr_store(label);
+        unsafe { c::igBeginMenu(self.cstr(), enabled) }
+    }
+
+    pub fn end_menu(&self) {
+        unsafe { c::igEndMenu(); }
+    }
+
     pub fn menu_item(&mut self, label: &str) -> bool {
         self.cstr_store(label);
         unsafe { cimgui_sys::igMenuItemBool(self.cstr(), std::ptr::null(), false, true) }
@@ -397,6 +446,27 @@ impl Frame<'_> {
 
     pub fn item_hovered(&self) -> bool {
         unsafe { c::igIsItemHovered(0) }
+    }
+
+    pub fn get_item_rect_min(&self) -> Vec2<f32> {
+        let mut min = c::ImVec2 { x: 0.0, y: 0.0 };
+        unsafe { c::igGetItemRectMin(&mut min as *mut c::ImVec2); }
+
+        min.into()
+    }
+
+    pub fn get_item_rect_max(&self) -> Vec2<f32> {
+        let mut max = c::ImVec2 { x: 0.0, y: 0.0 };
+        unsafe { c::igGetItemRectMax(&mut max as *mut c::ImVec2); }
+
+        max.into()
+    }
+
+    pub fn get_item_rect_size(&self) -> Vec2<f32> {
+        let mut size = c::ImVec2 { x: 0.0, y: 0.0 };
+        unsafe { c::igGetItemRectSize(&mut size as *mut c::ImVec2); }
+
+        size.into()
     }
 
     pub fn rect(&mut self, min: Vec2<f32>, max: Vec2<f32>, colour: Colour, alpha: u8) {

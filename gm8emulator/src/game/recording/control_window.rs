@@ -22,13 +22,17 @@ pub struct ControlWindow {
 }
 
 impl Window for ControlWindow {
+    fn name(&self) -> String {
+        "Control".to_owned()
+    }
+
     fn show_window(&mut self, info: &mut DisplayInformation) {
         info.frame.setup_next_window(imgui::Vec2(8.0, 8.0), None, None);
-        info.frame.begin_window("Control", None, true, false, None);
+        info.frame.begin_window(&self.name(), None, true, false, None);
 
         self.update_texts(info);
 
-        if (info.frame.button("Advance (Space)", imgui::Vec2(165.0, 20.0), None)
+        if (info.frame.button("Advance", imgui::Vec2(165.0, 20.0), None)
             || info.keybind_pressed(Binding::Advance))
             && *info.game_running
             && info.err_string.is_none()
@@ -36,7 +40,7 @@ impl Window for ControlWindow {
             self.advance_frame(info);
         }
 
-        if (info.frame.button("Quick Save (Q)", imgui::Vec2(165.0, 20.0), None)
+        if (info.frame.button("Quick Save", imgui::Vec2(165.0, 20.0), None)
             || info.keybind_pressed(Binding::Quicksave))
             && *info.game_running
             && info.err_string.is_none()
@@ -44,7 +48,7 @@ impl Window for ControlWindow {
             info.savestate_save(info.config.quicksave_slot);
         }
 
-        if info.frame.button("Load Quicksave (W)", imgui::Vec2(165.0, 20.0), None)
+        if info.frame.button("Load Quicksave", imgui::Vec2(165.0, 20.0), None)
             || info.keybind_pressed(Binding::Quickload)
         {
             if *info.startup_successful {
@@ -52,7 +56,9 @@ impl Window for ControlWindow {
             }
         }
 
-        if info.frame.button("Export to .gmtas", imgui::Vec2(165.0, 20.0), None) {
+        if info.frame.button("Export to .gmtas", imgui::Vec2(165.0, 20.0), None)
+            || info.keybind_pressed(Binding::ExportGmtas)
+        {
             let mut filepath = info.project_path.clone();
             filepath.push("save.gmtas");
             match info.replay.to_file(&filepath) {
@@ -119,7 +125,9 @@ impl Window for ControlWindow {
             info.config.save();
         }
 
-        if info.frame.button(">", imgui::Vec2(18.0, 18.0), Some(imgui::Vec2(160.0, 138.0))) {
+        if info.frame.button(">", imgui::Vec2(18.0, 18.0), Some(imgui::Vec2(160.0, 138.0)))
+            || info.keybind_pressed(Binding::NextRand)
+        {
             if let Some(rand) = &mut info.new_rand {
                 rand.cycle();
             } else {
@@ -258,33 +266,7 @@ impl ControlWindow {
     fn update_keyboard_state(&self, keyboard_state: &mut [KeyState; 256], frame: &mut Frame) {
         for (i, state) in keyboard_state.iter().enumerate() {
             let i = i as u8;
-            match state {
-                KeyState::NeutralWillPress => {
-                    frame.inputs.push(replay::Input::KeyPress(i));
-                },
-                KeyState::NeutralWillDouble | KeyState::NeutralDoubleEveryFrame => {
-                    frame.inputs.push(replay::Input::KeyPress(i));
-                    frame.inputs.push(replay::Input::KeyRelease(i));
-                },
-                KeyState::NeutralWillTriple => {
-                    frame.inputs.push(replay::Input::KeyPress(i));
-                    frame.inputs.push(replay::Input::KeyRelease(i));
-                    frame.inputs.push(replay::Input::KeyPress(i));
-                },
-                KeyState::HeldWillRelease | KeyState::NeutralWillCactus => {
-                    frame.inputs.push(replay::Input::KeyRelease(i));
-                },
-                KeyState::HeldWillDouble | KeyState::HeldDoubleEveryFrame => {
-                    frame.inputs.push(replay::Input::KeyRelease(i));
-                    frame.inputs.push(replay::Input::KeyPress(i));
-                },
-                KeyState::HeldWillTriple => {
-                    frame.inputs.push(replay::Input::KeyRelease(i));
-                    frame.inputs.push(replay::Input::KeyPress(i));
-                    frame.inputs.push(replay::Input::KeyRelease(i));
-                },
-                KeyState::Neutral | KeyState::Held => (),
-            }
+            state.push_key_inputs(i, &mut frame.inputs);
         }
     }
 
