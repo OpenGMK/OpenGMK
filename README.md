@@ -6,20 +6,26 @@
 **OpenGMK** is a modern, open-source rewrite of the proprietary GameMaker Classic engines,
 providing a full sourceport of the runner, a decompiler, and the ability to record TASes.
 It's being worked on almost every day! We’re constantly adding new features and updating the code.
+
 Please remember that ___this project is a work in progress___ and is unreleased.
 Until there's an official release, please note that your saves may break in future releases.
 See [runtime errors](#load--runtime-errors) section below on how to work around this.
 
+OpenGMK currently runs games made with **GameMaker 8.x**, and runs on Windows 7 or later.
+It will support Unix-like operating systems (e.g. Linux or macOS) in the future.
+
 ## Building GM8Emulator / GM8Decompiler
 
-This project is written in the Rust programming language. Download the toolchain manager directly from https://rustup.rs/ or a package manager of your choice.
-After installing, make sure you're up to date and then download the nightly branch:
+This project is written in the Rust programming language. Download the toolchain manager directly
+from [the official site](https://rustup.rs) or a package manager of your choice.
 
-- `rustup self update`
-- `rustup update`
-- `rustup install nightly`
+We use the `nightly` branch of the Rust toolchain. If you have a recent version of rustup
+(1.24 or later), it will automatically download it for you the first time you run Cargo within
+the project (by reading the [`rust-toolchain.toml` override file](https://rust-lang.github.io/rustup/overrides.html#the-toolchain-file)).
+You can update rustup and your toolchains by running `rustup update`, and install `nightly` manually with
+`rustup install nightly`.
 
-Clone the OpenGMK repository.
+Next, clone the OpenGMK repository.
 We use a few git submodules, so initialise them while cloning like so:
 
 - `git clone --recurse-submodules https://github.com/OpenGMK/OpenGMK.git`
@@ -27,7 +33,7 @@ We use a few git submodules, so initialise them while cloning like so:
 Once that's set up, `cd` to the repository and build the entire project
 in the release profile so it's optimized (this will take a while):
 
-- `cargo +nightly build --release`
+- `cargo build --release`
 
 The build artifacts will be located in `(repo folder)/target/release/`.
 If you're on Windows 64-bit and would like to play games with GM8Emulator
@@ -37,7 +43,7 @@ It requires the additional installation of the `i686-pc-windows-msvc` target wit
 
 - `rustup target add --toolchain=nightly i686-pc-windows-msvc`
 - `cd gm8emulator-wow64`
-- `cargo +nightly build --release`
+- `cargo build --release`
 
 The build artifacts for the WoW64 server will be in
 `(repo folder)/gm8emulator-wow64/target/i686-pc-windows-msvc/release/`.
@@ -68,9 +74,13 @@ It should be noted that cross-platform extension emulation is planned for the lo
 
 **Loading a game gives "failed to load 'filename' - unknown format, could not identify file"**
 
-> OpenGMK is made to support **GameMaker Classic** games. It’s possible the game you are trying to load was actually made with the newer **GameMaker: Studio**,
-which it does not have support for at the moment.
-Whether it will in the future is unclear right now.
+> OpenGMK is made to support **GameMaker Classic** games. At the moment, OpenGMK only supports
+loading games made with **GameMaker 8.x**, but **GameMaker 7.x** and older releases
+[will be supported in the future](https://github.com/OpenGMK/OpenGMK/issues/121).
+
+> Additionally, it’s possible that the game you are trying to load was actually made with
+the newer **GameMaker: Studio**, which OpenGMK does not support at the moment. Whether it
+will in the future is unclear right now.
 
 **Loading a savestate gives "invalid u8 while decoding bool" or "expected variant index" (or similar)**
 
