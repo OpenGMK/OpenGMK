@@ -16,7 +16,6 @@ use crate::{
         },
     },
 };
-use std::convert::TryInto;
 
 pub struct InputEditWindow {
     is_open: bool,
@@ -65,12 +64,12 @@ impl Window for InputEditWindow {
             self.update_keys(info);
         }
 
-        unsafe { cimgui_sys::igPushStyleVarVec2(cimgui_sys::ImGuiStyleVar__ImGuiStyleVar_WindowPadding.try_into().unwrap(), imgui::Vec2(0.0, 0.0).into()); }
+        unsafe { cimgui_sys::igPushStyleVarVec2(cimgui_sys::ImGuiStyleVar__ImGuiStyleVar_WindowPadding as _, imgui::Vec2(0.0, 0.0).into()); }
         info.frame.begin_window(Self::window_name(), None, true, false, Some(&mut self.is_open));
 
         unsafe {
-            cimgui_sys::igSetCursorPos(cimgui_sys::ImVec2 { x: 0.0, y: INPUT_TABLE_YPOS });
-            cimgui_sys::igPushStyleVarVec2(cimgui_sys::ImGuiStyleVar__ImGuiStyleVar_CellPadding as _, cimgui_sys::ImVec2 { x: TABLE_PADDING, y: TABLE_PADDING} );
+            cimgui_sys::igSetCursorPos(imgui::Vec2(0.0, INPUT_TABLE_YPOS).into());
+            cimgui_sys::igPushStyleVarVec2(cimgui_sys::ImGuiStyleVar__ImGuiStyleVar_CellPadding as _, imgui::Vec2(TABLE_PADDING, TABLE_PADDING).into());
         }
         let table_size = info.frame.window_size() - imgui::Vec2(0.0, INPUT_TABLE_YPOS);
         if info.frame.begin_table(
@@ -81,14 +80,14 @@ impl Window for InputEditWindow {
                 | cimgui_sys::ImGuiTableFlags__ImGuiTableFlags_Borders
                 | cimgui_sys::ImGuiTableFlags__ImGuiTableFlags_NoPadOuterX
                 | cimgui_sys::ImGuiTableFlags__ImGuiTableFlags_NoPadInnerX
-                | cimgui_sys::ImGuiTableFlags__ImGuiTableFlags_ScrollY) as i32,
+                | cimgui_sys::ImGuiTableFlags__ImGuiTableFlags_ScrollY) as _,
             table_size,
             0.0
         ) {
             info.frame.table_setup_column("Frame", 0, 0.0);
             for key in self.keys.iter() {
                 if let Some(button) = Button::try_from_u8(*key) {
-                    info.frame.table_setup_column(&format!("{}", button), cimgui_sys::ImGuiTableColumnFlags__ImGuiTableColumnFlags_WidthFixed as i32, INPUT_TABLE_WIDTH);
+                    info.frame.table_setup_column(&format!("{}", button), cimgui_sys::ImGuiTableColumnFlags__ImGuiTableColumnFlags_WidthFixed as _, INPUT_TABLE_WIDTH);
                 }
             }
             info.frame.table_setup_scroll_freeze(0, 1); // freeze header row
@@ -110,7 +109,7 @@ impl Window for InputEditWindow {
 
         if let Some(text) = self.hovered_text {
             unsafe {
-                cimgui_sys::igSetCursorPos(cimgui_sys::ImVec2 { x: 8.0, y: 22.0 });
+                cimgui_sys::igSetCursorPos(imgui::Vec2(8.0, 22.0).into());
             }
             info.frame.text(text);
             self.hovered_text = None;
