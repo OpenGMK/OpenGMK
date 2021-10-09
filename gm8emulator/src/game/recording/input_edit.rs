@@ -35,7 +35,11 @@ pub struct InputEditWindow {
 const INPUT_TABLE_WIDTH: f32 = 50.0;
 const INPUT_TABLE_HEIGHT: f32 = 20.0;
 const INPUT_TABLE_YPOS: f32 = 44.0;
-const TABLE_CLIPPING: f32 = INPUT_TABLE_HEIGHT*5.0;
+const TABLE_PADDING: f32 = 2.0;
+const TOTAL_INPUT_TABLE_HEIGHT: f32 = INPUT_TABLE_HEIGHT + TABLE_PADDING * 2.0; // total height = table height + top padding + bottom padding
+// draw 2 elements above and below the visible region.
+const TABLE_CLIPPING: f32 = TOTAL_INPUT_TABLE_HEIGHT*2.0;
+
 
 macro_rules! rgb {
     ($r:expr, $g:expr, $b:expr) => {
@@ -60,11 +64,15 @@ impl Window for InputEditWindow {
             self.scroll_to_current_frame = true;
             self.update_keys(info);
         }
+
         unsafe { cimgui_sys::igPushStyleVarVec2(cimgui_sys::ImGuiStyleVar__ImGuiStyleVar_WindowPadding.try_into().unwrap(), imgui::Vec2(0.0, 0.0).into()); }
         info.frame.begin_window(Self::window_name(), None, true, false, Some(&mut self.is_open));
 
-        unsafe { cimgui_sys::igSetCursorPos(cimgui_sys::ImVec2 { x: 0.0, y: INPUT_TABLE_YPOS }); }
-        let table_size = info.frame.window_size() - imgui::Vec2(0.0, INPUT_TABLE_YPOS + 50.0);
+        unsafe {
+            cimgui_sys::igSetCursorPos(cimgui_sys::ImVec2 { x: 0.0, y: INPUT_TABLE_YPOS });
+            cimgui_sys::igPushStyleVarVec2(cimgui_sys::ImGuiStyleVar__ImGuiStyleVar_CellPadding as _, cimgui_sys::ImVec2 { x: TABLE_PADDING, y: TABLE_PADDING} );
+        }
+        let table_size = info.frame.window_size() - imgui::Vec2(0.0, INPUT_TABLE_YPOS);
         if info.frame.begin_table(
             "Input",
             self.keys.len() as i32 + 1,
@@ -88,18 +96,16 @@ impl Window for InputEditWindow {
 
             if self.scroll_to_current_frame {
                 self.scroll_to_current_frame = false;
-                info.frame.set_scroll_y(info.config.current_frame as f32 * INPUT_TABLE_HEIGHT - INPUT_TABLE_HEIGHT * 2.0);
+                info.frame.set_scroll_y(info.config.current_frame as f32 * TOTAL_INPUT_TABLE_HEIGHT - TOTAL_INPUT_TABLE_HEIGHT * 2.0);
             }
 
             self.scroll_y = info.frame.get_scroll_y();
 
             self.draw_input_rows(info);
 
-            let scroll_max_y = info.frame.get_scroll_max_y();
-
             info.frame.end_table();
 
-            info.frame.text(&format!("===  Y Scroll: {}/{}", self.scroll_y, scroll_max_y));
+            unsafe { cimgui_sys::igPopStyleVar(1); }
         }
 
         if let Some(text) = self.hovered_text {
@@ -288,10 +294,13 @@ impl InputEditWindow {
         let visible_height = frame.window_size().1 - INPUT_TABLE_YPOS;
         let float_count = replay.frame_count() as f32;
 
-        let clipped_above = (f32::max(self.scroll_y - TABLE_CLIPPING, 0.0) / INPUT_TABLE_HEIGHT).floor();
-        let clipped_below = (f32::min(self.scroll_y + visible_height + TABLE_CLIPPING, float_count * INPUT_TABLE_HEIGHT) / INPUT_TABLE_HEIGHT).floor();
+        let clipped_above = (f32::max(self.scroll_y - TABLE_CLIPPING, 0.0) / TOTAL_INPUT_TABLE_HEIGHT).floor();
+        let clipped_below = (f32::min(self.scroll_y + visible_height + TABLE_CLIPPING, float_count * TOTAL_INPUT_TABLE_HEIGHT) / TOTAL_INPUT_TABLE_HEIGHT).floor();
 
-        frame.table_next_row(0, clipped_above * INPUT_TABLE_HEIGHT);
+        if clipped_above > 0.0 {
+            // placeholder row for everything above the visible region. To make sure the size stays the same.
+            frame.table_next_row(0, clipped_above * TOTAL_INPUT_TABLE_HEIGHT);
+        }
 
         for i in (clipped_above as usize)..(clipped_below as usize) {
             if i < config.current_frame {
@@ -338,11 +347,14 @@ impl InputEditWindow {
             }
 
             if i <= config.current_frame {
-                unsafe { cimgui_sys::igPopStyleColor(2);}
+                unsafe { cimgui_sys::igPopStyleColor(2); }
             }
         }
 
-        frame.table_next_row(0, (float_count - clipped_above) * INPUT_TABLE_HEIGHT);
+        if float_count - clipped_below > 0.0 {
+            // placeholder row for everything below the visible region. To make sure the size stays the same.
+            frame.table_next_row(0, (float_count - clipped_below) * TOTAL_INPUT_TABLE_HEIGHT);
+        }
     }
 
     fn update_replay(&mut self, frame_index: usize, key_index: usize, replay: &mut Replay, target_state: KeyState) {
