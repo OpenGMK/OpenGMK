@@ -42,16 +42,17 @@ fn main() -> io::Result<()> {
     // if it takes over half a second, my dude actually just clicked the exe
     let (tx, rx) = std::sync::mpsc::channel();
     std::thread::spawn(move || {
-        let mut version = [0; 4];
+        let mut version = [0; 2];
         io::stdin().read_exact(&mut version).unwrap();
-        tx.send(u32::from_le_bytes(version)).unwrap();
+        tx.send(u16::from_le_bytes(version)).unwrap();
     });
     let version = match rx.recv_timeout(Duration::from_millis(500)) {
         Ok(v) => v,
         Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => return Ok(()), // reading errored
         Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {
             eprintln!("This is a bridge executable, and is not meant to be ran independently.");
-            // TODO: maybe wait for keyboard input or something
+            eprintln!("<< Press Return >>");
+            stdin.lock(); // pressing return will send 2 bytes to stdin, which unlocks the other thread
             return Ok(())
         }
     };

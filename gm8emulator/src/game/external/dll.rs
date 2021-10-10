@@ -8,7 +8,7 @@ use std::{
 };
 
 // message enum is for stuff that doesn't happen one time at startup
-pub const PROTOCOL_VERSION: u32 = 0;
+pub const PROTOCOL_VERSION: u16 = 0;
 
 #[derive(Copy, Clone, Debug, Serialize, Deserialize)]
 pub enum CallConv {
