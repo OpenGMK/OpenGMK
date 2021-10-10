@@ -66,17 +66,14 @@ impl ChildProcess {
         let mut child = process::Command::new(process_path)
             .stdin(process::Stdio::piped())
             .stdout(process::Stdio::piped())
+            .arg(dll::PROTOCOL_VERSION.to_string())
             .spawn()
             .map_err(|e| format!("failed to spawn child process: {}", e))?;
-        let mut stdin = child.stdin.take().unwrap();
+        let stdin = child.stdin.take().unwrap();
         let mut stdout = child.stdout.take().unwrap();
         // make sure we're talking to the right version
-        stdin
-            .write_all(&dll::PROTOCOL_VERSION.to_le_bytes())
-            .and_then(|_| stdin.flush())
-            .map_err(|e| format!("couldn't send wow64 version: {}", e))?;
         let mut version = [0; 2];
-        stdout.read_exact(&mut version).map_err(|e| format!("couldn't receive wow64 version: {}", e))?;
+        stdout.read_exact(&mut version).map_err(|e| format!("couldn't receive gm8emulator-wow64 version: {}", e))?;
         let version = u16::from_le_bytes(version);
         if version != dll::PROTOCOL_VERSION {
             return Err(format!("gm8emulator-wow64 version mismatch (expected {}, got {})", PROTOCOL_VERSION, version))

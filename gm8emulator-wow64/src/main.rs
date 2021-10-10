@@ -11,7 +11,7 @@ mod handleman;
 
 use byteorder::{LE, ReadBytesExt, WriteBytesExt};
 use handleman::{HandleList, HandleManager};
-use std::{env, io::{self, Read, Write}, time::{Duration}};
+use std::{env, io::{self, Read, Write}};
 
 struct Manager {
     externals: HandleList<win32::NativeExternal>,
@@ -33,34 +33,32 @@ impl Manager {
     }
 }
 
+fn pause() {
+    extern "C" {
+        fn _getch() -> std::os::raw::c_int;
+    }
+    eprintln!("<< Press Any Key >>");
+    let _ = unsafe { _getch() };
+}
+
 fn main() -> io::Result<()> {
     let mut manager = Manager { externals: HandleList::new(), manager: win32::NativeManager::new() };
     let mut stdin = io::stdin();
     let mut stdout = io::stdout();
 
-    // get hello before anything else
-    // if it takes over half a second, my dude actually just clicked the exe
-    let (tx, rx) = std::sync::mpsc::channel();
-    std::thread::spawn(move || {
-        let mut version = [0; 2];
-        io::stdin().read_exact(&mut version).unwrap();
-        tx.send(u16::from_le_bytes(version)).unwrap();
-    });
-    let version = match rx.recv_timeout(Duration::from_millis(500)) {
-        Ok(v) => v,
-        Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => return Ok(()), // reading errored
-        Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {
+    match env::args().nth(1).and_then(|s| s.parse::<u16>().ok()) {
+        None => {
             eprintln!("This is a bridge executable, and is not meant to be ran independently.");
-            eprintln!("<< Press Return >>");
-            stdin.lock(); // pressing return will send 2 bytes to stdin, which unlocks the other thread
+            pause();
             return Ok(())
+        },
+        Some(version) => {
+            stdout.write_all(&dll::PROTOCOL_VERSION.to_le_bytes())?;
+            stdout.flush()?;
+            if version != dll::PROTOCOL_VERSION {
+                return Ok(())
+            }
         }
-    };
-    // send the version back anyway, if it's wrong then no need to stick around
-    stdout.write_all(&dll::PROTOCOL_VERSION.to_le_bytes())?;
-    stdout.flush()?;
-    if version != dll::PROTOCOL_VERSION {
-        return Ok(())
     }
 
     eprintln!("starting dll compatibility layer\n  > server: \"{}\"", env::args().next().unwrap());
