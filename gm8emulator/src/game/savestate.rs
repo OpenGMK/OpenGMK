@@ -38,7 +38,7 @@ pub struct SaveState {
     pub background_colour: Colour,
     pub textures: Vec<Option<SavedTexture>>,
 
-    pub externals: (HashMap<ID, external::state::State>, ID),
+    pub externals: external::ExternalState,
     pub surface_fix: bool,
 
     pub view_current: usize,
@@ -136,7 +136,7 @@ impl SaveState {
             custom_draw_objects: game.custom_draw_objects.clone(),
             background_colour: game.background_colour,
             textures: game.renderer.dump_dynamic_textures(),
-            externals: game.externals.ss_query_defs().unwrap(),
+            externals: game.externals.save_state(),
             surface_fix: game.surface_fix.clone(),
             view_current: game.view_current,
             last_instance_id: game.last_instance_id.clone(),
@@ -218,19 +218,7 @@ impl SaveState {
             game.renderer.reset_target();
         }
 
-        game.externals = external::ExternalManager::new(false).unwrap();
-        for (id, state) in &self.externals.0 {
-            game.externals.ss_set_id(*id).unwrap();
-            match state {
-                external::state::State::DummyExternal { dll, symbol, dummy, argc } => {
-                    game.externals.define_dummy(&dll, &symbol, dummy.clone(), *argc).unwrap();
-                },
-                external::state::State::NormalExternal { dll, symbol, call_conv, type_args, type_return } => {
-                    game.externals.define(&dll, &symbol, *call_conv, type_args, *type_return).unwrap();
-                },
-            }
-        }
-        game.externals.ss_set_id(self.externals.1).unwrap();
+        game.externals.load_state(self.externals);
 
         game.surface_fix = self.surface_fix;
 
