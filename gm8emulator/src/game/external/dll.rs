@@ -135,9 +135,9 @@ pub struct ExternalSignature {
 
 #[derive(Clone, Serialize, Deserialize)]
 pub enum Wow64Message {
-    Call(usize, Vec<Value>),
+    Call(i32, Vec<Value>),
     Define(ExternalSignature),
-    Free(usize),
+    Free(i32),
 
     Stop,
 }

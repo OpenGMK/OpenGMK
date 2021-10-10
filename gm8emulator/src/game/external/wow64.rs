@@ -13,7 +13,7 @@ use std::{
 const PROCESS_DEFAULT_NAME: &str = "gm8emulator-wow64.exe";
 const PROCESS_ENV_OVERRIDE: &str = "OPENGMK_WOW64_BINARY";
 
-pub struct IpcExternal(usize);
+pub struct IpcExternal(i32);
 
 struct ChildProcess {
     pub child: process::Child,

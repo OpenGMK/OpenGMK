@@ -5,40 +5,36 @@ compile_error!("this crate cannot be built for a target other than windows i686"
 mod dll;
 #[path = "../../gm8emulator/src/game/external/win32.rs"]
 mod win32;
+#[path = "../../gm8emulator/src/handleman.rs"]
+#[allow(dead_code)]
+mod handleman;
 
 use byteorder::{LE, ReadBytesExt, WriteBytesExt};
+use handleman::{HandleList, HandleManager};
 use std::{env, io::{self, Read, Write}, time::{Duration}};
 
 struct Manager {
-    externals: Vec<Option<win32::NativeExternal>>,
+    externals: HandleList<win32::NativeExternal>,
     manager: win32::NativeManager,
 }
 
 impl Manager {
-    fn define(&mut self, signature: dll::ExternalSignature) -> Result<usize, String> {
-        let external = self.manager.define(&signature)?;
-        if let Some((id, cell)) = self.externals.iter_mut().enumerate().find(|(_, o)| o.is_none()) {
-            *cell = Some(external);
-            Ok(id)
-        } else {
-            let id = self.externals.len();
-            self.externals.push(Some(external));
-            Ok(id)
-        }
+    fn define(&mut self, signature: dll::ExternalSignature) -> Result<i32, String> {
+        Ok(self.externals.put(self.manager.define(&signature)?))
     }
 
-    fn call(&mut self, id: usize, args: &[dll::Value]) -> Result<dll::Value, String> {
-        Ok(self.manager.call(self.externals[id].as_ref().unwrap(), args))
+    fn call(&mut self, id: i32, args: &[dll::Value]) -> Result<dll::Value, String> {
+        Ok(self.manager.call(self.externals.get(id).unwrap(), args))
     }
 
-    fn free(&mut self, id: usize) -> Result<(), String> {
-        self.externals[id] = None;
+    fn free(&mut self, id: i32) -> Result<(), String> {
+        self.externals.delete(id);
         Ok(())
     }
 }
 
 fn main() -> io::Result<()> {
-    let mut manager = Manager { externals: Vec::new(), manager: win32::NativeManager::new() };
+    let mut manager = Manager { externals: HandleList::new(), manager: win32::NativeManager::new() };
     let mut stdin = io::stdin();
     let mut stdout = io::stdout();
 
