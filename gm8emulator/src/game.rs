@@ -1977,7 +1977,7 @@ impl Game {
         use external::dll;
         if let Some(external) = self.externals.get_external(id) {
             if args.len() != external.signature.type_args.len() {
-                return Ok(Default::default())
+                return Ok(Default::default()) // unfortunately required
             }
             let convert_args = || {
                 args.iter()
@@ -2005,7 +2005,7 @@ impl Game {
                 },
             }
         } else {
-            Err(gml::Error::InvalidExternal(id))
+            Ok(Default::default()) // unfortunately required
         }
     }
 
@@ -2031,7 +2031,7 @@ impl Game {
                 self.execute(&instructions, &mut context)?;
                 Ok(context.return_value)
             },
-            None => Err(gml::Error::ExtensionFunctionNotLoaded(id)),
+            None => Ok(Default::default()), // unfortunately required
         }
     }
 
