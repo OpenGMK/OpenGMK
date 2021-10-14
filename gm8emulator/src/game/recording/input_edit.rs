@@ -19,6 +19,7 @@ use crate::{
 
 pub struct InputEditWindow {
     is_open: bool,
+    updated: bool,
     keys: Vec<u8>,
     states: Vec<Vec<KeyState>>,
     last_frame: usize,
@@ -58,7 +59,8 @@ impl Window for InputEditWindow {
         }
 
         // todo: figure out a better system on when to update this.
-        if self.last_frame != info.config.current_frame {
+        if self.last_frame != info.config.current_frame || !self.updated{
+            self.updated = true;
             self.last_frame = info.config.current_frame;
             self.scroll_to_current_frame = true;
             self.update_keys(info);
@@ -150,6 +152,7 @@ impl InputEditWindow {
     fn new() -> Self {
         Self {
             is_open: true,
+            updated: false,
             keys: Vec::new(),
             states: Vec::new(),
             last_frame: 0,
