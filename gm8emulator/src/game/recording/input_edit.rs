@@ -87,7 +87,7 @@ impl Window for InputEditWindow {
                 table_size,
                 0.0
         ) {
-            info.frame.table_setup_column("Frame", 0, 0.0);
+            info.frame.table_setup_column("Frame", cimgui_sys::ImGuiTableColumnFlags__ImGuiTableColumnFlags_NoReorder as _, 0.0);
             for key in self.keys.iter() {
                 if let Some(button) = Button::try_from_u8(*key) {
                     info.frame.table_setup_column(&format!("{}", button), cimgui_sys::ImGuiTableColumnFlags__ImGuiTableColumnFlags_WidthFixed as _, INPUT_TABLE_WIDTH);
