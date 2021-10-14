@@ -71,7 +71,10 @@ impl Window for InputEditWindow {
             cimgui_sys::igSetCursorPos(imgui::Vec2(0.0, INPUT_TABLE_YPOS).into());
             cimgui_sys::igPushStyleVarVec2(cimgui_sys::ImGuiStyleVar__ImGuiStyleVar_CellPadding as _, imgui::Vec2(TABLE_PADDING, TABLE_PADDING).into());
         }
+        self.push_current_row_colors();
+
         let table_size = info.frame.window_size() - imgui::Vec2(0.0, INPUT_TABLE_YPOS);
+
         if info.frame.begin_table(
             "Input",
             self.keys.len() as i32 + 1,
@@ -81,8 +84,8 @@ impl Window for InputEditWindow {
                 | cimgui_sys::ImGuiTableFlags__ImGuiTableFlags_NoPadOuterX
                 | cimgui_sys::ImGuiTableFlags__ImGuiTableFlags_NoPadInnerX
                 | cimgui_sys::ImGuiTableFlags__ImGuiTableFlags_ScrollY) as _,
-            table_size,
-            0.0
+                table_size,
+                0.0
         ) {
             info.frame.table_setup_column("Frame", 0, 0.0);
             for key in self.keys.iter() {
@@ -103,8 +106,10 @@ impl Window for InputEditWindow {
             self.draw_input_rows(info);
 
             info.frame.end_table();
-
-            unsafe { cimgui_sys::igPopStyleVar(1); }
+        }
+        unsafe {
+            cimgui_sys::igPopStyleColor(2); // ImGuiCol_TableRowBg, ImGuiCol_TableRowBgAlt, pushed in self.push_current_row_colors()
+            cimgui_sys::igPopStyleVar(1); // ImGuiStyleVar_CellPadding
         }
 
         if let Some(text) = self.hovered_text {
@@ -157,6 +162,28 @@ impl InputEditWindow {
             context_menu_keystate: KeyState::Neutral,
         }
     }
+
+    /// pushes the current row color and alternative row color on the color style stack.
+    /// Used to be able to set the color directly to something else. Colors are applied on either the next next_row() call or the next end_table() call
+    ///   depending on where the visible region ends. The active color needs to live long enough for either of them.
+    ///
+    /// (I'll be upset if there's no better way to do this, but I can't think of one right now so here we are.)
+    fn push_current_row_colors(&self) {
+        unsafe {
+            cimgui_sys::igPushStyleColorU32(cimgui_sys::ImGuiCol__ImGuiCol_TableRowBg as _, cimgui_sys::igGetColorU32Col(cimgui_sys::ImGuiCol__ImGuiCol_TableRowBg as _, 1.0));
+            cimgui_sys::igPushStyleColorU32(cimgui_sys::ImGuiCol__ImGuiCol_TableRowBgAlt as _, cimgui_sys::igGetColorU32Col(cimgui_sys::ImGuiCol__ImGuiCol_TableRowBgAlt as _, 1.0));
+        }
+    }
+    /// Sets the row color and alternative row color. Expects 2 items to be on the current color style stack.
+    /// This needs to be done so that the current color can live long enough.
+    fn set_table_colors(&self, color: u32, color_alt: u32) {
+        unsafe {
+            cimgui_sys::igPopStyleColor(2);
+            cimgui_sys::igPushStyleColorU32(cimgui_sys::ImGuiCol__ImGuiCol_TableRowBg as _, color);
+            cimgui_sys::igPushStyleColorU32(cimgui_sys::ImGuiCol__ImGuiCol_TableRowBgAlt as _, color_alt);
+        }
+    }
+
 
     fn show_context_menu(&mut self, info: &mut DisplayInformation) {
         let DisplayInformation {
@@ -301,22 +328,23 @@ impl InputEditWindow {
             frame.table_next_row(0, clipped_above * TOTAL_INPUT_TABLE_HEIGHT);
         }
 
-        for i in (clipped_above as usize)..(clipped_below as usize) {
-            if i < config.current_frame {
-                unsafe {
-                    cimgui_sys::igPushStyleColorU32(cimgui_sys::ImGuiCol__ImGuiCol_TableRowBg as _, BGCOLOR_DISABLED);
-                    cimgui_sys::igPushStyleColorU32(cimgui_sys::ImGuiCol__ImGuiCol_TableRowBgAlt as _, BGCOLOR_DISABLED_ALT);
-                }
-            } else if i == config.current_frame {
-                unsafe {
-                    cimgui_sys::igPushStyleColorU32(cimgui_sys::ImGuiCol__ImGuiCol_TableRowBg as _, BGCOLOR_CURRENT);
-                    cimgui_sys::igPushStyleColorU32(cimgui_sys::ImGuiCol__ImGuiCol_TableRowBgAlt as _, BGCOLOR_CURRENT_ALT);
-                }
-            }
+        let start_index = clipped_above as usize;
+        if start_index < config.current_frame {
+            self.set_table_colors(BGCOLOR_DISABLED, BGCOLOR_DISABLED_ALT);
+        }
+        for i in start_index..(clipped_below as usize) {
             frame.table_next_row(0, INPUT_TABLE_HEIGHT);
+            if i == config.current_frame {
+                self.set_table_colors(BGCOLOR_CURRENT, BGCOLOR_CURRENT_ALT);
+            } else if i == config.current_frame + 1 {
+                // remove whatever is currently on the stack
+                unsafe { cimgui_sys::igPopStyleColor(2); }
+                // and push the default colors
+                self.push_current_row_colors();
+            }
 
             frame.table_set_column_index(0);
-            frame.text(&format!("{}", i + 1));
+            frame.text(&format!("{}", i));
 
             for j in 0..self.keys.len() {
                 frame.table_set_column_index(j as i32 + 1);
@@ -343,10 +371,6 @@ impl InputEditWindow {
                         }
                     }
                 }
-            }
-
-            if i <= config.current_frame {
-                unsafe { cimgui_sys::igPopStyleColor(2); }
             }
         }
 
