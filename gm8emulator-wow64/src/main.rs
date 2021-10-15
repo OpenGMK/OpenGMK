@@ -73,7 +73,7 @@ fn main() -> io::Result<()> {
 
         macro_rules! respond {
             ($res:expr) => {{
-                let result = $res;
+                let result: Result<_, String> = $res;
                 message.clear();
                 bincode::serialize_into(&mut message, &result).expect("failed to serialize message (server)");
                 assert!(message.len() <= u32::max_value() as usize);
