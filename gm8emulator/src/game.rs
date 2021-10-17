@@ -584,7 +584,7 @@ impl Game {
 
         let default_font = asset::font::load_default_font(&mut atlases)?;
 
-        let mut externals = external::ExternalManager::new(false).unwrap();
+        let mut externals = external::ExternalManager::new(play_type == PlayType::Record);
 
         // Code compiling starts here. The order in which things are compiled is important for
         // keeping savestates compatible. This isn't 100% accurate right now, but it's mostly right.
@@ -615,49 +615,35 @@ impl Game {
                                 Version::GameMaker8_0 => encoding,
                                 Version::GameMaker8_1 => encoding_rs::UTF_8,
                             });
-                            if let Some(dummy) = external::should_dummy(dll, &*sym, play_type) {
-                                match externals.define_dummy(dll, sym, dummy, function.arg_count as _) {
-                                    Ok(id) => extension_functions.push(Some(ExtensionFunction::Dll(sym.into(), id))),
-                                    Err(e) => {
-                                        println!(
-                                            "WARNING: failed to create dummy extension function {} (from {}): {}",
-                                            function.name, dll_name, e,
-                                        );
-                                        extension_functions.push(None);
-                                    },
-                                }
-                            } else {
-                                match externals.define(
-                                    dll,
-                                    sym,
-                                    match function.convention {
-                                        CallingConvention::Cdecl => external::dll::CallConv::Cdecl,
-                                        _ => external::dll::CallConv::Stdcall,
-                                    },
-                                    function
-                                        .arg_types
-                                        .iter()
-                                        .take(function.arg_count as usize)
-                                        .map(|x| match x {
-                                            FunctionValueKind::GMReal => external::dll::ValueType::Real,
-                                            FunctionValueKind::GMString => external::dll::ValueType::Str,
-                                        })
-                                        .collect::<Vec<_>>()
-                                        .as_slice(),
-                                    match function.return_type {
+                            match externals.define(external::dll::ExternalSignature {
+                                dll: dll.to_string(),
+                                symbol: sym.to_string(),
+                                call_conv: match function.convention {
+                                    CallingConvention::Cdecl => external::dll::CallConv::Cdecl,
+                                    _ => external::dll::CallConv::Stdcall,
+                                },
+                                type_args: function
+                                    .arg_types
+                                    .iter()
+                                    .take(function.arg_count as usize)
+                                    .map(|x| match x {
                                         FunctionValueKind::GMReal => external::dll::ValueType::Real,
                                         FunctionValueKind::GMString => external::dll::ValueType::Str,
-                                    },
-                                ) {
-                                    Ok(id) => extension_functions.push(Some(ExtensionFunction::Dll(sym.into(), id))),
-                                    Err(e) => {
-                                        println!(
-                                            "WARNING: failed to load extension function {} (from {}): {}",
-                                            function.name, dll_name, e
-                                        );
-                                        extension_functions.push(None);
-                                    },
-                                }
+                                    })
+                                    .collect::<Vec<_>>(),
+                                type_return: match function.return_type {
+                                    FunctionValueKind::GMReal => external::dll::ValueType::Real,
+                                    FunctionValueKind::GMString => external::dll::ValueType::Str,
+                                },
+                            }) {
+                                Ok(id) => extension_functions.push(Some(ExtensionFunction::Dll(sym.into(), id))),
+                                Err(e) => {
+                                    println!(
+                                        "WARNING: failed to load extension function {} (from {}): {}",
+                                        function.name, dll_name, e
+                                    );
+                                    extension_functions.push(None);
+                                },
                             }
                         }
                         temp_directory.pop();
@@ -1987,28 +1973,65 @@ impl Game {
         }
     }
 
+    pub fn call_external(&mut self, id: i32, context: &mut Context, args: &[gml::Value]) -> gml::Result<gml::Value> {
+        use external::dll;
+        if let Some(external) = self.externals.get_external(id) {
+            if args.len() != external.signature.type_args.len() {
+                return Ok(Default::default()) // unfortunately required
+            }
+            let convert_args = || {
+                args.iter()
+                    .zip(&external.signature.type_args)
+                    .map(|(a, t)| match (a, t) {
+                        (gml::Value::Real(x), dll::ValueType::Real) => dll::Value::Real((*x).into()),
+                        (gml::Value::Str(_), dll::ValueType::Real) => dll::Value::Real(0.0),
+                        (gml::Value::Str(s), dll::ValueType::Str) => {
+                            dll::Value::Str(dll::PascalString::new(s.as_ref()))
+                        },
+                        (gml::Value::Real(_), dll::ValueType::Str) => dll::Value::Str(dll::PascalString::empty()),
+                    })
+                    .collect::<Vec<_>>()
+            };
+            match &external.call {
+                external::Call::Dummy(x) => Ok(x.clone()),
+                &external::Call::Emulated(func) => func.invoke(self, context, args),
+                external::Call::Native(_) => {
+                    let args = convert_args();
+                    Ok(self.externals.call_native(id as _, &args).into())
+                },
+                external::Call::Ipc(_) => {
+                    let args = convert_args();
+                    Ok(self.externals.call_ipc(id as _, &args).into())
+                },
+            }
+        } else {
+            Ok(Default::default()) // unfortunately required
+        }
+    }
+
     /// Runs an ExtensionFunction by its ID
-    pub fn run_extension_function(&mut self, id: usize, mut context: Context) -> gml::Result<gml::Value> {
+    pub fn run_extension_function(
+        &mut self,
+        id: usize,
+        context: &mut Context,
+        args: [gml::Value; 16],
+        arg_count: usize,
+    ) -> gml::Result<gml::Value> {
         match &self.extension_functions[id] {
-            Some(ExtensionFunction::Dll(sym, id)) => self
-                .externals
-                .call(
-                    *id,
-                    (&context.arguments[..context.argument_count])
-                        .iter()
-                        .cloned()
-                        .map(external::dll::Value::from)
-                        .collect::<Vec<_>>()
-                        .as_slice(),
-                )
-                .map(gml::Value::from)
-                .map_err(|err| gml::Error::ExternalFunction(sym.clone(), err)),
+            Some(ExtensionFunction::Dll(sym, id)) => {
+                let sym = sym.clone();
+                let id = *id;
+                self.call_external(id, context, &args[..arg_count])
+                    .map(gml::Value::from)
+                    .map_err(|err| gml::Error::ExternalFunction(sym, err.to_string()))
+            },
             Some(ExtensionFunction::Gml(gml)) => {
                 let instructions = gml.clone();
+                let mut context = Context::copy_with_args(context, args, arg_count);
                 self.execute(&instructions, &mut context)?;
                 Ok(context.return_value)
             },
-            None => Err(gml::Error::ExtensionFunctionNotLoaded(id)),
+            None => Ok(Default::default()), // unfortunately required
         }
     }
 
@@ -2031,7 +2054,12 @@ impl Game {
                 .room
                 .instance_list
                 .insert_dummy(Instance::new_dummy(self.assets.objects.get_asset(0).map(|x| x.as_ref())));
-            self.run_extension_function(self.extension_initializers[i], Context::with_single_instance(dummy_instance))?;
+            self.run_extension_function(
+                self.extension_initializers[i],
+                &mut Context::with_single_instance(dummy_instance),
+                Default::default(),
+                0,
+            )?;
             self.room.instance_list.remove_dummy(dummy_instance);
         }
 

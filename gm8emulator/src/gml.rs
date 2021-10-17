@@ -39,7 +39,7 @@ pub enum Function {
 }
 
 impl Function {
-    fn invoke(&self, game: &mut Game, context: &mut Context, args: &[Value]) -> Result<Value> {
+    pub fn invoke(&self, game: &mut Game, context: &mut Context, args: &[Value]) -> Result<Value> {
         match self {
             Self::Runtime(f) => f(game, context, args),
             Self::Engine(f) => f(game, args),

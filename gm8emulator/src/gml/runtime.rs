@@ -163,6 +163,7 @@ pub enum Error {
     ReplayError(String),
     BadDirectoryError(String),
     ExternalFunction(String, String),
+    InvalidExternal(i32),
 }
 
 impl std::error::Error for Error {}
@@ -209,6 +210,7 @@ impl Display for Error {
             Self::ReplayError(s) => write!(f, "{}", s),
             Self::BadDirectoryError(s) => write!(f, "cannot encode working directory {} with current encoding", s),
             Self::ExternalFunction(s, e) => write!(f, "failed to call external function \"{}\": {}", s, e),
+            Self::InvalidExternal(i) => write!(f, "tried to call nonexistent external function with id {}", i),
         }
     }
 }
@@ -609,7 +611,7 @@ impl Game {
                     *dest = self.eval(src, context)?;
                 }
 
-                self.run_extension_function(*id, Context::copy_with_args(context, arg_values, args.len()))
+                self.run_extension_function(*id, context, arg_values, args.len())
             },
             Node::Field { accessor } => {
                 let target = self.get_target(context, &accessor.owner, self.globalvars.contains(&accessor.index))?;
