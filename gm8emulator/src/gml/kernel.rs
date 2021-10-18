@@ -13356,7 +13356,7 @@ impl Game {
         if let Some(model) = self.models.get_asset_mut(model_id) {
             match load_model(&fname) {
                 Ok(new_model) => *model = new_model,
-                Err(e) => return Err(gml::Error::FunctionError("d3d_model_load".into(), e.to_string())),
+                Err(e) => println!("WARNING: d3d_model_load failed: {}", e),
             }
         }
         Ok(Default::default())
@@ -13380,7 +13380,7 @@ impl Game {
         }
         if let Some(model) = self.models.get_asset(model_id) {
             if let Err(e) = save_model(model, &fname) {
-                return Err(gml::Error::FunctionError("d3d_model_save".into(), format!("{}", e)))
+                println!("WARNING: d3d_model_save failed: {}", e);
             }
         }
         Ok(Default::default())
