@@ -9347,7 +9347,7 @@ impl Game {
             .paths
             .get_asset(src_id)
             .ok_or_else(|| {
-                gml::Error::FunctionError("path_assign".into(), "Destination path has an invalid index.".into())
+                gml::Error::FunctionError("path_assign".into(), "Source path does not exist".into())
             })?
             .clone();
         if dst_id >= 0 && (dst_id as usize) < self.assets.paths.len() {
@@ -9356,7 +9356,7 @@ impl Game {
             *dst = Some(src);
             Ok(Default::default())
         } else {
-            Err(gml::Error::FunctionError("path_assign".into(), "Source path does not exist".into()))
+            Err(gml::Error::FunctionError("path_assign".into(), "Destination path has an invalid index.".into()))
         }
     }
 
@@ -9988,7 +9988,7 @@ impl Game {
             .rooms
             .get_asset(src_id)
             .ok_or_else(|| {
-                gml::Error::FunctionError("room_assign".into(), "Destination room has an invalid index.".into())
+                gml::Error::FunctionError("room_assign".into(), "Source room does not exist".into())
             })?
             .clone();
         if dst_id >= 0 && (dst_id as usize) < self.assets.rooms.len() {
@@ -9997,7 +9997,7 @@ impl Game {
             *dst = Some(src);
             Ok(Default::default())
         } else {
-            Err(gml::Error::FunctionError("room_assign".into(), "Source room does not exist".into()))
+            Err(gml::Error::FunctionError("room_assign".into(), "Destination room has an invalid index.".into()))
         }
     }
 
