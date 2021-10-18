@@ -3808,8 +3808,8 @@ impl Game {
 
     pub fn sqrt(args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [real]).and_then(|x| match x.sqrt() {
-            n if !n.as_ref().is_nan() => Ok(Value::Real(n)),
-            n => Err(gml::Error::FunctionError("sqrt".into(), format!("can't get square root of {}", n))),
+            n if n.as_ref().is_finite() => Ok(Value::Real(n)),
+            _ => Err(gml::Error::FunctionError("sqrt".into(), format!("can't get square root of {}", x))),
         })
     }
 
@@ -3822,15 +3822,24 @@ impl Game {
     }
 
     pub fn ln(args: &[Value]) -> gml::Result<Value> {
-        expect_args!(args, [real]).map(|x| Value::Real(x.ln()))
+        expect_args!(args, [real]).and_then(|x| match x.ln() {
+            n if n.as_ref().is_finite() => Ok(Value::Real(n)),
+            _ => Err(gml::Error::FunctionError("ln".into(), format!("can't get ln of {}", x))),
+        })
     }
 
     pub fn log2(args: &[Value]) -> gml::Result<Value> {
-        expect_args!(args, [real]).map(|x| Value::Real(x.log2()))
+        expect_args!(args, [real]).and_then(|x| match x.log2() {
+            n if n.as_ref().is_finite() => Ok(Value::Real(n)),
+            _ => Err(gml::Error::FunctionError("log2".into(), format!("can't get log2 of {}", x))),
+        })
     }
 
     pub fn log10(args: &[Value]) -> gml::Result<Value> {
-        expect_args!(args, [real]).map(|x| Value::Real(x.log10()))
+        expect_args!(args, [real]).and_then(|x| match x.log10() {
+            n if n.as_ref().is_finite() => Ok(Value::Real(n)),
+            _ => Err(gml::Error::FunctionError("log10".into(), format!("can't get log10 of {}", x))),
+        })
     }
 
     pub fn sin(args: &[Value]) -> gml::Result<Value> {
@@ -3846,11 +3855,17 @@ impl Game {
     }
 
     pub fn arcsin(args: &[Value]) -> gml::Result<Value> {
-        expect_args!(args, [real]).map(|x| Value::Real(x.arcsin()))
+        expect_args!(args, [real]).and_then(|x| match x.arcsin() {
+            n if n.as_ref().is_finite() => Ok(Value::Real(n)),
+            _ => Err(gml::Error::FunctionError("arcsin".into(), format!("can't get arcsin of {}", x))),
+        })
     }
 
     pub fn arccos(args: &[Value]) -> gml::Result<Value> {
-        expect_args!(args, [real]).map(|x| Value::Real(x.arccos()))
+        expect_args!(args, [real]).and_then(|x| match x.arccos() {
+            n if n.as_ref().is_finite() => Ok(Value::Real(n)),
+            _ => Err(gml::Error::FunctionError("arccos".into(), format!("can't get arccos of {}", x))),
+        })
     }
 
     pub fn arctan(args: &[Value]) -> gml::Result<Value> {
@@ -3874,7 +3889,10 @@ impl Game {
     }
 
     pub fn logn(args: &[Value]) -> gml::Result<Value> {
-        expect_args!(args, [real, real]).map(|(n, x)| Value::Real(x.logn(n)))
+        expect_args!(args, [real, real]).and_then(|(n, x)| match x.logn(n) {
+            n if n.as_ref().is_finite() => Ok(Value::Real(n)),
+            _ => Err(gml::Error::FunctionError("arccos".into(), format!("can't get log base {} of {}", n, x))),
+        })
     }
 
     pub fn min(args: &[Value]) -> gml::Result<Value> {
@@ -9346,9 +9364,7 @@ impl Game {
             .assets
             .paths
             .get_asset(src_id)
-            .ok_or_else(|| {
-                gml::Error::FunctionError("path_assign".into(), "Source path does not exist".into())
-            })?
+            .ok_or_else(|| gml::Error::FunctionError("path_assign".into(), "Source path does not exist".into()))?
             .clone();
         if dst_id >= 0 && (dst_id as usize) < self.assets.paths.len() {
             let dst = &mut self.assets.paths[dst_id as usize];
@@ -9987,9 +10003,7 @@ impl Game {
             .assets
             .rooms
             .get_asset(src_id)
-            .ok_or_else(|| {
-                gml::Error::FunctionError("room_assign".into(), "Source room does not exist".into())
-            })?
+            .ok_or_else(|| gml::Error::FunctionError("room_assign".into(), "Source room does not exist".into()))?
             .clone();
         if dst_id >= 0 && (dst_id as usize) < self.assets.rooms.len() {
             let dst = &mut self.assets.rooms[dst_id as usize];
