@@ -1,5 +1,6 @@
 pub mod dll;
 mod dummy;
+mod emulated;
 pub mod win32;
 mod wow64;
 
@@ -57,8 +58,9 @@ impl ExternalManager {
     fn make_call(&mut self, signature: &dll::ExternalSignature) -> Result<Call, String> {
         if let Some(dummy) = self.should_dummy(&signature) {
             return Ok(Call::Dummy(dummy))
-        }
-        if cfg!(all(target_os = "windows", target_arch = "x86")) {
+        } else if let Some(func) = emulated::find_emulated(&signature) {
+            return Ok(Call::Emulated(func))
+        } else if cfg!(all(target_os = "windows", target_arch = "x86")) {
             Ok(Call::Native(self.native_manager.define(&signature)?))
         } else {
             Ok(Call::Ipc(self.ipc_manager.define(&signature)?))
