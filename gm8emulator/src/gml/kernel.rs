@@ -1979,6 +1979,9 @@ impl Game {
     pub fn tile_add(&mut self, args: &[Value]) -> gml::Result<Value> {
         let (background_index, tile_x, tile_y, width, height, x, y, depth) =
             expect_args!(args, [int, int, int, int, int, real, real, real])?;
+        if self.assets.backgrounds.get_asset(background_index).is_none() {
+            return Err(gml::Error::NonexistentAsset(asset::Type::Background, background_index))
+        }
         self.last_tile_id += 1;
         self.room.tile_list.insert(Tile {
             x: x.into(),
@@ -9647,12 +9650,19 @@ impl Game {
 
     pub fn object_is_ancestor(&self, args: &[Value]) -> gml::Result<Value> {
         let (child_id, parent_id) = expect_args!(args, [int, int])?;
-        if child_id != parent_id {
-            if let Some(parent) = self.assets.objects.get_asset(parent_id) {
-                return Ok(parent.children.borrow().contains(&child_id).into())
+        let mut object_id = child_id;
+        while let Some(obj) = self.assets.objects.get_asset(object_id) {
+            if obj.parent_index == parent_id {
+                return Ok(true.into())
             }
+            object_id = obj.parent_index;
         }
-        Ok(false.into())
+        if object_id == child_id {
+            // special case if first argument is a nonexistent object
+            Ok((-1).into())
+        } else {
+            Ok(false.into())
+        }
     }
 
     pub fn object_set_sprite(&mut self, args: &[Value]) -> gml::Result<Value> {
@@ -10032,7 +10042,7 @@ impl Game {
             });
             Ok(Default::default())
         } else {
-            Err(gml::Error::NonexistentAsset(asset::Type::Room, room_id))
+            Ok(-1.into())
         }
     }
 
