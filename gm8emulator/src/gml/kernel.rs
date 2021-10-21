@@ -1098,8 +1098,13 @@ impl Game {
         Ok(Default::default())
     }
 
-    pub fn sprite_get_texture(&mut self, args: &[Value]) -> gml::Result<Value> {
+    pub fn sprite_get_texture(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (sprite_index, image_index) = expect_args!(args, [int, int])?;
+        let image_index = if image_index < 0 {
+            self.room.instance_list.get(context.this).image_index.get().floor().to_i32()
+        } else {
+            image_index
+        };
         if let Some(sprite) = self.assets.sprites.get_asset(sprite_index) {
             if let Some(atlas_ref) = sprite.get_atlas_ref(image_index) {
                 return Ok(self.renderer.get_texture_id(atlas_ref).into())
