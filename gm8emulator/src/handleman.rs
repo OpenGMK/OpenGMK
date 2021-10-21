@@ -1,10 +1,7 @@
 // This module implements the handle indices allocation as in the original GM.
 
 use serde::{Deserialize, Serialize};
-use std::{
-    convert::{TryFrom, TryInto},
-    error, result,
-};
+use std::{error, result};
 
 // Required because handle initialization closures must be able to return any errors.
 // TODO: Do we also need "+ Send + Sync + 'static" for BoxedStdError?

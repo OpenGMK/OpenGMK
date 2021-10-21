@@ -6,7 +6,6 @@ use crate::{
     instance::Instance,
     types::ID,
 };
-use std::convert::TryFrom;
 
 impl Game {
     /// Runs an event for all objects which hold the given event.

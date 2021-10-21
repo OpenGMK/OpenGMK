@@ -1,9 +1,6 @@
 use crate::{game::external::dll, gml, math::Real};
 use serde::{Deserialize, Serialize};
-use std::{
-    convert::TryInto,
-    fmt::{self, Display},
-};
+use std::fmt::{self, Display};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Value {

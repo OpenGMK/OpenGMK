@@ -271,11 +271,10 @@ impl InstanceList {
     }
 
     pub fn draw_sort(&mut self) {
-        let chunks = &self.chunks; // borrowck :)
-        self.draw_order.sort_by(move |&idx1, &idx2| {
+        self.draw_order.sort_by(|&idx1, &idx2| {
             // TODO: Bench if this is faster with unreachable_unchecked...
-            let left = chunks.get(idx1).unwrap();
-            let right = chunks.get(idx2).unwrap();
+            let left = self.chunks.get(idx1).unwrap();
+            let right = self.chunks.get(idx2).unwrap();
 
             // Draw order is sorted by depth (higher is lowest...)
             right.depth.get().cmp_nan_first(&left.depth.get())
@@ -371,8 +370,7 @@ impl InstanceList {
 
     pub fn remove_with(&mut self, f: impl Fn(&Instance) -> bool) {
         if self.chunks.remove_with(f) > 0 {
-            let chunks = &self.chunks;
-            self.draw_order.retain(|idx| chunks.get(*idx).is_some());
+            self.draw_order.retain(|idx| self.chunks.get(*idx).is_some());
             self.refresh_maps();
         }
     }
@@ -380,8 +378,7 @@ impl InstanceList {
     pub fn remove_as_vec(&mut self, f: impl Fn(&Instance) -> bool) -> Vec<Instance> {
         let instances = self.chunks.remove_as_vec(f);
         if instances.len() > 0 {
-            let chunks = &self.chunks;
-            self.draw_order.retain(|idx| chunks.get(*idx).is_some());
+            self.draw_order.retain(|idx| self.chunks.get(*idx).is_some());
             self.refresh_maps();
         }
         instances
@@ -420,11 +417,10 @@ impl TileList {
     }
 
     pub fn draw_sort(&mut self) {
-        let chunks = &self.chunks; // borrowck :)
-        self.draw_order.sort_by(move |&idx1, &idx2| {
+        self.draw_order.sort_by(|&idx1, &idx2| {
             // TODO: (dupe) Bench if this is faster with unreachable_unchecked...
-            let left = chunks.get(idx1).unwrap();
-            let right = chunks.get(idx2).unwrap();
+            let left = self.chunks.get(idx1).unwrap();
+            let right = self.chunks.get(idx2).unwrap();
 
             right.depth.get().cmp_nan_first(&left.depth.get())
         })
@@ -451,8 +447,7 @@ impl TileList {
             remove
         });
         if removed_any {
-            let chunks = &self.chunks;
-            self.draw_order.retain(|idx| chunks.get(*idx).is_some());
+            self.draw_order.retain(|idx| self.chunks.get(*idx).is_some());
         }
     }
 

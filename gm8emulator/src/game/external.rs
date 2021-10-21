@@ -5,7 +5,7 @@ mod wow64;
 
 use crate::{gml, gml::Function, types::ID};
 use serde::{Deserialize, Serialize};
-use std::{convert::TryInto, path::Path};
+use std::path::Path;
 
 #[cfg(not(all(target_os = "windows", target_arch = "x86")))]
 use dummy as native;

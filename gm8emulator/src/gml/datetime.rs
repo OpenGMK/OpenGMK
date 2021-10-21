@@ -1,5 +1,5 @@
 use crate::{gml::Value, math::Real};
-use std::{convert::TryInto, hint::unreachable_unchecked};
+use std::hint::unreachable_unchecked;
 use time::{OffsetDateTime, PrimitiveDateTime, UtcOffset};
 
 /// Sleep for T minus 1 millisecond, and busywait for the rest of the duration.

@@ -61,7 +61,6 @@ use std::{
     borrow::Cow,
     cell::{Cell, RefCell},
     collections::{BTreeMap, HashMap, HashSet, VecDeque},
-    convert::TryFrom,
     fs::File,
     io::Write,
     path::PathBuf,

@@ -13,7 +13,6 @@ use crate::{
 use gml_parser::token::Operator;
 use serde::{Deserialize, Serialize};
 use std::{
-    convert::TryFrom,
     fmt::{self, Display},
     time,
 };

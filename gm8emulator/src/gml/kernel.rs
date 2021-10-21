@@ -25,7 +25,6 @@ use crate::{
 use image::RgbaImage;
 use ramen::window::Cursor;
 use std::{
-    convert::TryFrom,
     io::{Read, Write},
     process::Command,
 };
@@ -8504,13 +8503,13 @@ impl Game {
                 }
             }
             if dst_id >= 0 && self.assets.sprites.len() > dst_id as usize {
-                let renderer = &mut self.renderer; // borrowck
                 let frames = src
                     .frames
                     .iter()
                     .map(|f| {
                         Ok(asset::sprite::Frame {
-                            atlas_ref: renderer
+                            atlas_ref: self
+                                .renderer
                                 .duplicate_sprite(f.atlas_ref)
                                 .map_err(|e| gml::Error::FunctionError("sprite_assign".into(), e.into()))?,
                             width: f.width,

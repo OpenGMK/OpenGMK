@@ -47,8 +47,6 @@ pub struct Object {
 
 impl Asset for Object {
     fn deserialize_exe(mut reader: impl Read, version: GameVersion, strict: bool) -> Result<Self, Error> {
-        use std::convert::TryFrom;
-
         let name = reader.read_pas_string()?;
 
         let ver = reader.read_u32::<LE>()?;
