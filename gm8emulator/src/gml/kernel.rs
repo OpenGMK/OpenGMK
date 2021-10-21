@@ -10042,7 +10042,7 @@ impl Game {
             });
             Ok(Default::default())
         } else {
-            Ok(-1.into())
+            Ok((-1).into())
         }
     }
 
