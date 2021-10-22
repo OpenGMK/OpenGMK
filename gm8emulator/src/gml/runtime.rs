@@ -35,7 +35,7 @@ pub enum Instruction {
     Switch { input: Node, cases: Box<[(Node, usize)]>, default: Option<usize>, body: Box<[Instruction]> },
     With { target: Node, body: Box<[Instruction]> },
     GlobalVar { fields: Vec<usize> },
-    RuntimeError { error: Error },
+    RuntimeError { error: SyntaxError },
 }
 
 /// Node representing one value in an expression.
@@ -50,7 +50,7 @@ pub enum Node {
     Variable { accessor: VariableAccessor },
     Binary { left: Box<Node>, right: Box<Node>, operator: BinaryOperator, type_unsafe: bool },
     Unary { child: Box<Node>, operator: UnaryOperator },
-    RuntimeError { error: Error },
+    RuntimeError { error: SyntaxError },
 }
 
 /// Represents a compiled binary operator
@@ -134,10 +134,85 @@ pub enum InstanceIdentifier {
     Expression(Box<Node>),
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Debug)]
 pub enum Error {
-    EndOfRoomOrder,
-    ExtensionFunctionNotLoaded(usize),
+    /// GM8-recognized error that cannot be ignored.
+    Hard(HardError),
+    /// GM8-recognized error, handled immediately, may be ignored.
+    Soft(String, Value),
+    /// GM8-recognized error (usually syntax-related), only handled at the top event level, might be ignorable.
+    Syntax(SyntaxError, Option<Value>),
+    /// Delphi exception not caught by GM8, can wreak havoc.
+    Delphi(String),
+    /// Emulator error.
+    Emu(EmuError),
+}
+
+impl std::error::Error for Error {}
+
+impl std::fmt::Display for Error {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Hard(e) => write!(f, "hard error: {}", e),
+            Self::Soft(e, _) => write!(f, "soft error: {}", e),
+            Self::Syntax(e, _) => write!(f, "syntax error: {}", e),
+            Self::Delphi(e) => write!(f, "delphi error: {}", e),
+            Self::Emu(e) => write!(f, "emu error: {}", e),
+        }
+    }
+}
+
+impl Error {
+    pub fn soft(s: impl Display) -> Self {
+        Self::Soft(s.to_string(), Default::default())
+    }
+
+    pub fn no_asset(ty: asset::Type, id: i32) -> Self {
+        Self::Soft(format!("nonexistent asset id {} ({})", id, ty), Default::default())
+    }
+
+    pub fn no_asset_min1(ty: asset::Type, id: i32) -> Self {
+        Self::Soft(format!("nonexistent asset id {} ({})", id, ty), (-1).into())
+    }
+
+    pub fn soft_min1(s: impl Display) -> Self {
+        Self::Soft(s.to_string(), (-1).into())
+    }
+
+    pub fn delphi(s: impl Display) -> Self {
+        Self::Delphi(s.to_string())
+    }
+}
+
+#[derive(Debug)]
+pub enum EmuError {
+    ReplayError(String),
+    BadDirectoryError(String),
+    IpcError(String),
+    RendererError(String),
+    NoRooms,
+}
+
+impl Display for EmuError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Self::ReplayError(s) => write!(f, "replay error: {}", s),
+            Self::BadDirectoryError(s) => write!(f, "cannot encode working directory {} with current encoding", s),
+            Self::IpcError(s) => write!(f, "ipc error: {}", s),
+            Self::RendererError(s) => write!(f, "renderer error: {}", s),
+            Self::NoRooms => write!(f, "the game has no rooms"),
+        }
+    }
+}
+
+impl From<EmuError> for Error {
+    fn from(e: EmuError) -> Self {
+        Self::Emu(e)
+    }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub enum SyntaxError {
     InvalidOperandsUnary(Operator, Value),
     InvalidOperandsBinary(Operator, Value, Value),
     InvalidUnaryOperator(Operator),
@@ -145,12 +220,10 @@ pub enum Error {
     InvalidAssignment(String),    // string repr. because Expr<'a>
     InvalidArrayAccessor(String), // string repr. because Expr<'a>
     InvalidArrayIndex(i32),
-    InvalidDeref(String),    // string repr. because Expr<'a>
-    InvalidIndexLhs(String), // string repr. because Expr<'a>
-    InvalidIndex(String),    // string repr. because Expr<'a>
-    InvalidRoomSpeed(i32),
+    InvalidDeref(String),      // string repr. because Expr<'a>
+    InvalidIndexLhs(String),   // string repr. because Expr<'a>
+    InvalidIndex(String),      // string repr. because Expr<'a>
     InvalidSwitchBody(String), // string repr. because Expr<'a>
-    NonexistentAsset(asset::Type, i32),
     ReadOnlyVariable(InstanceVariable),
     UnknownFunction(String),
     UnexpectedASTExpr(String), // string repr. because Expr<'a>
@@ -158,19 +231,13 @@ pub enum Error {
     UninitializedArgument(usize),
     TooManyArrayDimensions(usize),
     WrongArgumentCount(usize, usize),
-    FunctionError(String, String),
-    ReplayError(String),
-    BadDirectoryError(String),
-    ExternalFunction(String, String),
-    InvalidExternal(i32),
 }
 
-impl std::error::Error for Error {}
-impl Display for Error {
+impl std::error::Error for SyntaxError {}
+
+impl Display for SyntaxError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            Self::EndOfRoomOrder => write!(f, "end of room order reached"),
-            Self::ExtensionFunctionNotLoaded(id) => write!(f, "extension function {} not loaded", id),
             Self::InvalidOperandsUnary(op, x) => {
                 write!(f, "invalid operands {} to {} operator ({1}{})", x.ty_str(), op, x)
             },
@@ -185,9 +252,7 @@ impl Display for Error {
             Self::InvalidDeref(expr) => write!(f, "invalid deref {}", expr),
             Self::InvalidIndex(expr) => write!(f, "invalid index {}", expr),
             Self::InvalidIndexLhs(expr) => write!(f, "invalid index lhs {}", expr),
-            Self::InvalidRoomSpeed(value) => write!(f, "invalid room_speed {}", value),
             Self::InvalidSwitchBody(expr) => write!(f, "invalid switch body {}", expr),
-            Self::NonexistentAsset(ty, id) => write!(f, "nonexistent asset id {} ({})", id, ty),
             Self::ReadOnlyVariable(v) => write!(
                 f,
                 "read-only variable {}",
@@ -205,12 +270,40 @@ impl Display for Error {
             Self::UninitializedArgument(n) => write!(f, "uninitialized argument #{}", n),
             Self::TooManyArrayDimensions(n) => write!(f, "too many array dimensions ({})", n),
             Self::WrongArgumentCount(exp, got) => write!(f, "wrong argument count (expected: {}, got: {})", exp, got),
-            Self::FunctionError(fname, s) => write!(f, "{}: {}", fname, s),
-            Self::ReplayError(s) => write!(f, "{}", s),
-            Self::BadDirectoryError(s) => write!(f, "cannot encode working directory {} with current encoding", s),
-            Self::ExternalFunction(s, e) => write!(f, "failed to call external function \"{}\": {}", s, e),
-            Self::InvalidExternal(i) => write!(f, "tried to call nonexistent external function with id {}", i),
         }
+    }
+}
+
+impl From<SyntaxError> for Error {
+    fn from(e: SyntaxError) -> Self {
+        Self::Syntax(e, Default::default())
+    }
+}
+
+#[derive(Debug)]
+pub enum HardError {
+    InvalidRoom,
+    Compile(gml_parser::ast::Error),
+    Syntax(SyntaxError),
+    ShowError(String),
+}
+
+impl std::error::Error for HardError {}
+
+impl Display for HardError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Self::InvalidRoom => write!(f, "tried to go to invalid room"),
+            Self::Compile(e) => write!(f, "compile error: {}", e),
+            Self::Syntax(e) => write!(f, "syntax error: {}", e),
+            Self::ShowError(s) => write!(f, "custom error: {}", s),
+        }
+    }
+}
+
+impl From<HardError> for Error {
+    fn from(e: HardError) -> Self {
+        Self::Hard(e)
     }
 }
 
@@ -273,7 +366,7 @@ impl fmt::Debug for Node {
 }
 
 impl BinaryOperator {
-    pub fn call(&self, lhs: Value, rhs: Value) -> gml::Result<Value> {
+    pub fn call(&self, lhs: Value, rhs: Value) -> std::result::Result<Value, SyntaxError> {
         let f = match self {
             Self::Add => Value::add,
             Self::And => Value::bool_and,
@@ -301,7 +394,7 @@ impl BinaryOperator {
 }
 
 impl UnaryOperator {
-    pub fn call(&self, value: Value) -> gml::Result<Value> {
+    pub fn call(&self, value: Value) -> std::result::Result<Value, SyntaxError> {
         let f = match self {
             Self::Neg => Value::neg,
             Self::Not => Value::not,
@@ -313,7 +406,29 @@ impl UnaryOperator {
 
 impl Game {
     pub fn invoke(&mut self, function_id: usize, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
-        mappings::FUNCTIONS.index(function_id).unwrap().1.invoke(self, context, args)
+        match mappings::FUNCTIONS.index(function_id).unwrap().1.invoke(self, context, args) {
+            res @ Ok(_) => res,
+            Err(e) => self.throw_error(e),
+        }
+    }
+
+    // Should only be used at the top level, i.e. code action. Other stuff should just use execute().
+    pub fn try_execute(
+        &mut self,
+        instructions: &[Instruction],
+        context: &mut Context,
+        error_fatal: bool,
+    ) -> gml::Result<ReturnType> {
+        match self.execute(instructions, context) {
+            Err(Error::Syntax(e, opt)) if !self.all_errors_abort && !self.show_errors => {
+                println!("WARNING: ignored error: {}", e);
+                if let Some(val) = opt {
+                    context.return_value = val;
+                }
+                if error_fatal { Err(HardError::Syntax(e).into()) } else { Ok(ReturnType::Normal) }
+            },
+            res => res,
+        }
     }
 
     pub fn execute(&mut self, instructions: &[Instruction], context: &mut Context) -> gml::Result<ReturnType> {
@@ -565,7 +680,7 @@ impl Game {
                     self.globals.fields.entry(field).or_insert(Field::new(0, Default::default()));
                 }
             },
-            Instruction::RuntimeError { error } => return Err(error.clone()),
+            Instruction::RuntimeError { error } => return Err(error.clone().into()),
         }
 
         Ok(ReturnType::Normal)
@@ -578,7 +693,7 @@ impl Game {
                 if let Some(value) = self.constants.get(*constant_id) {
                     Ok(value.clone())
                 } else {
-                    Err(gml::Error::NonexistentAsset(asset::Type::Constant, *constant_id as i32))
+                    Err(gml::Error::no_asset(asset::Type::Constant, *constant_id as i32))
                 }
             },
             Node::Function { args, function_id } => {
@@ -601,7 +716,7 @@ impl Game {
                     self.execute(&instructions, &mut new_context)?;
                     Ok(new_context.return_value)
                 } else {
-                    Err(Error::NonexistentAsset(asset::Type::Script, *script_id as i32))
+                    Err(Error::no_asset(asset::Type::Script, *script_id as i32))
                 }
             },
             Node::ExtensionFunction { args, id } => {
@@ -617,10 +732,11 @@ impl Game {
                 let array_index = self.get_array_index(&accessor.array, context)?;
                 match target {
                     Target::Single(None) if self.uninit_fields_are_zero => Ok(Default::default()),
-                    Target::Single(None) => Err(Error::UninitializedVariable(
+                    Target::Single(None) => Err(SyntaxError::UninitializedVariable(
                         self.compiler.get_field_name(accessor.index).unwrap(),
                         array_index,
-                    )),
+                    )
+                    .into()),
                     Target::Single(Some(instance)) => self.get_instance_field(instance, accessor.index, array_index),
                     Target::Objects(index) => {
                         if let Some(instance) =
@@ -631,10 +747,11 @@ impl Game {
                             if self.uninit_fields_are_zero {
                                 Ok(Default::default())
                             } else {
-                                Err(Error::UninitializedVariable(
+                                Err(SyntaxError::UninitializedVariable(
                                     self.compiler.get_field_name(accessor.index).unwrap(),
                                     array_index,
-                                ))
+                                )
+                                .into())
                             }
                         }
                     },
@@ -646,10 +763,11 @@ impl Game {
                             if self.uninit_fields_are_zero {
                                 Ok(Default::default())
                             } else {
-                                Err(Error::UninitializedVariable(
+                                Err(SyntaxError::UninitializedVariable(
                                     self.compiler.get_field_name(accessor.index).unwrap(),
                                     array_index,
-                                ))
+                                )
+                                .into())
                             }
                         }
                     },
@@ -659,10 +777,11 @@ impl Game {
                             if self.uninit_fields_are_zero {
                                 Ok(Default::default())
                             } else {
-                                return Err(Error::UninitializedVariable(
+                                return Err(SyntaxError::UninitializedVariable(
                                     self.compiler.get_field_name(accessor.index).unwrap(),
                                     array_index,
-                                ))
+                                )
+                                .into())
                             }
                         },
                     },
@@ -673,10 +792,11 @@ impl Game {
                                 if self.uninit_fields_are_zero {
                                     Ok(Default::default())
                                 } else {
-                                    return Err(Error::UninitializedVariable(
+                                    return Err(SyntaxError::UninitializedVariable(
                                         self.compiler.get_field_name(accessor.index).unwrap(),
                                         array_index,
-                                    ))
+                                    )
+                                    .into())
                                 }
                             },
                         }
@@ -688,10 +808,11 @@ impl Game {
                 let array_index = self.get_array_index(&accessor.array, context)?;
                 match target {
                     Target::Single(None) if self.uninit_fields_are_zero => Ok(Default::default()),
-                    Target::Single(None) => Err(Error::UninitializedVariable(
+                    Target::Single(None) => Err(SyntaxError::UninitializedVariable(
                         String::from(mappings::INSTANCE_VARIABLES.iter().find(|(_, x)| x == &accessor.var).unwrap().0),
                         array_index,
-                    )),
+                    )
+                    .into()),
                     Target::Single(Some(instance)) => {
                         self.get_instance_var(instance, &accessor.var, array_index, context)
                     },
@@ -704,7 +825,7 @@ impl Game {
                             if self.uninit_fields_are_zero {
                                 Ok(Default::default())
                             } else {
-                                Err(Error::UninitializedVariable(
+                                Err(SyntaxError::UninitializedVariable(
                                     String::from(
                                         mappings::INSTANCE_VARIABLES
                                             .iter()
@@ -713,7 +834,8 @@ impl Game {
                                             .0,
                                     ),
                                     array_index,
-                                ))
+                                )
+                                .into())
                             }
                         }
                     },
@@ -725,7 +847,7 @@ impl Game {
                             if self.uninit_fields_are_zero {
                                 Ok(Default::default())
                             } else {
-                                Err(Error::UninitializedVariable(
+                                Err(SyntaxError::UninitializedVariable(
                                     String::from(
                                         mappings::INSTANCE_VARIABLES
                                             .iter()
@@ -734,7 +856,8 @@ impl Game {
                                             .0,
                                     ),
                                     array_index,
-                                ))
+                                )
+                                .into())
                             }
                         }
                     },
@@ -744,7 +867,7 @@ impl Game {
                             if self.uninit_fields_are_zero {
                                 Ok(Default::default())
                             } else {
-                                return Err(Error::UninitializedVariable(
+                                return Err(SyntaxError::UninitializedVariable(
                                     String::from(
                                         mappings::INSTANCE_VARIABLES
                                             .iter()
@@ -753,7 +876,8 @@ impl Game {
                                             .0,
                                     ),
                                     array_index,
-                                ))
+                                )
+                                .into())
                             }
                         },
                     },
@@ -763,7 +887,7 @@ impl Game {
                             if self.uninit_fields_are_zero {
                                 Ok(Default::default())
                             } else {
-                                return Err(Error::UninitializedVariable(
+                                return Err(SyntaxError::UninitializedVariable(
                                     String::from(
                                         mappings::INSTANCE_VARIABLES
                                             .iter()
@@ -772,7 +896,8 @@ impl Game {
                                             .0,
                                     ),
                                     array_index,
-                                ))
+                                )
+                                .into())
                             }
                         },
                     },
@@ -781,14 +906,14 @@ impl Game {
             Node::Binary { left, right, operator, type_unsafe } => {
                 // the + in += can happen here, and += ignores errors in the + portion
                 let left = self.eval(left, context)?;
-                match operator.call(left.clone(), self.eval(right, context)?) {
+                match operator.call(left.clone(), self.eval(right, context)?).map_err(Error::from) {
                     res @ Ok(_) => res,
                     Err(_) if *type_unsafe => Ok(left),
                     res => res,
                 }
             },
-            Node::Unary { child, operator } => operator.call(self.eval(child, context)?),
-            Node::RuntimeError { error } => Err(error.clone()),
+            Node::Unary { child, operator } => operator.call(self.eval(child, context)?).map_err(Error::from),
+            Node::RuntimeError { error } => Err(error.clone().into()),
         }
     }
 
@@ -798,15 +923,19 @@ impl Game {
             ArrayAccessor::None => Ok(0),
             ArrayAccessor::Single(node) => {
                 let index = self.eval(node, context)?.round();
-                if index < 0 || index >= 32000 { Err(Error::InvalidArrayIndex(index)) } else { Ok(index as u32) }
+                if index < 0 || index >= 32000 {
+                    Err(SyntaxError::InvalidArrayIndex(index).into())
+                } else {
+                    Ok(index as u32)
+                }
             },
             ArrayAccessor::Double(node1, node2) => {
                 let index1 = self.eval(node1, context)?.round();
                 let index2 = self.eval(node2, context)?.round();
                 if index1 < 0 || index1 >= 32000 {
-                    Err(Error::InvalidArrayIndex(index1))
+                    Err(SyntaxError::InvalidArrayIndex(index1).into())
                 } else if index2 < 0 || index2 >= 32000 {
-                    Err(Error::InvalidArrayIndex(index2))
+                    Err(SyntaxError::InvalidArrayIndex(index2).into())
                 } else {
                     Ok(((index1 * 32000) + index2) as u32)
                 }
@@ -824,7 +953,8 @@ impl Game {
             if self.uninit_fields_are_zero {
                 Ok(Value::Real(Real::from(0.0)))
             } else {
-                Err(Error::UninitializedVariable(self.compiler.get_field_name(field_id).unwrap(), array_index))
+                Err(SyntaxError::UninitializedVariable(self.compiler.get_field_name(field_id).unwrap(), array_index)
+                    .into())
             }
         }
     }
@@ -977,11 +1107,11 @@ impl Game {
             InstanceVariable::Room => Ok(self.room.id.into()),
             InstanceVariable::RoomFirst => match self.room_order.get(0) {
                 Some(room) => Ok((*room).into()),
-                None => Err(Error::EndOfRoomOrder),
+                None => Err(EmuError::NoRooms.into()),
             },
             InstanceVariable::RoomLast => match self.room_order.get(self.room_order.len() - 1) {
                 Some(room) => Ok((*room).into()),
-                None => Err(Error::EndOfRoomOrder),
+                None => Err(EmuError::NoRooms.into()),
             },
             InstanceVariable::TransitionKind => Ok(self.transition_kind.into()),
             InstanceVariable::TransitionSteps => Ok(self.transition_steps.into()),
@@ -994,7 +1124,7 @@ impl Game {
                 let os_cwd = std::env::current_dir().unwrap();
                 // try to read as UTF-8
                 let mut cwd =
-                    os_cwd.to_str().ok_or(gml::Error::BadDirectoryError(os_cwd.to_string_lossy().into_owned()))?;
+                    os_cwd.to_str().ok_or(gml::EmuError::BadDirectoryError(os_cwd.to_string_lossy().into_owned()))?;
                 // trim if on windows
                 if cfg!(target_os = "windows") {
                     cwd = cwd.trim_start_matches("\\\\?\\");
@@ -1003,7 +1133,7 @@ impl Game {
                 // TODO: maybe try and get the short path name on windows?
                 self.encode_str_maybe(cwd)
                     .map(|x| x.into_owned().into())
-                    .ok_or(gml::Error::BadDirectoryError(cwd.to_string()))
+                    .ok_or(gml::EmuError::BadDirectoryError(cwd.to_string()).into())
             },
             InstanceVariable::TempDirectory => Ok(self.temp_directory.clone().into()),
             InstanceVariable::ProgramDirectory => Ok(self.program_directory.clone().into()),
@@ -1350,7 +1480,7 @@ impl Game {
             InstanceVariable::RoomSpeed => {
                 let speed: i32 = value.into();
                 if speed <= 0 {
-                    return Err(Error::InvalidRoomSpeed(speed))
+                    return Err(Error::soft("invalid room speed"))
                 }
                 self.room.speed = speed as _
             },
@@ -1512,7 +1642,7 @@ impl Game {
             InstanceVariable::CaptionHealth => self.health_capt = value.into(),
             InstanceVariable::ErrorOccurred => self.error_occurred = value.is_truthy(),
             InstanceVariable::ErrorLast => self.error_last = value.into(),
-            _ => return Err(Error::ReadOnlyVariable(*var)),
+            _ => return Err(SyntaxError::ReadOnlyVariable(*var).into()),
         }
         Ok(())
     }
@@ -1551,7 +1681,7 @@ impl Game {
             if self.uninit_args_are_zero {
                 Ok(Value::Real(Real::from(0.0)))
             } else {
-                Err(Error::UninitializedArgument(arg))
+                Err(SyntaxError::UninitializedArgument(arg).into())
             }
         }
     }
@@ -1563,7 +1693,7 @@ impl Game {
         match context.arguments.get_mut(arg) {
             Some(a) if arg < arg_count || self.uninit_args_are_zero => Ok(*a = value),
             None if self.uninit_args_are_zero => Ok(()), // This corrupts stack in GM8...
-            _ => Err(Error::UninitializedArgument(arg)),
+            _ => Err(SyntaxError::UninitializedArgument(arg).into()),
         }
     }
 

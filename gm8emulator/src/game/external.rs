@@ -19,6 +19,32 @@ use wow64 as ipc;
 
 pub use native::NativeExternal;
 
+#[derive(Debug)]
+pub enum Error {
+    Native(String),
+    Ipc(String),
+}
+
+impl std::error::Error for Error {}
+
+impl std::fmt::Display for Error {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Native(s) => write!(f, "native dll error: {}", s),
+            Self::Ipc(s) => write!(f, "ipc error: {}", s),
+        }
+    }
+}
+
+impl From<Error> for gml::Error {
+    fn from(e: Error) -> Self {
+        match e {
+            Error::Native(s) => gml::Error::soft_min1(s),
+            Error::Ipc(s) => gml::EmuError::IpcError(s).into(),
+        }
+    }
+}
+
 pub enum Call {
     Dummy(gml::Value),
     Emulated(Function),
@@ -54,18 +80,18 @@ impl ExternalManager {
         }
     }
 
-    fn make_call(&mut self, signature: &dll::ExternalSignature) -> Result<Call, String> {
+    fn make_call(&mut self, signature: &dll::ExternalSignature) -> Result<Call, Error> {
         if let Some(dummy) = self.should_dummy(&signature) {
             return Ok(Call::Dummy(dummy))
         }
         if cfg!(all(target_os = "windows", target_arch = "x86")) {
-            Ok(Call::Native(self.native_manager.define(&signature)?))
+            Ok(Call::Native(self.native_manager.define(&signature).map_err(Error::Native)?))
         } else {
             Ok(Call::Ipc(self.ipc_manager.define(&signature)?))
         }
     }
 
-    pub fn define(&mut self, signature: dll::ExternalSignature) -> Result<ID, String> {
+    pub fn define(&mut self, signature: dll::ExternalSignature) -> Result<ID, Error> {
         let external = External { call: self.make_call(&signature)?, signature };
         if let Some((id, cell)) = self.externals.iter_mut().enumerate().find(|(_, o)| o.is_none()) {
             *cell = Some(external);
@@ -88,9 +114,9 @@ impl ExternalManager {
         }
     }
 
-    pub fn call_ipc(&mut self, id: usize, args: &[dll::Value]) -> gml::Value {
+    pub fn call_ipc(&mut self, id: usize, args: &[dll::Value]) -> Result<gml::Value, Error> {
         match &self.externals[id].as_ref().unwrap().call {
-            Call::Ipc(ext) => self.ipc_manager.call(ext, args).into(),
+            Call::Ipc(ext) => self.ipc_manager.call(ext, args).map(gml::Value::from),
             _ => unreachable!(),
         }
     }

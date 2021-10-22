@@ -17,7 +17,7 @@ pub use string::String;
 pub use value::Value;
 
 pub type Result<T> = std::result::Result<T, runtime::Error>;
-pub use runtime::Error;
+pub use runtime::{EmuError, Error, HardError, SyntaxError};
 
 use crate::game::Game;
 #[derive(Clone, Copy)]

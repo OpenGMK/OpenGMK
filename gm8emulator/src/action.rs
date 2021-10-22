@@ -387,7 +387,7 @@ impl Game {
                                 GmlBody::Code(code) => {
                                     context.arguments = arg_values;
                                     context.argument_count = args.len();
-                                    self.execute(code, &mut context)?;
+                                    self.try_execute(code, &mut context, false)?;
                                     context.return_value
                                 },
                             };
@@ -409,7 +409,7 @@ impl Game {
                                     GmlBody::Code(code) => {
                                         context.arguments = arg_values;
                                         context.argument_count = args.len();
-                                        self.execute(code, &mut context)?;
+                                        self.try_execute(code, &mut context, false)?;
                                         context.return_value.clone()
                                     },
                                 };

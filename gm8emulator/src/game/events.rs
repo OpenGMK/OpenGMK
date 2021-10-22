@@ -127,7 +127,7 @@ impl Game {
                             context.event_type = 11; // ev_trigger
                             context.event_number = trigger_id as _;
                             context.event_object = self.room.instance_list.get(handle).object_index.get();
-                            self.execute(&trigger.condition, &mut context)?;
+                            self.try_execute(&trigger.condition, &mut context, false)?;
                             if context.return_value.is_truthy() {
                                 self.run_instance_event(gml::ev::TRIGGER, trigger_id, handle, handle, None)?;
                             }

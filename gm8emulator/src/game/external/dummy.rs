@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 
-use super::dll;
+use super::{dll, Error};
 
 // win32 stubs
 
@@ -33,11 +33,11 @@ impl IpcManager {
         Self
     }
 
-    pub fn define(&self, _signature: &dll::ExternalSignature) -> Result<IpcExternal, String> {
+    pub fn define(&self, _signature: &dll::ExternalSignature) -> Result<IpcExternal, Error> {
         Ok(IpcExternal)
     }
 
-    pub fn call(&mut self, _external: &IpcExternal, _args: &[dll::Value]) -> dll::Value {
+    pub fn call(&mut self, _external: &IpcExternal, _args: &[dll::Value]) -> Result<dll::Value, Error> {
         panic!("IPC externals are not implemented on this platform.");
     }
 

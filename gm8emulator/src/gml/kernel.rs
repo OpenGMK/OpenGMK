@@ -30,12 +30,12 @@ use std::{
 };
 
 macro_rules! _arg_into {
-    (any, $v: expr) => {{ Ok($v.clone()) }};
-    (bool, $v: expr) => {{ Ok($v.is_truthy()) }};
-    (int, $v: expr) => {{ Ok(<Value as Into<i32>>::into($v.clone())) }};
-    (real, $v: expr) => {{ Ok(<Value as Into<Real>>::into($v.clone())) }};
-    (string, $v: expr) => {{ Ok(String::from_utf8_lossy(<&Value as Into<&[u8]>>::into($v))) }};
-    (bytes, $v: expr) => {{ Ok(<Value as Into<gml::String>>::into($v.clone())) }};
+    (any, $v: expr) => {{ gml::Result::Ok($v.clone()) }};
+    (bool, $v: expr) => {{ gml::Result::Ok($v.is_truthy()) }};
+    (int, $v: expr) => {{ gml::Result::Ok(<Value as Into<i32>>::into($v.clone())) }};
+    (real, $v: expr) => {{ gml::Result::Ok(<Value as Into<Real>>::into($v.clone())) }};
+    (string, $v: expr) => {{ gml::Result::Ok(String::from_utf8_lossy(<&Value as Into<&[u8]>>::into($v))) }};
+    (bytes, $v: expr) => {{ gml::Result::Ok(<Value as Into<gml::String>>::into($v.clone())) }};
 }
 
 macro_rules! _count_rep {
@@ -51,7 +51,7 @@ macro_rules! expect_args {
         (|| -> gml::Result<_> {
             let argc = _count_rep!($($x)*);
             if $args.len() != argc {
-                Err(gml::runtime::Error::WrongArgumentCount(argc, $args.len()))
+                Err(gml::Error::from(gml::SyntaxError::WrongArgumentCount(argc, $args.len())))
             } else {
                 _apply_args!($args, $($x)*)
             }
@@ -507,7 +507,7 @@ impl Game {
         asset::sprite::process_image(&mut image, false, false, true);
         match file::save_image(fname.as_ref(), image) {
             Ok(()) => Ok(Default::default()),
-            Err(e) => Err(gml::Error::FunctionError("screen_save".into(), e.to_string())),
+            Err(e) => Err(gml::Error::soft(e)),
         }
     }
 
@@ -523,7 +523,7 @@ impl Game {
         asset::sprite::process_image(&mut image, false, false, true);
         match file::save_image(fname.as_ref(), image) {
             Ok(()) => Ok(Default::default()),
-            Err(e) => Err(gml::Error::FunctionError("screen_save_part".into(), e.to_string())),
+            Err(e) => Err(gml::Error::soft(e)),
         }
     }
 
@@ -911,7 +911,7 @@ impl Game {
 
     pub fn draw_path(&mut self, args: &[Value]) -> gml::Result<Value> {
         let (path, x, y, absolute) = expect_args!(args, [int, real, real, bool])?;
-        let path = self.assets.paths.get_asset(path).ok_or(gml::Error::NonexistentAsset(asset::Type::Path, path))?;
+        let path = self.assets.paths.get_asset(path).ok_or(gml::Error::no_asset(asset::Type::Path, path))?;
         let (x_offset, y_offset) = if absolute { (0.into(), 0.into()) } else { (x - path.start.x, y - path.start.y) };
 
         for (node1, node2) in path.control_nodes.windows(2).map(|x| (x[0], x[1])) {
@@ -1111,7 +1111,7 @@ impl Game {
             }
             Ok((-1).into())
         } else {
-            Err(gml::Error::NonexistentAsset(asset::Type::Sprite, sprite_index))
+            Err(gml::Error::no_asset(asset::Type::Sprite, sprite_index))
         }
     }
 
@@ -1124,7 +1124,7 @@ impl Game {
                 Ok((-1).into())
             }
         } else {
-            Err(gml::Error::NonexistentAsset(asset::Type::Background, bg_index))
+            Err(gml::Error::no_asset(asset::Type::Background, bg_index))
         }
     }
 
@@ -1369,7 +1369,7 @@ impl Game {
             }
             Ok(Default::default())
         } else {
-            Err(gml::Error::NonexistentAsset(asset::Type::Sprite, sprite_index))
+            Err(gml::Error::no_asset(asset::Type::Sprite, sprite_index))
         }
     }
 
@@ -1401,7 +1401,7 @@ impl Game {
             }
             Ok(Default::default())
         } else {
-            Err(gml::Error::NonexistentAsset(asset::Type::Sprite, sprite_index))
+            Err(gml::Error::no_asset(asset::Type::Sprite, sprite_index))
         }
     }
 
@@ -1444,7 +1444,7 @@ impl Game {
             }
             Ok(Default::default())
         } else {
-            Err(gml::Error::NonexistentAsset(asset::Type::Sprite, sprite_index))
+            Err(gml::Error::no_asset(asset::Type::Sprite, sprite_index))
         }
     }
 
@@ -1494,7 +1494,7 @@ impl Game {
             }
             Ok(Default::default())
         } else {
-            Err(gml::Error::NonexistentAsset(asset::Type::Sprite, sprite_index))
+            Err(gml::Error::no_asset(asset::Type::Sprite, sprite_index))
         }
     }
 
@@ -1547,7 +1547,7 @@ impl Game {
             }
             Ok(Default::default())
         } else {
-            Err(gml::Error::NonexistentAsset(asset::Type::Sprite, sprite_index))
+            Err(gml::Error::no_asset(asset::Type::Sprite, sprite_index))
         }
     }
 
@@ -1589,7 +1589,7 @@ impl Game {
             }
             Ok(Default::default())
         } else {
-            Err(gml::Error::NonexistentAsset(asset::Type::Sprite, sprite_index))
+            Err(gml::Error::no_asset(asset::Type::Sprite, sprite_index))
         }
     }
 
@@ -1616,7 +1616,7 @@ impl Game {
             }
             Ok(Default::default())
         } else {
-            Err(gml::Error::NonexistentAsset(asset::Type::Background, bg_index))
+            Err(gml::Error::no_asset(asset::Type::Background, bg_index))
         }
     }
 
@@ -1642,7 +1642,7 @@ impl Game {
             }
             Ok(Default::default())
         } else {
-            Err(gml::Error::NonexistentAsset(asset::Type::Background, bg_index))
+            Err(gml::Error::no_asset(asset::Type::Background, bg_index))
         }
     }
 
@@ -1686,7 +1686,7 @@ impl Game {
             }
             Ok(Default::default())
         } else {
-            Err(gml::Error::NonexistentAsset(asset::Type::Background, bg_index))
+            Err(gml::Error::no_asset(asset::Type::Background, bg_index))
         }
     }
 
@@ -1716,7 +1716,7 @@ impl Game {
             }
             Ok(Default::default())
         } else {
-            Err(gml::Error::NonexistentAsset(asset::Type::Background, bg_index))
+            Err(gml::Error::no_asset(asset::Type::Background, bg_index))
         }
     }
 
@@ -1744,7 +1744,7 @@ impl Game {
             }
             Ok(Default::default())
         } else {
-            Err(gml::Error::NonexistentAsset(asset::Type::Background, bg_index))
+            Err(gml::Error::no_asset(asset::Type::Background, bg_index))
         }
     }
 
@@ -1753,7 +1753,7 @@ impl Game {
         if let Some(handle) = self.room.tile_list.get_by_tileid(tile_id) {
             Ok(self.room.tile_list.get(handle).x.get().into())
         } else {
-            Err(gml::Error::FunctionError("tile_get_x".into(), format!("Tile with ID {} does not exist.", tile_id)))
+            Err(gml::Error::soft(format!("Tile with ID {} does not exist.", tile_id)))
         }
     }
 
@@ -1762,7 +1762,7 @@ impl Game {
         if let Some(handle) = self.room.tile_list.get_by_tileid(tile_id) {
             Ok(self.room.tile_list.get(handle).y.get().into())
         } else {
-            Err(gml::Error::FunctionError("tile_get_y".into(), format!("Tile with ID {} does not exist.", tile_id)))
+            Err(gml::Error::soft(format!("Tile with ID {} does not exist.", tile_id)))
         }
     }
 
@@ -1771,7 +1771,7 @@ impl Game {
         if let Some(handle) = self.room.tile_list.get_by_tileid(tile_id) {
             Ok(self.room.tile_list.get(handle).tile_x.get().into())
         } else {
-            Err(gml::Error::FunctionError("tile_get_left".into(), format!("Tile with ID {} does not exist.", tile_id)))
+            Err(gml::Error::soft(format!("Tile with ID {} does not exist.", tile_id)))
         }
     }
 
@@ -1780,7 +1780,7 @@ impl Game {
         if let Some(handle) = self.room.tile_list.get_by_tileid(tile_id) {
             Ok(self.room.tile_list.get(handle).tile_y.get().into())
         } else {
-            Err(gml::Error::FunctionError("tile_get_top".into(), format!("Tile with ID {} does not exist.", tile_id)))
+            Err(gml::Error::soft(format!("Tile with ID {} does not exist.", tile_id)))
         }
     }
 
@@ -1789,7 +1789,7 @@ impl Game {
         if let Some(handle) = self.room.tile_list.get_by_tileid(tile_id) {
             Ok(self.room.tile_list.get(handle).width.get().into())
         } else {
-            Err(gml::Error::FunctionError("tile_get_width".into(), format!("Tile with ID {} does not exist.", tile_id)))
+            Err(gml::Error::soft(format!("Tile with ID {} does not exist.", tile_id)))
         }
     }
 
@@ -1798,10 +1798,7 @@ impl Game {
         if let Some(handle) = self.room.tile_list.get_by_tileid(tile_id) {
             Ok(self.room.tile_list.get(handle).height.get().into())
         } else {
-            Err(gml::Error::FunctionError(
-                "tile_get_height".into(),
-                format!("Tile with ID {} does not exist.", tile_id),
-            ))
+            Err(gml::Error::soft(format!("Tile with ID {} does not exist.", tile_id)))
         }
     }
 
@@ -1810,7 +1807,7 @@ impl Game {
         if let Some(handle) = self.room.tile_list.get_by_tileid(tile_id) {
             Ok(self.room.tile_list.get(handle).depth.get().into())
         } else {
-            Err(gml::Error::FunctionError("tile_get_depth".into(), format!("Tile with ID {} does not exist.", tile_id)))
+            Err(gml::Error::soft(format!("Tile with ID {} does not exist.", tile_id)))
         }
     }
 
@@ -1819,10 +1816,7 @@ impl Game {
         if let Some(handle) = self.room.tile_list.get_by_tileid(tile_id) {
             Ok(self.room.tile_list.get(handle).visible.get().into())
         } else {
-            Err(gml::Error::FunctionError(
-                "tile_get_visible".into(),
-                format!("Tile with ID {} does not exist.", tile_id),
-            ))
+            Err(gml::Error::soft(format!("Tile with ID {} does not exist.", tile_id)))
         }
     }
 
@@ -1831,10 +1825,7 @@ impl Game {
         if let Some(handle) = self.room.tile_list.get_by_tileid(tile_id) {
             Ok(self.room.tile_list.get(handle).xscale.get().into())
         } else {
-            Err(gml::Error::FunctionError(
-                "tile_get_xscale".into(),
-                format!("Tile with ID {} does not exist.", tile_id),
-            ))
+            Err(gml::Error::soft(format!("Tile with ID {} does not exist.", tile_id)))
         }
     }
 
@@ -1843,10 +1834,7 @@ impl Game {
         if let Some(handle) = self.room.tile_list.get_by_tileid(tile_id) {
             Ok(self.room.tile_list.get(handle).yscale.get().into())
         } else {
-            Err(gml::Error::FunctionError(
-                "tile_get_yscale".into(),
-                format!("Tile with ID {} does not exist.", tile_id),
-            ))
+            Err(gml::Error::soft(format!("Tile with ID {} does not exist.", tile_id)))
         }
     }
 
@@ -1855,7 +1843,7 @@ impl Game {
         if let Some(handle) = self.room.tile_list.get_by_tileid(tile_id) {
             Ok(self.room.tile_list.get(handle).blend.get().into())
         } else {
-            Err(gml::Error::FunctionError("tile_get_blend".into(), format!("Tile with ID {} does not exist.", tile_id)))
+            Err(gml::Error::soft(format!("Tile with ID {} does not exist.", tile_id)))
         }
     }
 
@@ -1864,7 +1852,7 @@ impl Game {
         if let Some(handle) = self.room.tile_list.get_by_tileid(tile_id) {
             Ok(self.room.tile_list.get(handle).alpha.get().into())
         } else {
-            Err(gml::Error::FunctionError("tile_get_alpha".into(), format!("Tile with ID {} does not exist.", tile_id)))
+            Err(gml::Error::soft(format!("Tile with ID {} does not exist.", tile_id)))
         }
     }
 
@@ -1873,10 +1861,7 @@ impl Game {
         if let Some(handle) = self.room.tile_list.get_by_tileid(tile_id) {
             Ok(self.room.tile_list.get(handle).background_index.get().into())
         } else {
-            Err(gml::Error::FunctionError(
-                "tile_get_background".into(),
-                format!("Tile with ID {} does not exist.", tile_id),
-            ))
+            Err(gml::Error::soft_min1(format!("Tile with ID {} does not exist.", tile_id)))
         }
     }
 
@@ -1886,10 +1871,7 @@ impl Game {
             self.room.tile_list.get(handle).visible.set(visible);
             Ok(Default::default())
         } else {
-            Err(gml::Error::FunctionError(
-                "tile_set_visible".into(),
-                format!("Tile with ID {} does not exist.", tile_id),
-            ))
+            Err(gml::Error::soft(format!("Tile with ID {} does not exist.", tile_id)))
         }
     }
 
@@ -1899,10 +1881,7 @@ impl Game {
             self.room.tile_list.get(handle).background_index.set(bg_index);
             Ok(Default::default())
         } else {
-            Err(gml::Error::FunctionError(
-                "tile_set_background".into(),
-                format!("Tile with ID {} does not exist.", tile_id),
-            ))
+            Err(gml::Error::soft(format!("Tile with ID {} does not exist.", tile_id)))
         }
     }
 
@@ -1916,10 +1895,7 @@ impl Game {
             tile.height.set(height);
             Ok(Default::default())
         } else {
-            Err(gml::Error::FunctionError(
-                "tile_set_region".into(),
-                format!("Tile with ID {} does not exist.", tile_id),
-            ))
+            Err(gml::Error::soft(format!("Tile with ID {} does not exist.", tile_id)))
         }
     }
 
@@ -1931,10 +1907,7 @@ impl Game {
             tile.y.set(y);
             Ok(Default::default())
         } else {
-            Err(gml::Error::FunctionError(
-                "tile_set_position".into(),
-                format!("Tile with ID {} does not exist.", tile_id),
-            ))
+            Err(gml::Error::soft(format!("Tile with ID {} does not exist.", tile_id)))
         }
     }
 
@@ -1944,7 +1917,7 @@ impl Game {
             self.room.tile_list.get(handle).depth.set(depth);
             Ok(Default::default())
         } else {
-            Err(gml::Error::FunctionError("tile_set_depth".into(), format!("Tile with ID {} does not exist.", tile_id)))
+            Err(gml::Error::soft(format!("Tile with ID {} does not exist.", tile_id)))
         }
     }
 
@@ -1956,7 +1929,7 @@ impl Game {
             tile.yscale.set(yscale);
             Ok(Default::default())
         } else {
-            Err(gml::Error::FunctionError("tile_set_scale".into(), format!("Tile with ID {} does not exist.", tile_id)))
+            Err(gml::Error::soft(format!("Tile with ID {} does not exist.", tile_id)))
         }
     }
 
@@ -1966,7 +1939,7 @@ impl Game {
             self.room.tile_list.get(handle).blend.set(blend);
             Ok(Default::default())
         } else {
-            Err(gml::Error::FunctionError("tile_set_blend".into(), format!("Tile with ID {} does not exist.", tile_id)))
+            Err(gml::Error::soft(format!("Tile with ID {} does not exist.", tile_id)))
         }
     }
 
@@ -1976,7 +1949,7 @@ impl Game {
             self.room.tile_list.get(handle).alpha.set(alpha);
             Ok(Default::default())
         } else {
-            Err(gml::Error::FunctionError("tile_set_alpha".into(), format!("Tile with ID {} does not exist.", tile_id)))
+            Err(gml::Error::soft(format!("Tile with ID {} does not exist.", tile_id)))
         }
     }
 
@@ -1984,7 +1957,7 @@ impl Game {
         let (background_index, tile_x, tile_y, width, height, x, y, depth) =
             expect_args!(args, [int, int, int, int, int, real, real, real])?;
         if self.assets.backgrounds.get_asset(background_index).is_none() {
-            return Err(gml::Error::NonexistentAsset(asset::Type::Background, background_index))
+            return Err(gml::Error::no_asset_min1(asset::Type::Background, background_index))
         }
         self.last_tile_id += 1;
         self.room.tile_list.insert(Tile {
@@ -2022,7 +1995,7 @@ impl Game {
             self.room.tile_list.remove(handle);
             Ok(Default::default())
         } else {
-            Err(gml::Error::FunctionError("tile_delete".into(), format!("Tile with ID {} does not exist.", tile_id)))
+            Err(gml::Error::soft(format!("Tile with ID {} does not exist.", tile_id)))
         }
     }
 
@@ -2125,7 +2098,7 @@ impl Game {
             height: h as _,
             atlas_ref: match self.renderer.create_surface(w, h, make_zbuf) {
                 Ok(atl_ref) => atl_ref,
-                Err(e) => return Err(gml::Error::FunctionError("surface_create".into(), e.into())),
+                Err(e) => return Err(gml::EmuError::RendererError(e).into()),
             },
         };
         if let Some(id) = self.surfaces.iter().position(|x| x.is_none()) {
@@ -2376,7 +2349,7 @@ impl Game {
             asset::sprite::process_image(&mut image, false, false, true);
             match file::save_image(fname.as_ref(), image) {
                 Ok(()) => Ok(Default::default()),
-                Err(e) => Err(gml::Error::FunctionError("surface_save".into(), e.to_string())),
+                Err(e) => Err(gml::Error::soft(e)),
             }
         } else {
             Ok(Default::default())
@@ -2399,7 +2372,7 @@ impl Game {
             asset::sprite::process_image(&mut image, false, false, true);
             match file::save_image(fname.as_ref(), image) {
                 Ok(()) => Ok(Default::default()),
-                Err(e) => Err(gml::Error::FunctionError("surface_save_part".into(), e.to_string())),
+                Err(e) => Err(gml::Error::soft(e)),
             }
         } else {
             Ok(Default::default())
@@ -2473,10 +2446,7 @@ impl Game {
         // dir_string is typically something like "000000100" indicating which of the 9 direction buttons were pressed.
         let bytes = dir_string.as_ref();
         if bytes.len() != 9 {
-            return Err(gml::Error::FunctionError(
-                "action_move".into(),
-                format!("Invalid argument to action_move: {}", dir_string),
-            ))
+            return Err(gml::Error::soft(format!("Invalid argument to action_move: {}", dir_string)))
         }
 
         // Only invoke RNG if at least one of the options is checked, otherwise don't do anything
@@ -2749,7 +2719,7 @@ impl Game {
             self.run_instance_event(gml::ev::CREATE, 0, instance, instance, None)?;
             Ok(Default::default())
         } else {
-            Err(gml::Error::FunctionError("action_create_object".into(), format!("Invalid object ID: {}", object_id)))
+            Err(gml::Error::soft(format!("Invalid object ID: {}", object_id)))
         }
     }
 
@@ -2774,10 +2744,7 @@ impl Game {
             self.run_instance_event(gml::ev::CREATE, 0, instance, instance, None)?;
             Ok(Default::default())
         } else {
-            Err(gml::Error::FunctionError(
-                "action_create_object_motion".into(),
-                format!("Invalid object ID: {}", object_id),
-            ))
+            Err(gml::Error::soft(format!("Invalid object ID: {}", object_id)))
         }
     }
 
@@ -2889,7 +2856,7 @@ impl Game {
         expect_args!(args, [])?;
         match self.room_order.first() {
             Some(&room_id) => Ok((room_id != self.room.id).into()),
-            None => Err(gml::Error::EndOfRoomOrder),
+            None => Ok(false.into()),
         }
     }
 
@@ -2897,7 +2864,7 @@ impl Game {
         expect_args!(args, [])?;
         match self.room_order.last() {
             Some(&room_id) => Ok((room_id != self.room.id).into()),
-            None => Err(gml::Error::EndOfRoomOrder),
+            None => Ok(false.into()),
         }
     }
 
@@ -3126,7 +3093,7 @@ impl Game {
             self.execute(&instructions, &mut new_context)?;
             Ok(new_context.return_value)
         } else {
-            Err(gml::Error::NonexistentAsset(asset::Type::Script, script_id))
+            Err(gml::Error::no_asset(asset::Type::Script, script_id))
         }
     }
 
@@ -3142,17 +3109,14 @@ impl Game {
             (Value::Real(lhs), Value::Real(rhs)) => lhs.partial_cmp(&rhs) == Some(desired),
             (Value::Str(lhs), Value::Str(rhs)) => lhs.cmp(&rhs) == desired,
             (lhs, rhs) => {
-                return Err(gml::Error::FunctionError(
-                    "action_if_variable".to_string(),
-                    format!(
-                        "invalid operands {} and {} to {:?} operator ({} {2:?} {})",
-                        lhs.ty_str(),
-                        rhs.ty_str(),
-                        desired,
-                        lhs,
-                        rhs
-                    ),
-                ))
+                return Err(gml::Error::soft(format!(
+                    "invalid operands {} and {} to {:?} operator ({} {2:?} {})",
+                    lhs.ty_str(),
+                    rhs.ty_str(),
+                    desired,
+                    lhs,
+                    rhs
+                )))
             },
         }
         .into())
@@ -3771,7 +3735,7 @@ impl Game {
                 if let Some(replay::Event::Randomize(seed)) = self.stored_events.pop_front() {
                     self.rand.set_seed(seed);
                 } else {
-                    return Err(gml::Error::ReplayError("randomize".into()))
+                    return Err(gml::EmuError::ReplayError("randomize".into()).into())
                 }
             },
         }
@@ -3816,7 +3780,7 @@ impl Game {
     pub fn sqrt(args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [real]).and_then(|x| match x.sqrt() {
             n if n.as_ref().is_finite() => Ok(Value::Real(n)),
-            _ => Err(gml::Error::FunctionError("sqrt".into(), format!("can't get square root of {}", x))),
+            _ => Err(gml::Error::soft(format!("can't get square root of {}", x))),
         })
     }
 
@@ -3831,21 +3795,21 @@ impl Game {
     pub fn ln(args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [real]).and_then(|x| match x.ln() {
             n if n.as_ref().is_finite() => Ok(Value::Real(n)),
-            _ => Err(gml::Error::FunctionError("ln".into(), format!("can't get ln of {}", x))),
+            _ => Err(gml::Error::soft(format!("can't get ln of {}", x))),
         })
     }
 
     pub fn log2(args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [real]).and_then(|x| match x.log2() {
             n if n.as_ref().is_finite() => Ok(Value::Real(n)),
-            _ => Err(gml::Error::FunctionError("log2".into(), format!("can't get log2 of {}", x))),
+            _ => Err(gml::Error::soft(format!("can't get log2 of {}", x))),
         })
     }
 
     pub fn log10(args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [real]).and_then(|x| match x.log10() {
             n if n.as_ref().is_finite() => Ok(Value::Real(n)),
-            _ => Err(gml::Error::FunctionError("log10".into(), format!("can't get log10 of {}", x))),
+            _ => Err(gml::Error::soft(format!("can't get log10 of {}", x))),
         })
     }
 
@@ -3864,14 +3828,14 @@ impl Game {
     pub fn arcsin(args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [real]).and_then(|x| match x.arcsin() {
             n if n.as_ref().is_finite() => Ok(Value::Real(n)),
-            _ => Err(gml::Error::FunctionError("arcsin".into(), format!("can't get arcsin of {}", x))),
+            _ => Err(gml::Error::soft(format!("can't get arcsin of {}", x))),
         })
     }
 
     pub fn arccos(args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [real]).and_then(|x| match x.arccos() {
             n if n.as_ref().is_finite() => Ok(Value::Real(n)),
-            _ => Err(gml::Error::FunctionError("arccos".into(), format!("can't get arccos of {}", x))),
+            _ => Err(gml::Error::soft(format!("can't get arccos of {}", x))),
         })
     }
 
@@ -3898,7 +3862,7 @@ impl Game {
     pub fn logn(args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [real, real]).and_then(|(n, x)| match x.logn(n) {
             n if n.as_ref().is_finite() => Ok(Value::Real(n)),
-            _ => Err(gml::Error::FunctionError("arccos".into(), format!("can't get log base {} of {}", n, x))),
+            _ => Err(gml::Error::soft(format!("can't get log base {} of {}", n, x))),
         })
     }
 
@@ -3974,7 +3938,7 @@ impl Game {
                 x if x.len() == 0 => Ok(Default::default()),
                 x => match x.parse::<f64>() {
                     Ok(r) => Ok(r.into()),
-                    Err(e) => Err(gml::Error::FunctionError("real".into(), format!("can't convert {} - {}", s, e))),
+                    Err(e) => Err(gml::Error::soft(format!("can't convert {} - {}", s, e))),
                 },
             },
         })
@@ -4776,7 +4740,7 @@ impl Game {
             self.assets.paths[path_id as usize] = Some(path);
             Ok(Default::default())
         } else {
-            Err(gml::Error::NonexistentAsset(asset::Type::Path, path_id))
+            Err(gml::Error::no_asset(asset::Type::Path, path_id))
         }
     }
 
@@ -4855,10 +4819,7 @@ impl Game {
     pub fn mp_grid_create(&mut self, args: &[Value]) -> gml::Result<Value> {
         let (left, top, hcells, vcells, cellwidth, cellheight) = expect_args!(args, [int, int, int, int, int, int])?;
         if hcells < 0 || vcells < 0 {
-            return Err(gml::Error::FunctionError(
-                "mp_grid_create".into(),
-                "mp grids cannot have negative dimensions".to_string(),
-            ))
+            return Err(gml::Error::soft("mp grids cannot have negative dimensions".to_string()))
         }
         Ok(self
             .mpgrids
@@ -4871,10 +4832,7 @@ impl Game {
         if self.mpgrids.delete(id) {
             Ok(Default::default())
         } else {
-            Err(gml::Error::FunctionError(
-                "mp_grid_destroy".into(),
-                pathfinding::Error::NonexistentStructure(id).into(),
-            ))
+            Err(gml::Error::soft(pathfinding::Error::NonexistentStructure(id)))
         }
     }
 
@@ -4889,10 +4847,7 @@ impl Game {
                 }
                 Ok(Default::default())
             },
-            None => Err(gml::Error::FunctionError(
-                "mp_grid_clear_all".into(),
-                pathfinding::Error::NonexistentStructure(id).into(),
-            )),
+            None => Err(gml::Error::soft(pathfinding::Error::NonexistentStructure(id))),
         }
     }
 
@@ -4905,10 +4860,7 @@ impl Game {
                 }
                 Ok(Default::default())
             },
-            None => Err(gml::Error::FunctionError(
-                "mp_grid_clear_cell".into(),
-                pathfinding::Error::NonexistentStructure(id).into(),
-            )),
+            None => Err(gml::Error::soft(pathfinding::Error::NonexistentStructure(id))),
         }
     }
 
@@ -4932,10 +4884,7 @@ impl Game {
 
                 Ok(Default::default())
             },
-            None => Err(gml::Error::FunctionError(
-                "mp_grid_add_rectangle".into(),
-                pathfinding::Error::NonexistentStructure(id).into(),
-            )),
+            None => Err(gml::Error::soft(pathfinding::Error::NonexistentStructure(id))),
         }
     }
 
@@ -4948,10 +4897,7 @@ impl Game {
                 }
                 Ok(Default::default())
             },
-            None => Err(gml::Error::FunctionError(
-                "mp_grid_clear_cell".into(),
-                pathfinding::Error::NonexistentStructure(id).into(),
-            )),
+            None => Err(gml::Error::soft(pathfinding::Error::NonexistentStructure(id))),
         }
     }
 
@@ -4975,10 +4921,7 @@ impl Game {
 
                 Ok(Default::default())
             },
-            None => Err(gml::Error::FunctionError(
-                "mp_grid_add_rectangle".into(),
-                pathfinding::Error::NonexistentStructure(id).into(),
-            )),
+            None => Err(gml::Error::soft(pathfinding::Error::NonexistentStructure(id))),
         }
     }
 
@@ -5020,10 +4963,7 @@ impl Game {
                 }
                 Ok(Default::default())
             },
-            None => Err(gml::Error::FunctionError(
-                "mp_grid_draw".into(),
-                pathfinding::Error::NonexistentStructure(id).into(),
-            )),
+            None => Err(gml::Error::soft(pathfinding::Error::NonexistentStructure(id))),
         }
     }
 
@@ -5300,11 +5240,16 @@ impl Game {
 
     pub fn instance_create(&mut self, args: &[Value]) -> gml::Result<Value> {
         let (x, y, object_id) = expect_args!(args, [real, real, int])?;
-        let object = self
-            .assets
-            .objects
-            .get_asset(object_id)
-            .ok_or(gml::Error::NonexistentAsset(asset::Type::Object, object_id))?;
+        let object = match self.assets.objects.get_asset(object_id) {
+            Some(id) => id,
+            None => {
+                return if !self.all_errors_abort && !self.show_errors {
+                    Err(gml::Error::delphi("tried to create instance of nonexistent object"))
+                } else {
+                    Err(gml::Error::no_asset(asset::Type::Object, object_id))
+                }
+            },
+        };
         self.last_instance_id += 1;
         let id = self.last_instance_id;
         let instance = self.room.instance_list.insert(Instance::new(id, x, y, object_id, object));
@@ -5332,11 +5277,8 @@ impl Game {
             self.run_instance_event(gml::ev::DESTROY, 0, context.this, context.this, None)?;
         }
 
-        let object = self
-            .assets
-            .objects
-            .get_asset(object_id)
-            .ok_or(gml::Error::NonexistentAsset(asset::Type::Object, object_id))?;
+        let object =
+            self.assets.objects.get_asset(object_id).ok_or(gml::Error::no_asset(asset::Type::Object, object_id))?;
         let mut new_instance = self.room.instance_list.get(context.this).clone();
         new_instance.object_index.set(object_id);
         new_instance.sprite_index.set(object.sprite_index);
@@ -5575,6 +5517,9 @@ impl Game {
 
     pub fn room_goto(&mut self, args: &[Value]) -> gml::Result<Value> {
         let target = expect_args!(args, [int])?;
+        if self.assets.rooms.get_asset(target).is_none() {
+            return Err(gml::HardError::InvalidRoom.into())
+        }
         self.scene_change = Some(SceneChange::Room(target));
         Ok(Default::default())
     }
@@ -5592,7 +5537,7 @@ impl Game {
                 self.scene_change = Some(SceneChange::Room(i));
                 Ok(Default::default())
             },
-            None => Err(gml::Error::EndOfRoomOrder),
+            None => Err(gml::HardError::InvalidRoom.into()),
         }
     }
 
@@ -5604,7 +5549,7 @@ impl Game {
                 self.scene_change = Some(SceneChange::Room(i));
                 Ok(Default::default())
             },
-            None => Err(gml::Error::EndOfRoomOrder),
+            None => Err(gml::HardError::InvalidRoom.into()),
         }
     }
 
@@ -5660,13 +5605,11 @@ impl Game {
         let save = GMSave::from_game(self);
         let mut file = std::fs::File::create(fname.as_ref())
             .map(std::io::BufWriter::new)
-            .map_err(|e| gml::Error::FunctionError("game_save".into(), format!("{}", e)))?;
+            .map_err(|e| gml::Error::soft(format!("{}", e)))?;
         // write magic number (0x21c in GM8)
-        file.write(&[0x1d, 0x02, 0x00, 0x00])
-            .map_err(|e| gml::Error::FunctionError("game_save".into(), format!("{}", e)))?;
-        bincode::serialize_into(&mut file, &save)
-            .map_err(|e| gml::Error::FunctionError("game_save".into(), format!("{}", e)))?;
-        file.flush().map_err(|e| gml::Error::FunctionError("game_save".into(), e.to_string()))?;
+        file.write(&[0x1d, 0x02, 0x00, 0x00]).map_err(|e| gml::Error::soft(format!("{}", e)))?;
+        bincode::serialize_into(&mut file, &save).map_err(|e| gml::Error::soft(format!("{}", e)))?;
+        file.flush().map_err(gml::Error::soft)?;
         Ok(Default::default())
     }
 
@@ -5772,7 +5715,7 @@ impl Game {
         };
         match self.binary_files.add_from(|| Ok(file::BinaryHandle::open(filename.as_ref(), mode)?)) {
             Ok(i) => Ok((i + 1).into()),
-            Err(e) => Err(gml::Error::FunctionError("file_bin_open".into(), e.to_string())),
+            Err(e) => Err(gml::Error::soft_min1(e)),
         }
     }
 
@@ -5780,7 +5723,7 @@ impl Game {
         let handle = expect_args!(args, [int])?;
         match self.binary_files.get_mut(handle - 1).map_or(Err(file::Error::InvalidFile(handle)), |f| f.clear()) {
             Ok(()) => Ok(Default::default()),
-            Err(e) => Err(gml::Error::FunctionError("file_bin_rewrite".into(), e.to_string())),
+            Err(e) => Err(gml::Error::soft(e)),
         }
     }
 
@@ -5791,12 +5734,12 @@ impl Game {
         self.binary_files
             .get_mut(handle - 1)
             .map_or(Err(file::Error::InvalidFile(handle)), |f| f.flush())
-            .map_err(|e| gml::Error::FunctionError("file_bin_close".into(), e.to_string()))?;
+            .map_err(gml::Error::soft)?;
 
         if self.binary_files.delete(handle - 1) {
             Ok(Default::default())
         } else {
-            Err(gml::Error::FunctionError("file_bin_close".into(), file::Error::InvalidFile(handle).to_string()))
+            Err(gml::Error::soft(file::Error::InvalidFile(handle).to_string()))
         }
     }
 
@@ -5804,7 +5747,7 @@ impl Game {
         let handle = expect_args!(args, [int])?;
         match self.binary_files.get_mut(handle - 1).map_or(Err(file::Error::InvalidFile(handle)), |f| f.tell()) {
             Ok(p) => Ok(f64::from(p as i32).into()),
-            Err(e) => Err(gml::Error::FunctionError("file_bin_position".into(), e.to_string())),
+            Err(e) => Err(gml::Error::soft(e)),
         }
     }
 
@@ -5812,7 +5755,7 @@ impl Game {
         let handle = expect_args!(args, [int])?;
         match self.binary_files.get_mut(handle - 1).map_or(Err(file::Error::InvalidFile(handle)), |f| f.size()) {
             Ok(l) => Ok(f64::from(l as i32).into()),
-            Err(e) => Err(gml::Error::FunctionError("file_bin_size".into(), e.to_string())),
+            Err(e) => Err(gml::Error::soft(e)),
         }
     }
 
@@ -5820,7 +5763,7 @@ impl Game {
         let (handle, pos) = expect_args!(args, [int, int])?;
         match self.binary_files.get_mut(handle - 1).map_or(Err(file::Error::InvalidFile(handle)), |f| f.seek(pos)) {
             Ok(()) => Ok(Default::default()),
-            Err(e) => Err(gml::Error::FunctionError("file_bin_seek".into(), e.to_string())),
+            Err(e) => Err(gml::Error::soft(e)),
         }
     }
 
@@ -5828,7 +5771,7 @@ impl Game {
         let handle = expect_args!(args, [int])?;
         match self.binary_files.get_mut(handle - 1).map_or(Err(file::Error::InvalidFile(handle)), |f| f.read_byte()) {
             Ok(b) => Ok(f64::from(b).into()),
-            Err(e) => Err(gml::Error::FunctionError("file_bin_read_byte".into(), e.to_string())),
+            Err(e) => Err(gml::Error::soft(e)),
         }
     }
 
@@ -5840,7 +5783,7 @@ impl Game {
             .map_or(Err(file::Error::InvalidFile(handle)), |f| f.write_byte(byte as u8))
         {
             Ok(()) => Ok(Default::default()),
-            Err(e) => Err(gml::Error::FunctionError("file_bin_write_byte".into(), e.to_string())),
+            Err(e) => Err(gml::Error::soft(e)),
         }
     }
 
@@ -5857,7 +5800,7 @@ impl Game {
             {
                 Ok((-1).into())
             },
-            Err(e) => Err(gml::Error::FunctionError("file_text_open_read".into(), e.to_string())),
+            Err(e) => Err(gml::Error::soft_min1(e)),
         }
     }
 
@@ -5865,7 +5808,7 @@ impl Game {
         let filename = expect_args!(args, [string])?;
         match self.text_files.add_from(|| Ok(file::TextHandle::open(filename.as_ref(), file::AccessMode::Write)?)) {
             Ok(i) => Ok((i + 1).into()),
-            Err(e) => Err(gml::Error::FunctionError("file_text_open_write".into(), e.to_string())),
+            Err(e) => Err(gml::Error::soft_min1(e)),
         }
     }
 
@@ -5873,7 +5816,7 @@ impl Game {
         let filename = expect_args!(args, [string])?;
         match self.text_files.add_from(|| Ok(file::TextHandle::open(filename.as_ref(), file::AccessMode::Special)?)) {
             Ok(i) => Ok((i + 1).into()),
-            Err(e) => Err(gml::Error::FunctionError("file_text_open_append".into(), e.to_string())),
+            Err(e) => Err(gml::Error::soft_min1(e)),
         }
     }
 
@@ -5885,29 +5828,27 @@ impl Game {
         self.text_files
             .get_mut(handle - 1)
             .map_or(Err(file::Error::InvalidFile(handle)), |f| f.flush())
-            .map_err(|e| gml::Error::FunctionError("file_text_close".into(), e.to_string()))?;
+            .map_err(gml::Error::soft)?;
 
         // NB: .delete() MUST be called - beware the short-circuit evaluation here!
         if self.text_files.delete(handle - 1) || (1..=c).contains(&handle) {
             Ok(Default::default())
         } else {
-            Err(gml::Error::FunctionError("file_text_close".into(), file::Error::InvalidFile(handle).to_string()))
+            Err(gml::Error::soft(file::Error::InvalidFile(handle).to_string()))
         }
     }
 
     pub fn file_text_read_string(&mut self, args: &[Value]) -> gml::Result<Value> {
         let handle = expect_args!(args, [int])?;
-        match self.text_files.get_mut(handle - 1).map_or(Err(file::Error::InvalidFile(handle)), |f| f.read_string()) {
-            Ok(s) => Ok(s.into()),
-            Err(e) => Err(gml::Error::FunctionError("file_text_read_string".into(), e.to_string())),
-        }
+        let f = self.text_files.get_mut(handle - 1).ok_or(gml::Error::soft(file::Error::InvalidFile(handle)))?;
+        f.read_string().map(Value::from).map_err(|e| gml::Error::Soft(e.to_string(), "".into()))
     }
 
     pub fn file_text_read_real(&mut self, args: &[Value]) -> gml::Result<Value> {
         let handle = expect_args!(args, [int])?;
         match self.text_files.get_mut(handle - 1).map_or(Err(file::Error::InvalidFile(handle)), |f| f.read_real()) {
             Ok(r) => Ok(r.into()),
-            Err(e) => Err(gml::Error::FunctionError("file_text_read_real".into(), e.to_string())),
+            Err(e) => Err(gml::Error::soft(e)),
         }
     }
 
@@ -5915,7 +5856,7 @@ impl Game {
         let handle = expect_args!(args, [int])?;
         match self.text_files.get_mut(handle - 1).map_or(Err(file::Error::InvalidFile(handle)), |f| f.skip_line()) {
             Ok(()) => Ok(Default::default()),
-            Err(e) => Err(gml::Error::FunctionError("file_text_readln".into(), e.to_string())),
+            Err(e) => Err(gml::Error::soft(e)),
         }
     }
 
@@ -5923,7 +5864,7 @@ impl Game {
         let handle = expect_args!(args, [int])?;
         match self.text_files.get_mut(handle - 1).map_or(Err(file::Error::InvalidFile(handle)), |f| f.is_eof()) {
             Ok(res) => Ok(res.into()),
-            Err(e) => Err(gml::Error::FunctionError("file_text_eof".into(), e.to_string())),
+            Err(e) => Err(gml::Error::soft(e)),
         }
     }
 
@@ -5931,7 +5872,7 @@ impl Game {
         let handle = expect_args!(args, [int])?;
         match self.text_files.get_mut(handle - 1).map_or(Err(file::Error::InvalidFile(handle)), |f| f.is_eoln()) {
             Ok(res) => Ok(res.into()),
-            Err(e) => Err(gml::Error::FunctionError("file_text_eoln".into(), e.to_string())),
+            Err(e) => Err(gml::Error::soft(e)),
         }
     }
 
@@ -5943,7 +5884,7 @@ impl Game {
             .map_or(Err(file::Error::InvalidFile(handle)), |f| f.write_string(text.as_ref()))
         {
             Ok(()) => Ok(Default::default()),
-            Err(e) => Err(gml::Error::FunctionError("file_text_write_string".into(), e.to_string())),
+            Err(e) => Err(gml::Error::soft(e)),
         }
     }
 
@@ -5955,7 +5896,7 @@ impl Game {
             .map_or(Err(file::Error::InvalidFile(handle)), |f| f.write_real(num.into()))
         {
             Ok(()) => Ok(Default::default()),
-            Err(e) => Err(gml::Error::FunctionError("file_text_write_real".into(), e.to_string())),
+            Err(e) => Err(gml::Error::soft(e)),
         }
     }
 
@@ -5963,7 +5904,7 @@ impl Game {
         let handle = expect_args!(args, [int])?;
         match self.text_files.get_mut(handle - 1).map_or(Err(file::Error::InvalidFile(handle)), |f| f.write_newline()) {
             Ok(()) => Ok(Default::default()),
-            Err(e) => Err(gml::Error::FunctionError("file_text_writeln".into(), e.to_string())),
+            Err(e) => Err(gml::Error::soft(e)),
         }
     }
 
@@ -5976,7 +5917,7 @@ impl Game {
             Err(e) => {
                 self.open_file.take();
                 if e.kind() != std::io::ErrorKind::NotFound {
-                    return Err(gml::Error::FunctionError("file_open_read".into(), e.to_string()))
+                    return Err(gml::Error::soft(e))
                 }
             },
         };
@@ -5992,7 +5933,7 @@ impl Game {
             },
             Err(e) => {
                 self.open_file.take();
-                Err(gml::Error::FunctionError("file_open_write".into(), e.to_string()))
+                Err(gml::Error::soft(e))
             },
         }
     }
@@ -6006,7 +5947,7 @@ impl Game {
             },
             Err(e) => {
                 self.open_file.take();
-                Err(gml::Error::FunctionError("file_open_append".into(), e.to_string()))
+                Err(gml::Error::soft(e))
             },
         }
     }
@@ -6016,7 +5957,7 @@ impl Game {
         match self.open_file.take() {
             Some(mut f) => match f.flush() {
                 Ok(()) => Ok(Default::default()),
-                Err(e) => Err(gml::Error::FunctionError("file_close".into(), e.to_string())),
+                Err(e) => Err(gml::Error::soft(e)),
             },
             None => Ok(Default::default()),
         }
@@ -6026,7 +5967,7 @@ impl Game {
         expect_args!(args, [])?;
         match self.open_file.as_mut().map_or(Err(file::Error::LegacyFileUnopened), |f| f.read_string()) {
             Ok(s) => Ok(s.into()),
-            Err(e) => Err(gml::Error::FunctionError("file_read_string".into(), e.to_string())),
+            Err(e) => Err(gml::Error::soft(e)),
         }
     }
 
@@ -6034,7 +5975,7 @@ impl Game {
         expect_args!(args, [])?;
         match self.open_file.as_mut().map_or(Err(file::Error::LegacyFileUnopened), |f| f.read_real()) {
             Ok(r) => Ok(r.into()),
-            Err(e) => Err(gml::Error::FunctionError("file_read_real".into(), e.to_string())),
+            Err(e) => Err(gml::Error::soft(e)),
         }
     }
 
@@ -6042,7 +5983,7 @@ impl Game {
         expect_args!(args, [])?;
         match self.open_file.as_mut().map_or(Err(file::Error::LegacyFileUnopened), |f| f.skip_line()) {
             Ok(()) => Ok(Default::default()),
-            Err(e) => Err(gml::Error::FunctionError("file_readln".into(), e.to_string())),
+            Err(e) => Err(gml::Error::soft(e)),
         }
     }
 
@@ -6050,7 +5991,7 @@ impl Game {
         expect_args!(args, [])?;
         match self.open_file.as_mut().map_or(Err(file::Error::LegacyFileUnopened), |f| f.is_eof()) {
             Ok(res) => Ok(res.into()),
-            Err(e) => Err(gml::Error::FunctionError("file_eof".into(), e.to_string())),
+            Err(e) => Err(gml::Error::soft(e)),
         }
     }
 
@@ -6058,7 +5999,7 @@ impl Game {
         expect_args!(args, [])?;
         match self.open_file.as_mut().map_or(Err(file::Error::LegacyFileUnopened), |f| f.is_eoln()) {
             Ok(res) => Ok(res.into()),
-            Err(e) => Err(gml::Error::FunctionError("file_eoln".into(), e.to_string())),
+            Err(e) => Err(gml::Error::soft(e)),
         }
     }
 
@@ -6066,7 +6007,7 @@ impl Game {
         let text = expect_args!(args, [bytes])?;
         match self.open_file.as_mut().map_or(Err(file::Error::LegacyFileUnopened), |f| f.write_string(text.as_ref())) {
             Ok(()) => Ok(Default::default()),
-            Err(e) => Err(gml::Error::FunctionError("file_write_string".into(), e.to_string())),
+            Err(e) => Err(gml::Error::soft(e)),
         }
     }
 
@@ -6074,7 +6015,7 @@ impl Game {
         let num = expect_args!(args, [real])?;
         match self.open_file.as_mut().map_or(Err(file::Error::LegacyFileUnopened), |f| f.write_real(num.into())) {
             Ok(()) => Ok(Default::default()),
-            Err(e) => Err(gml::Error::FunctionError("file_write_real".into(), e.to_string())),
+            Err(e) => Err(gml::Error::soft(e)),
         }
     }
 
@@ -6082,7 +6023,7 @@ impl Game {
         expect_args!(args, [])?;
         match self.open_file.as_mut().map_or(Err(file::Error::LegacyFileUnopened), |f| f.write_newline()) {
             Ok(()) => Ok(Default::default()),
-            Err(e) => Err(gml::Error::FunctionError("file_writeln".into(), e.to_string())),
+            Err(e) => Err(gml::Error::soft(e)),
         }
     }
 
@@ -6097,7 +6038,7 @@ impl Game {
         let filename = expect_args!(args, [string])?;
         match file::delete(filename.as_ref()) {
             Ok(()) => Ok(Default::default()),
-            Err(e) => Err(gml::Error::FunctionError("file_delete".into(), e.to_string())),
+            Err(e) => Err(gml::Error::soft(e)),
         }
     }
 
@@ -6130,7 +6071,7 @@ impl Game {
         let path = expect_args!(args, [string])?;
         match file::dir_create(path.as_ref()) {
             Ok(()) => Ok(Default::default()),
-            Err(e) => Err(gml::Error::FunctionError("directory_create".into(), e.to_string())),
+            Err(e) => Err(gml::Error::soft(e)),
         }
     }
 
@@ -6183,7 +6124,7 @@ impl Game {
                 ));
                 self.file_find_next(&[])
             },
-            Err(e) => Err(gml::Error::FunctionError("file_find_first".into(), e.to_string())),
+            Err(e) => Err(gml::Error::soft(e)),
         }
     }
 
@@ -6266,10 +6207,10 @@ impl Game {
         {
             match file.export(temp_directory, program_directory) {
                 Ok(()) => Ok(Default::default()),
-                Err(e) => Err(gml::Error::FunctionError("export_include_file".into(), e.to_string())),
+                Err(e) => Err(gml::Error::soft(e)),
             }
         } else {
-            Err(gml::Error::FunctionError("export_include_file".into(), "Trying to export non-existing file.".into()))
+            Err(gml::Error::soft("Trying to export non-existing file."))
         }
     }
 
@@ -6280,13 +6221,10 @@ impl Game {
             let path_ref: &str = path.as_ref();
             match file.export_to(path_ref.as_ref()) {
                 Ok(()) => Ok(Default::default()),
-                Err(e) => Err(gml::Error::FunctionError("export_include_file_location".into(), e.to_string())),
+                Err(e) => Err(gml::Error::soft(e)),
             }
         } else {
-            Err(gml::Error::FunctionError(
-                "export_include_file_location".into(),
-                "Trying to export non-existing file.".into(),
-            ))
+            Err(gml::Error::soft("Trying to export non-existing file."))
         }
     }
 
@@ -6297,7 +6235,7 @@ impl Game {
             file.data = None;
             Ok(Default::default())
         } else {
-            Err(gml::Error::FunctionError("discard_include_file".into(), "Trying to discard non-existing file.".into()))
+            Err(gml::Error::soft("Trying to discard non-existing file."))
         }
     }
 
@@ -6335,7 +6273,7 @@ impl Game {
             command_array.push(s);
         }
         if command_array.is_empty() {
-            return Err(gml::Error::FunctionError("execute_program".into(), "Cannot execute an empty string".into()))
+            return Err(gml::Error::soft("Cannot execute an empty string"))
         }
         // Actually run the program
         match Command::new(&command_array[0]).args(&command_array[1..]).spawn() {
@@ -6343,18 +6281,13 @@ impl Game {
                 if wait {
                     // wait() closes stdin. This is inaccurate, but Rust doesn't offer an alternative.
                     if let Err(e) = child.wait() {
-                        return Err(gml::Error::FunctionError(
-                            "execute_program".into(),
-                            format!("Cannot wait for {}: {}", prog, e),
-                        ))
+                        return Err(gml::Error::soft(format!("Cannot wait for {}: {}", prog, e)))
                     }
                     self.process_window_events();
                 }
                 Ok(Default::default())
             },
-            Err(e) => {
-                Err(gml::Error::FunctionError("execute_program".into(), format!("Cannot execute {}: {}", prog, e)))
-            },
+            Err(e) => Err(gml::Error::soft(format!("Cannot execute {}: {}", prog, e))),
         }
     }
 
@@ -6455,7 +6388,7 @@ impl Game {
                     self.open_ini = Some((ini, name));
                     Ok(Default::default())
                 },
-                Err(e) => Err(gml::Error::FunctionError("ini_open".into(), format!("{}", e))),
+                Err(e) => Err(gml::Error::soft(format!("{}", e))),
             }
         } else {
             self.open_ini = Some((ini::Ini::new(), name));
@@ -6471,7 +6404,7 @@ impl Game {
                     self.open_ini = None;
                     Ok(Default::default())
                 },
-                Err(e) => Err(gml::Error::FunctionError("ini_close".into(), format!("{}", e))),
+                Err(e) => Err(gml::Error::soft(format!("{}", e))),
             },
             None => Ok(Default::default()),
         }
@@ -6486,10 +6419,7 @@ impl Game {
                 .unwrap_or(default.as_ref())
                 .to_string()
                 .into()),
-            None => Err(gml::Error::FunctionError(
-                "ini_read_string".into(),
-                "Trying to read from undefined INI file".to_string(),
-            )),
+            None => Err(gml::Error::soft("Trying to read from undefined INI file".to_string())),
         }
     }
 
@@ -6503,10 +6433,7 @@ impl Game {
                 },
                 None => Ok(default.into()),
             },
-            None => Err(gml::Error::FunctionError(
-                "ini_read_real".into(),
-                "Trying to read from undefined INI file".to_string(),
-            )),
+            None => Err(gml::Error::soft("Trying to read from undefined INI file".to_string())),
         }
     }
 
@@ -6517,10 +6444,7 @@ impl Game {
                 ini.with_section(Some(section.as_ref())).set(key.as_ref(), val.as_ref());
                 Ok(Default::default())
             },
-            None => Err(gml::Error::FunctionError(
-                "ini_write_string".into(),
-                "Trying to write to undefined INI file".to_string(),
-            )),
+            None => Err(gml::Error::soft("Trying to write to undefined INI file".to_string())),
         }
     }
 
@@ -6531,10 +6455,7 @@ impl Game {
                 ini.with_section(Some(section.as_ref())).set(key.as_ref(), val.to_string());
                 Ok(Default::default())
             },
-            None => Err(gml::Error::FunctionError(
-                "ini_write_real".into(),
-                "Trying to write to undefined INI file".to_string(),
-            )),
+            None => Err(gml::Error::soft("Trying to write to undefined INI file".to_string())),
         }
     }
 
@@ -6544,10 +6465,7 @@ impl Game {
             Some((ini, _)) => {
                 Ok(ini.section(Some(section.as_ref())).map(|s| s.contains_key(key)).unwrap_or(false).into())
             },
-            None => Err(gml::Error::FunctionError(
-                "ini_key_exists".into(),
-                "Trying to read from undefined INI file".to_string(),
-            )),
+            None => Err(gml::Error::soft("Trying to read from undefined INI file".to_string())),
         }
     }
 
@@ -6555,10 +6473,7 @@ impl Game {
         let section = expect_args!(args, [string])?;
         match self.open_ini.as_ref() {
             Some((ini, _)) => Ok(ini.section(Some(section.as_ref())).is_some().into()),
-            None => Err(gml::Error::FunctionError(
-                "ini_section_exists".into(),
-                "Trying to read from undefined INI file".to_string(),
-            )),
+            None => Err(gml::Error::soft("Trying to read from undefined INI file".to_string())),
         }
     }
 
@@ -6569,10 +6484,7 @@ impl Game {
                 ini.delete_from(Some(section.as_ref()), key.as_ref());
                 Ok(Default::default())
             },
-            None => Err(gml::Error::FunctionError(
-                "ini_key_delete".into(),
-                "Trying to change undefined INI file".to_string(),
-            )),
+            None => Err(gml::Error::soft("Trying to change undefined INI file".to_string())),
         }
     }
 
@@ -6583,10 +6495,7 @@ impl Game {
                 ini.delete(Some(section.as_ref()));
                 Ok(Default::default())
             },
-            None => Err(gml::Error::FunctionError(
-                "ini_section_delete".into(),
-                "Trying to change undefined INI file".to_string(),
-            )),
+            None => Err(gml::Error::soft("Trying to change undefined INI file".to_string())),
         }
     }
 
@@ -6729,8 +6638,8 @@ impl Game {
     }
 
     pub fn show_error(&mut self, args: &[Value]) -> gml::Result<Value> {
-        let (text, _abort) = expect_args!(args, [string, bool])?;
-        Err(gml::Error::FunctionError("show_error".into(), text.into()))
+        let (text, abort) = expect_args!(args, [string, bool])?;
+        if abort { Err(gml::HardError::ShowError(text.into_owned()).into()) } else { Err(gml::Error::soft(text)) }
     }
 
     pub fn show_info(&mut self, _args: &[Value]) -> gml::Result<Value> {
@@ -7360,7 +7269,7 @@ impl Game {
             .assets
             .objects
             .get_asset(context.event_object)
-            .ok_or(gml::Error::NonexistentAsset(asset::Type::Object, context.event_object))?
+            .ok_or(gml::Error::no_asset(asset::Type::Object, context.event_object))?
             .parent_index;
         if parent >= 0 {
             self.run_instance_event(
@@ -7417,7 +7326,11 @@ impl Game {
             };
             let argnumb = argnumb.round();
             if args.len() as i32 != 5 + argnumb {
-                return Err(gml::Error::WrongArgumentCount(5 + argnumb.max(5) as usize, args.len()))
+                return Err(gml::Error::soft(format!(
+                    "wrong external_define argument count {} (expected {})",
+                    args.len(),
+                    5 + argnumb.max(5)
+                )))
             }
 
             let arg_types = args[5..]
@@ -7437,17 +7350,16 @@ impl Game {
                     type_return: res_type,
                 })
                 .map(Value::from)
-                .map_err(|e| gml::Error::FunctionError("external_define".into(), e))
+                .map_err(gml::Error::from)
         } else {
-            Err(gml::Error::WrongArgumentCount(5, args.len()))
+            Err(gml::Error::soft(format!("expected at least 5 arguments, got {}", args.len())))
         }
     }
 
     pub fn external_call(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         if let Some(id) = args.get(0) {
             let id = id.round();
-            self.call_external(id, context, &args[1..])
-                .map_err(|e| gml::Error::FunctionError("external_call".into(), e.to_string()))
+            self.call_external(id, context, &args[1..]).map_err(gml::Error::soft)
         } else {
             Ok(Default::default())
         }
@@ -7572,10 +7484,10 @@ impl Game {
                     }
                     // Note: GM8 does not update the argument_count here to (args.len() - 1) as it should
                     let mut new_context = Context::copy_with_args(context, new_args, context.argument_count);
-                    self.execute(&instrs, &mut new_context)?;
+                    self.try_execute(&instrs, &mut new_context, false)?;
                     Ok(new_context.return_value)
                 },
-                Err(e) => Err(gml::Error::FunctionError("execute_string".into(), e.message)),
+                Err(e) => Err(gml::Error::soft(e.message)),
             }
         } else {
             // eg execute_string(42) - does nothing, returns 0
@@ -7594,10 +7506,10 @@ impl Game {
                     new_args[0] = code.into();
                     self.execute_string(context, &new_args)
                 },
-                Err(e) => Err(gml::Error::FunctionError("execute_file".into(), format!("{}", e))),
+                Err(e) => Err(gml::Error::soft(format!("{}", e))),
             }
         } else {
-            Err(gml::Error::FunctionError("execute_file".into(), "Trying to execute a number.".to_string()))
+            Err(gml::Error::soft("Trying to execute a number.".to_string()))
         }
     }
 
@@ -8147,7 +8059,7 @@ impl Game {
                             dst.origin_x,
                             dst.origin_y,
                         )
-                        .map_err(|e| gml::Error::FunctionError("sprite_set_alpha_from_sprite".into(), e))?;
+                        .map_err(gml::EmuError::RendererError)?;
                 }
             }
         }
@@ -8182,7 +8094,7 @@ impl Game {
             atlas_ref: self
                 .renderer
                 .upload_sprite(image.into_raw().into_boxed_slice(), width, height, origin_x, origin_y)
-                .map_err(|e| gml::Error::FunctionError("sprite_create_from_screen".into(), e.into()))?,
+                .map_err(gml::EmuError::RendererError)?,
         }];
         let sprite_id = self.assets.sprites.len();
         self.assets.sprites.push(Some(Box::new(asset::Sprite {
@@ -8245,11 +8157,11 @@ impl Game {
                         sprite.origin_x,
                         sprite.origin_y,
                     )
-                    .map_err(|e| gml::Error::FunctionError("sprite_add_from_screen".into(), e.into()))?,
+                    .map_err(gml::EmuError::RendererError)?,
             });
             Ok(Default::default())
         } else {
-            Err(gml::Error::NonexistentAsset(asset::Type::Sprite, sprite_id))
+            Err(gml::Error::no_asset(asset::Type::Sprite, sprite_id))
         }
     }
 
@@ -8282,7 +8194,7 @@ impl Game {
                 atlas_ref: self
                     .renderer
                     .upload_sprite(image.into_raw().into_boxed_slice(), width, height, origin_x, origin_y)
-                    .map_err(|e| gml::Error::FunctionError("sprite_create_from_surface".into(), e.into()))?,
+                    .map_err(gml::EmuError::RendererError)?,
             }];
             let sprite_id = self.assets.sprites.len();
             self.assets.sprites.push(Some(Box::new(asset::Sprite {
@@ -8301,10 +8213,7 @@ impl Game {
             })));
             Ok(sprite_id.into())
         } else {
-            Err(gml::Error::FunctionError(
-                "sprite_create_from_surface".into(),
-                format!("Surface {} does not exist", surf_id),
-            ))
+            Err(gml::Error::soft(format!("Surface {} does not exist", surf_id)))
         }
     }
 
@@ -8352,17 +8261,14 @@ impl Game {
                             sprite.origin_x,
                             sprite.origin_y,
                         )
-                        .map_err(|e| gml::Error::FunctionError("sprite_add_from_surface".into(), e.into()))?,
+                        .map_err(gml::EmuError::RendererError)?,
                 });
                 Ok(Default::default())
             } else {
-                Err(gml::Error::FunctionError(
-                    "sprite_add_from_surface".into(),
-                    format!("Surface {} does not exist", surf_id),
-                ))
+                Err(gml::Error::soft(format!("Surface {} does not exist", surf_id)))
             }
         } else {
-            Err(gml::Error::NonexistentAsset(asset::Type::Sprite, sprite_id))
+            Err(gml::Error::no_asset(asset::Type::Sprite, sprite_id))
         }
     }
 
@@ -8394,7 +8300,7 @@ impl Game {
                     atlas_ref: self
                         .renderer
                         .upload_sprite(i.into_raw().into_boxed_slice(), width as _, height as _, origin_x, origin_y)
-                        .map_err(|e| gml::Error::FunctionError("sprite_add".into(), e.into()))?,
+                        .map_err(gml::EmuError::RendererError)?,
                 })
             })
             .collect::<gml::Result<_>>()?;
@@ -8447,7 +8353,7 @@ impl Game {
                         height,
                         atlas_ref: renderer
                             .upload_sprite(i.into_raw().into_boxed_slice(), width as _, height as _, origin_x, origin_y)
-                            .map_err(|e| gml::Error::FunctionError("sprite_replace".into(), e.into()))?,
+                            .map_err(gml::EmuError::RendererError)?,
                     })
                 })
                 .collect::<gml::Result<_>>()?;
@@ -8467,7 +8373,7 @@ impl Game {
             });
             Ok(Default::default())
         } else {
-            Err(gml::Error::FunctionError("sprite_replace".into(), "Trying to replace non-existing sprite.".into()))
+            Err(gml::Error::soft("Trying to replace non-existing sprite."))
         }
     }
 
@@ -8488,7 +8394,7 @@ impl Game {
                 self.renderer.delete_sprite(frame.atlas_ref);
             }
         } else {
-            return Err(gml::Error::FunctionError("sprite_delete".into(), "Trying to delete non-existing sprite".into()))
+            return Err(gml::Error::soft("Trying to delete non-existing sprite"))
         }
         self.assets.sprites[sprite_id as usize] = None;
         Ok(Default::default())
@@ -8516,7 +8422,7 @@ impl Game {
                             atlas_ref: self
                                 .renderer
                                 .duplicate_sprite(f.atlas_ref)
-                                .map_err(|e| gml::Error::FunctionError("sprite_assign".into(), e.into()))?,
+                                .map_err(gml::EmuError::RendererError)?,
                             width: f.width,
                             height: f.height,
                         })
@@ -8538,10 +8444,10 @@ impl Game {
                 }));
                 Ok(Default::default())
             } else {
-                Err(gml::Error::FunctionError("sprite_assign".into(), "Destination sprite has an invalid index".into()))
+                Err(gml::Error::soft("Destination sprite has an invalid index"))
             }
         } else {
-            Err(gml::Error::FunctionError("sprite_assign".into(), "Source sprite does not exist".into()))
+            Err(gml::Error::soft("Source sprite does not exist"))
         }
     }
 
@@ -8561,7 +8467,7 @@ impl Game {
                     RgbaImage::from_vec(frame.width, frame.height, self.renderer.dump_sprite(frame.atlas_ref).into())
                         .unwrap(),
                 ) {
-                    return Err(gml::Error::FunctionError("sprite_save".into(), e.to_string()))
+                    return Err(gml::Error::soft(e))
                 }
             }
         }
@@ -8693,10 +8599,8 @@ impl Game {
                     dst_col[3] = (src_col[..3].iter().map(|&x| u16::from(x)).sum::<u16>() / 3u16) as u8;
                 }
             }
-            *atlas_ref = self
-                .renderer
-                .upload_sprite(dst, dst_w as _, dst_h as _, 0, 0)
-                .map_err(|e| gml::Error::FunctionError("background_set_alpha_from_background".into(), e))?;
+            *atlas_ref =
+                self.renderer.upload_sprite(dst, dst_w as _, dst_h as _, 0, 0).map_err(gml::EmuError::RendererError)?;
         }
         Ok(Default::default())
     }
@@ -8719,7 +8623,7 @@ impl Game {
             atlas_ref: Some(
                 self.renderer
                     .upload_sprite(image.into_raw().into_boxed_slice(), width, height, 0, 0)
-                    .map_err(|e| gml::Error::FunctionError("background_create_from_screen".into(), e.into()))?,
+                    .map_err(gml::EmuError::RendererError)?,
             ),
         })));
         Ok(background_id.into())
@@ -8747,15 +8651,12 @@ impl Game {
                 atlas_ref: Some(
                     self.renderer
                         .upload_sprite(image.into_raw().into_boxed_slice(), width, height, 0, 0)
-                        .map_err(|e| gml::Error::FunctionError("background_create_from_surface".into(), e.into()))?,
+                        .map_err(gml::EmuError::RendererError)?,
                 ),
             })));
             Ok(background_id.into())
         } else {
-            Err(gml::Error::FunctionError(
-                "background_create_from_surface".into(),
-                format!("Surface {} does not exist", surf_id),
-            ))
+            Err(gml::Error::soft(format!("Surface {} does not exist", surf_id)))
         }
     }
 
@@ -8767,9 +8668,7 @@ impl Game {
             width: w as _,
             height: h as _,
             atlas_ref: Some(
-                self.renderer
-                    .create_sprite_colour(w, h, (col as u32).into())
-                    .map_err(|e| gml::Error::FunctionError("background_create_color".into(), e))?,
+                self.renderer.create_sprite_colour(w, h, (col as u32).into()).map_err(gml::EmuError::RendererError)?,
             ),
         })));
         Ok(background_id.into())
@@ -8795,7 +8694,7 @@ impl Game {
         let atlas_ref = self
             .renderer
             .upload_sprite(image.into_raw().into_boxed_slice(), width as _, height as _, 0, 0)
-            .map_err(|e| gml::Error::FunctionError("background_add".into(), e.into()))?;
+            .map_err(gml::EmuError::RendererError)?;
         let background_id = self.assets.backgrounds.len();
         self.assets.backgrounds.push(Some(Box::new(asset::Background {
             name: format!("__newbackground{}", background_id).into(),
@@ -8825,16 +8724,13 @@ impl Game {
             let atlas_ref = self
                 .renderer
                 .upload_sprite(image.into_raw().into_boxed_slice(), width as _, height as _, 0, 0)
-                .map_err(|e| gml::Error::FunctionError("background_replace".into(), e.into()))?;
+                .map_err(gml::EmuError::RendererError)?;
             background.atlas_ref = Some(atlas_ref);
             background.width = width;
             background.height = height;
             Ok(Default::default())
         } else {
-            Err(gml::Error::FunctionError(
-                "background_replace".into(),
-                "Trying to replace non-existing background.".into(),
-            ))
+            Err(gml::Error::soft("Trying to replace non-existing background."))
         }
     }
 
@@ -8855,10 +8751,7 @@ impl Game {
                 self.renderer.delete_sprite(atlas_ref);
             }
         } else {
-            return Err(gml::Error::FunctionError(
-                "background_delete".into(),
-                "Trying to delete non-existing background".into(),
-            ))
+            return Err(gml::Error::soft("Trying to delete non-existing background"))
         }
         self.assets.backgrounds[background_id as usize] = None;
         Ok(Default::default())
@@ -8872,7 +8765,7 @@ impl Game {
                 .atlas_ref
                 .map(|ar| renderer.duplicate_sprite(ar))
                 .transpose()
-                .map_err(|e| gml::Error::FunctionError("background_duplicate".into(), e.into()))?;
+                .map_err(gml::EmuError::RendererError)?;
             let dst_id = self.assets.backgrounds.len();
             let (width, height) = (src.width, src.height);
             self.assets.backgrounds.push(Some(Box::new(asset::Background {
@@ -8883,7 +8776,7 @@ impl Game {
             })));
             Ok(dst_id.into())
         } else {
-            Err(gml::Error::NonexistentAsset(asset::Type::Background, src_id))
+            Err(gml::Error::no_asset(asset::Type::Background, src_id))
         }
     }
 
@@ -8897,11 +8790,7 @@ impl Game {
             }
             if dst_id >= 0 && self.assets.backgrounds.len() > dst_id as usize {
                 let dst_atlref = match src.atlas_ref {
-                    Some(ar) => Some(
-                        self.renderer
-                            .duplicate_sprite(ar)
-                            .map_err(|e| gml::Error::FunctionError("background_assign".into(), e.into()))?,
-                    ),
+                    Some(ar) => Some(self.renderer.duplicate_sprite(ar).map_err(gml::EmuError::RendererError)?),
                     None => None,
                 };
                 self.assets.backgrounds[dst_id as usize] = Some(Box::new(asset::Background {
@@ -8912,13 +8801,10 @@ impl Game {
                 }));
                 Ok(Default::default())
             } else {
-                Err(gml::Error::FunctionError(
-                    "background_assign".into(),
-                    "Destination background has an invalid index".into(),
-                ))
+                Err(gml::Error::soft("Destination background has an invalid index"))
             }
         } else {
-            Err(gml::Error::FunctionError("background_assign".into(), "Source background does not exist".into()))
+            Err(gml::Error::soft("Source background does not exist"))
         }
     }
 
@@ -8936,7 +8822,7 @@ impl Game {
                     )
                     .unwrap(),
                 ) {
-                    return Err(gml::Error::FunctionError("background_save".into(), e.to_string()))
+                    return Err(gml::Error::soft(e))
                 }
             }
         }
@@ -9034,7 +8920,7 @@ impl Game {
                 Ok(1.into())
             }
         } else {
-            Err(gml::Error::FunctionError("sound_replace".into(), "Trying to replace non-existing sound.".into()))
+            Err(gml::Error::soft("Trying to replace non-existing sound."))
         }
     }
 
@@ -9119,7 +9005,7 @@ impl Game {
             })));
             Ok(font_id.into())
         } else {
-            Err(gml::Error::NonexistentAsset(asset::Type::Sprite, sprite_id))
+            Err(gml::Error::no_asset(asset::Type::Sprite, sprite_id))
         }
     }
 
@@ -9144,10 +9030,10 @@ impl Game {
                 font.own_graphics = false;
                 Ok(Default::default())
             } else {
-                Err(gml::Error::NonexistentAsset(asset::Type::Sprite, sprite_id))
+                Err(gml::Error::no_asset(asset::Type::Sprite, sprite_id))
             }
         } else {
-            Err(gml::Error::NonexistentAsset(asset::Type::Font, font_id))
+            Err(gml::Error::no_asset(asset::Type::Font, font_id))
         }
     }
 
@@ -9184,10 +9070,10 @@ impl Game {
                 self.execute(&instructions, &mut new_context)?;
                 Ok(new_context.return_value)
             } else {
-                Err(gml::Error::NonexistentAsset(asset::Type::Script, script_id))
+                Err(gml::Error::no_asset(asset::Type::Script, script_id))
             }
         } else {
-            Err(gml::runtime::Error::WrongArgumentCount(1, 0))
+            Err(gml::Error::soft("expected at least 1 argument, got 0"))
         }
     }
 
@@ -9354,12 +9240,8 @@ impl Game {
     pub fn path_duplicate(&mut self, args: &[Value]) -> gml::Result<Value> {
         let src_id = expect_args!(args, [int])?;
         let dst_id = self.assets.paths.len() as i32;
-        let mut path = self
-            .assets
-            .paths
-            .get_asset(src_id)
-            .ok_or_else(|| gml::Error::NonexistentAsset(asset::Type::Path, src_id))?
-            .clone();
+        let mut path =
+            self.assets.paths.get_asset(src_id).ok_or_else(|| gml::Error::no_asset(asset::Type::Path, src_id))?.clone();
         path.name = format!("__newpath{}", dst_id).into();
         self.assets.paths.push(Some(path));
         Ok(dst_id.into())
@@ -9367,19 +9249,15 @@ impl Game {
 
     pub fn path_assign(&mut self, args: &[Value]) -> gml::Result<Value> {
         let (dst_id, src_id) = expect_args!(args, [int, int])?;
-        let mut src = self
-            .assets
-            .paths
-            .get_asset(src_id)
-            .ok_or_else(|| gml::Error::FunctionError("path_assign".into(), "Source path does not exist".into()))?
-            .clone();
+        let mut src =
+            self.assets.paths.get_asset(src_id).ok_or_else(|| gml::Error::soft("Source path does not exist"))?.clone();
         if dst_id >= 0 && (dst_id as usize) < self.assets.paths.len() {
             let dst = &mut self.assets.paths[dst_id as usize];
             src.name = dst.as_ref().map(|r| r.name.clone()).unwrap_or_else(|| "".into());
             *dst = Some(src);
             Ok(Default::default())
         } else {
-            Err(gml::Error::FunctionError("path_assign".into(), "Destination path has an invalid index.".into()))
+            Err(gml::Error::soft("Destination path has an invalid index."))
         }
     }
 
@@ -9541,7 +9419,7 @@ impl Game {
             self.assets.timelines[timeline as usize] = None;
             Ok(Default::default())
         } else {
-            Err(gml::Error::FunctionError("timeline_delete".into(), "Trying to delete non-existing timeline".into()))
+            Err(gml::Error::soft("Trying to delete non-existing timeline"))
         }
     }
 
@@ -9553,7 +9431,7 @@ impl Game {
             timeline.moments = Default::default();
             Ok(Default::default())
         } else {
-            Err(gml::Error::NonexistentAsset(asset::Type::Timeline, timeline))
+            Err(gml::Error::no_asset(asset::Type::Timeline, timeline))
         }
     }
 
@@ -9569,10 +9447,7 @@ impl Game {
         let (timeline, moment, code) = expect_args!(args, [int, int, bytes])?;
         // Note: GM8 does not attempt to compile the string if the timeline doesn't exist
         if let Some(timeline) = self.assets.timelines.get_asset(timeline) {
-            let instrs = self
-                .compiler
-                .compile(code.as_ref())
-                .map_err(|e| gml::Error::FunctionError("timeline_moment_add".into(), e.message))?;
+            let instrs = self.compiler.compile(code.as_ref()).map_err(|e| gml::HardError::Compile(e))?;
 
             timeline.moments.borrow_mut().entry(moment).or_insert(Default::default()).borrow_mut().push_code(instrs);
         }
@@ -9793,7 +9668,7 @@ impl Game {
         if let Some(object) = self.assets.objects.get_asset_mut(object_index) {
             let instrs = match self.compiler.compile(code.as_ref()) {
                 Ok(instrs) => instrs,
-                Err(e) => return Err(gml::Error::FunctionError("object_event_add".into(), e.message)),
+                Err(e) => return Err(gml::HardError::Compile(e).into()),
             };
             let object_event_map = &mut object.events[ev_type as usize];
             match object_event_map.get_mut(&(ev_number as u32)) {
@@ -10000,12 +9875,8 @@ impl Game {
     pub fn room_duplicate(&mut self, args: &[Value]) -> gml::Result<Value> {
         let src_id = expect_args!(args, [int])?;
         let dst_id = self.assets.rooms.len() as i32;
-        let mut room = self
-            .assets
-            .rooms
-            .get_asset(src_id)
-            .ok_or_else(|| gml::Error::NonexistentAsset(asset::Type::Room, src_id))?
-            .clone();
+        let mut room =
+            self.assets.rooms.get_asset(src_id).ok_or_else(|| gml::Error::no_asset(asset::Type::Room, src_id))?.clone();
         room.name = format!("__newroom{}", dst_id).into();
         self.assets.rooms.push(Some(room));
         Ok(dst_id.into())
@@ -10013,19 +9884,15 @@ impl Game {
 
     pub fn room_assign(&mut self, args: &[Value]) -> gml::Result<Value> {
         let (dst_id, src_id) = expect_args!(args, [int, int])?;
-        let mut src = self
-            .assets
-            .rooms
-            .get_asset(src_id)
-            .ok_or_else(|| gml::Error::FunctionError("room_assign".into(), "Source room does not exist".into()))?
-            .clone();
+        let mut src =
+            self.assets.rooms.get_asset(src_id).ok_or_else(|| gml::Error::soft("Source room does not exist"))?.clone();
         if dst_id >= 0 && (dst_id as usize) < self.assets.rooms.len() {
             let dst = &mut self.assets.rooms[dst_id as usize];
             src.name = dst.as_ref().map(|r| r.name.clone()).unwrap_or_else(|| "".into());
             *dst = Some(src);
             Ok(Default::default())
         } else {
-            Err(gml::Error::FunctionError("room_assign".into(), "Destination room has an invalid index.".into()))
+            Err(gml::Error::soft("Destination room has an invalid index."))
         }
     }
 
@@ -10056,7 +9923,7 @@ impl Game {
             room.instances.clear();
             Ok(Default::default())
         } else {
-            Err(gml::Error::NonexistentAsset(asset::Type::Room, room_id))
+            Err(gml::Error::no_asset(asset::Type::Room, room_id))
         }
     }
 
@@ -10929,7 +10796,7 @@ impl Game {
         if self.stacks.delete(id) {
             Ok(Default::default())
         } else {
-            Err(gml::Error::FunctionError("ds_stack_destroy".into(), ds::Error::NonexistentStructure(id).into()))
+            Err(gml::Error::soft(ds::Error::NonexistentStructure(id)))
         }
     }
 
@@ -10940,7 +10807,7 @@ impl Game {
                 stack.clear();
                 Ok(Default::default())
             },
-            None => Err(gml::Error::FunctionError("ds_stack_clear".into(), ds::Error::NonexistentStructure(id).into())),
+            None => Err(gml::Error::soft(ds::Error::NonexistentStructure(id))),
         }
     }
 
@@ -10948,19 +10815,14 @@ impl Game {
         let (id, src_id) = expect_args!(args, [int, int])?;
         let src = match self.stacks.get(src_id) {
             Some(stack) => stack.clone(),
-            None => {
-                return Err(gml::Error::FunctionError(
-                    "ds_stack_copy".into(),
-                    ds::Error::NonexistentStructure(src_id).into(),
-                ))
-            },
+            None => return Err(gml::Error::soft(ds::Error::NonexistentStructure(src_id))),
         };
         match self.stacks.get_mut(id) {
             Some(stack) => {
                 *stack = src;
                 Ok(Default::default())
             },
-            None => Err(gml::Error::FunctionError("ds_stack_copy".into(), ds::Error::NonexistentStructure(id).into())),
+            None => Err(gml::Error::soft(ds::Error::NonexistentStructure(id))),
         }
     }
 
@@ -10968,7 +10830,7 @@ impl Game {
         let id = expect_args!(args, [int])?;
         match self.stacks.get(id) {
             Some(stack) => Ok(stack.len().into()),
-            None => Err(gml::Error::FunctionError("ds_stack_size".into(), ds::Error::NonexistentStructure(id).into())),
+            None => Err(gml::Error::soft(ds::Error::NonexistentStructure(id))),
         }
     }
 
@@ -10976,7 +10838,7 @@ impl Game {
         let id = expect_args!(args, [int])?;
         match self.stacks.get(id) {
             Some(stack) => Ok(stack.is_empty().into()),
-            None => Err(gml::Error::FunctionError("ds_stack_empty".into(), ds::Error::NonexistentStructure(id).into())),
+            None => Err(gml::Error::soft(ds::Error::NonexistentStructure(id))),
         }
     }
 
@@ -10987,7 +10849,7 @@ impl Game {
                 stack.push(val);
                 Ok(Default::default())
             },
-            None => Err(gml::Error::FunctionError("ds_stack_push".into(), ds::Error::NonexistentStructure(id).into())),
+            None => Err(gml::Error::soft(ds::Error::NonexistentStructure(id))),
         }
     }
 
@@ -10995,7 +10857,7 @@ impl Game {
         let id = expect_args!(args, [int])?;
         match self.stacks.get_mut(id) {
             Some(stack) => Ok(stack.pop().unwrap_or_default()),
-            None => Err(gml::Error::FunctionError("ds_stack_pop".into(), ds::Error::NonexistentStructure(id).into())),
+            None => Err(gml::Error::soft(ds::Error::NonexistentStructure(id))),
         }
     }
 
@@ -11003,7 +10865,7 @@ impl Game {
         let id = expect_args!(args, [int])?;
         match self.stacks.get(id) {
             Some(stack) => Ok(stack.last().map(Value::clone).unwrap_or_default()),
-            None => Err(gml::Error::FunctionError("ds_stack_top".into(), ds::Error::NonexistentStructure(id).into())),
+            None => Err(gml::Error::soft(ds::Error::NonexistentStructure(id))),
         }
     }
 
@@ -11016,7 +10878,7 @@ impl Game {
                 output.extend(stack.iter().map(|v| hex::encode_upper(v.as_bytes())));
                 Ok(output.into())
             },
-            None => Err(gml::Error::FunctionError("ds_stack_write".into(), ds::Error::NonexistentStructure(id).into())),
+            None => Err(gml::Error::soft(ds::Error::NonexistentStructure(id))),
         }
     }
 
@@ -11050,7 +10912,7 @@ impl Game {
                 }
                 Ok(Default::default())
             },
-            None => Err(gml::Error::FunctionError("ds_stack_read".into(), ds::Error::NonexistentStructure(id).into())),
+            None => Err(gml::Error::soft(ds::Error::NonexistentStructure(id))),
         }
     }
 
@@ -11064,7 +10926,7 @@ impl Game {
         if self.queues.delete(id) {
             Ok(Default::default())
         } else {
-            Err(gml::Error::FunctionError("ds_queue_destroy".into(), ds::Error::NonexistentStructure(id).into()))
+            Err(gml::Error::soft(ds::Error::NonexistentStructure(id)))
         }
     }
 
@@ -11075,7 +10937,7 @@ impl Game {
                 queue.clear();
                 Ok(Default::default())
             },
-            None => Err(gml::Error::FunctionError("ds_queue_clear".into(), ds::Error::NonexistentStructure(id).into())),
+            None => Err(gml::Error::soft(ds::Error::NonexistentStructure(id))),
         }
     }
 
@@ -11083,19 +10945,14 @@ impl Game {
         let (id, src_id) = expect_args!(args, [int, int])?;
         let src = match self.queues.get(src_id) {
             Some(queue) => queue.clone(),
-            None => {
-                return Err(gml::Error::FunctionError(
-                    "ds_queue_copy".into(),
-                    ds::Error::NonexistentStructure(src_id).into(),
-                ))
-            },
+            None => return Err(gml::Error::soft(ds::Error::NonexistentStructure(src_id))),
         };
         match self.queues.get_mut(id) {
             Some(queue) => {
                 *queue = src;
                 Ok(Default::default())
             },
-            None => Err(gml::Error::FunctionError("ds_queue_copy".into(), ds::Error::NonexistentStructure(id).into())),
+            None => Err(gml::Error::soft(ds::Error::NonexistentStructure(id))),
         }
     }
 
@@ -11103,7 +10960,7 @@ impl Game {
         let id = expect_args!(args, [int])?;
         match self.queues.get(id) {
             Some(queue) => Ok(queue.len().into()),
-            None => Err(gml::Error::FunctionError("ds_queue_size".into(), ds::Error::NonexistentStructure(id).into())),
+            None => Err(gml::Error::soft(ds::Error::NonexistentStructure(id))),
         }
     }
 
@@ -11111,7 +10968,7 @@ impl Game {
         let id = expect_args!(args, [int])?;
         match self.queues.get(id) {
             Some(queue) => Ok(queue.is_empty().into()),
-            None => Err(gml::Error::FunctionError("ds_queue_empty".into(), ds::Error::NonexistentStructure(id).into())),
+            None => Err(gml::Error::soft(ds::Error::NonexistentStructure(id))),
         }
     }
 
@@ -11122,9 +10979,7 @@ impl Game {
                 queue.push_back(val);
                 Ok(Default::default())
             },
-            None => {
-                Err(gml::Error::FunctionError("ds_queue_enqueue".into(), ds::Error::NonexistentStructure(id).into()))
-            },
+            None => Err(gml::Error::soft(ds::Error::NonexistentStructure(id))),
         }
     }
 
@@ -11132,9 +10987,7 @@ impl Game {
         let id = expect_args!(args, [int])?;
         match self.queues.get_mut(id) {
             Some(queue) => Ok(queue.pop_front().unwrap_or_default()),
-            None => {
-                Err(gml::Error::FunctionError("ds_queue_dequeue".into(), ds::Error::NonexistentStructure(id).into()))
-            },
+            None => Err(gml::Error::soft(ds::Error::NonexistentStructure(id))),
         }
     }
 
@@ -11142,7 +10995,7 @@ impl Game {
         let id = expect_args!(args, [int])?;
         match self.queues.get(id) {
             Some(queue) => Ok(queue.front().map(Value::clone).unwrap_or_default()),
-            None => Err(gml::Error::FunctionError("ds_queue_head".into(), ds::Error::NonexistentStructure(id).into())),
+            None => Err(gml::Error::soft(ds::Error::NonexistentStructure(id))),
         }
     }
 
@@ -11150,7 +11003,7 @@ impl Game {
         let id = expect_args!(args, [int])?;
         match self.queues.get(id) {
             Some(queue) => Ok(queue.back().map(Value::clone).unwrap_or_default()),
-            None => Err(gml::Error::FunctionError("ds_queue_tail".into(), ds::Error::NonexistentStructure(id).into())),
+            None => Err(gml::Error::soft(ds::Error::NonexistentStructure(id))),
         }
     }
 
@@ -11174,7 +11027,7 @@ impl Game {
         if self.lists.delete(id) {
             Ok(Default::default())
         } else {
-            Err(gml::Error::FunctionError("ds_list_destroy".into(), ds::Error::NonexistentStructure(id).into()))
+            Err(gml::Error::soft(ds::Error::NonexistentStructure(id)))
         }
     }
 
@@ -11185,7 +11038,7 @@ impl Game {
                 list.clear();
                 Ok(Default::default())
             },
-            None => Err(gml::Error::FunctionError("ds_list_clear".into(), ds::Error::NonexistentStructure(id).into())),
+            None => Err(gml::Error::soft(ds::Error::NonexistentStructure(id))),
         }
     }
 
@@ -11193,19 +11046,14 @@ impl Game {
         let (id, src_id) = expect_args!(args, [int, int])?;
         let src = match self.lists.get(src_id) {
             Some(list) => list.clone(),
-            None => {
-                return Err(gml::Error::FunctionError(
-                    "ds_list_copy".into(),
-                    ds::Error::NonexistentStructure(src_id).into(),
-                ))
-            },
+            None => return Err(gml::Error::soft(ds::Error::NonexistentStructure(src_id))),
         };
         match self.lists.get_mut(id) {
             Some(list) => {
                 *list = src;
                 Ok(Default::default())
             },
-            None => Err(gml::Error::FunctionError("ds_list_copy".into(), ds::Error::NonexistentStructure(id).into())),
+            None => Err(gml::Error::soft(ds::Error::NonexistentStructure(id))),
         }
     }
 
@@ -11213,7 +11061,7 @@ impl Game {
         let id = expect_args!(args, [int])?;
         match self.lists.get(id) {
             Some(list) => Ok(list.len().into()),
-            None => Err(gml::Error::FunctionError("ds_list_size".into(), ds::Error::NonexistentStructure(id).into())),
+            None => Err(gml::Error::soft(ds::Error::NonexistentStructure(id))),
         }
     }
 
@@ -11221,7 +11069,7 @@ impl Game {
         let id = expect_args!(args, [int])?;
         match self.lists.get(id) {
             Some(list) => Ok(list.is_empty().into()),
-            None => Err(gml::Error::FunctionError("ds_list_empty".into(), ds::Error::NonexistentStructure(id).into())),
+            None => Err(gml::Error::soft(ds::Error::NonexistentStructure(id))),
         }
     }
 
@@ -11232,7 +11080,7 @@ impl Game {
                 list.push(val);
                 Ok(Default::default())
             },
-            None => Err(gml::Error::FunctionError("ds_list_add".into(), ds::Error::NonexistentStructure(id).into())),
+            None => Err(gml::Error::soft(ds::Error::NonexistentStructure(id))),
         }
     }
 
@@ -11245,7 +11093,7 @@ impl Game {
                 }
                 Ok(Default::default())
             },
-            None => Err(gml::Error::FunctionError("ds_list_insert".into(), ds::Error::NonexistentStructure(id).into())),
+            None => Err(gml::Error::soft(ds::Error::NonexistentStructure(id))),
         }
     }
 
@@ -11258,9 +11106,7 @@ impl Game {
                 }
                 Ok(Default::default())
             },
-            None => {
-                Err(gml::Error::FunctionError("ds_list_replace".into(), ds::Error::NonexistentStructure(id).into()))
-            },
+            None => Err(gml::Error::soft(ds::Error::NonexistentStructure(id))),
         }
     }
 
@@ -11273,7 +11119,7 @@ impl Game {
                 }
                 Ok(Default::default())
             },
-            None => Err(gml::Error::FunctionError("ds_list_delete".into(), ds::Error::NonexistentStructure(id).into())),
+            None => Err(gml::Error::soft(ds::Error::NonexistentStructure(id))),
         }
     }
 
@@ -11287,9 +11133,7 @@ impl Game {
                 .map(|(i, _)| i as i32)
                 .unwrap_or(-1)
                 .into()),
-            None => {
-                Err(gml::Error::FunctionError("ds_list_find_index".into(), ds::Error::NonexistentStructure(id).into()))
-            },
+            None => Err(gml::Error::soft(ds::Error::NonexistentStructure(id))),
         }
     }
 
@@ -11303,9 +11147,7 @@ impl Game {
                     Ok(Default::default())
                 }
             },
-            None => {
-                Err(gml::Error::FunctionError("ds_list_find_value".into(), ds::Error::NonexistentStructure(id).into()))
-            },
+            None => Err(gml::Error::soft(ds::Error::NonexistentStructure(id))),
         }
     }
 
@@ -11321,7 +11163,7 @@ impl Game {
                 }
                 Ok(Default::default())
             },
-            None => Err(gml::Error::FunctionError("ds_list_sort".into(), ds::Error::NonexistentStructure(id).into())),
+            None => Err(gml::Error::soft(ds::Error::NonexistentStructure(id))),
         }
     }
 
@@ -11336,9 +11178,7 @@ impl Game {
                 }
                 Ok(Default::default())
             },
-            None => {
-                Err(gml::Error::FunctionError("ds_list_shuffle".into(), ds::Error::NonexistentStructure(id).into()))
-            },
+            None => Err(gml::Error::soft(ds::Error::NonexistentStructure(id))),
         }
     }
 
@@ -11351,7 +11191,7 @@ impl Game {
                 output.extend(list.iter().map(|v| hex::encode_upper(v.as_bytes())));
                 Ok(output.into())
             },
-            None => Err(gml::Error::FunctionError("ds_list_write".into(), ds::Error::NonexistentStructure(id).into())),
+            None => Err(gml::Error::soft(ds::Error::NonexistentStructure(id))),
         }
     }
 
@@ -11383,7 +11223,7 @@ impl Game {
                 }
                 Ok(Default::default())
             },
-            None => Err(gml::Error::FunctionError("ds_list_read".into(), ds::Error::NonexistentStructure(id).into())),
+            None => Err(gml::Error::soft(ds::Error::NonexistentStructure(id))),
         }
     }
 
@@ -11397,7 +11237,7 @@ impl Game {
         if self.maps.delete(id) {
             Ok(Default::default())
         } else {
-            Err(gml::Error::FunctionError("ds_map_destroy".into(), ds::Error::NonexistentStructure(id).into()))
+            Err(gml::Error::soft(ds::Error::NonexistentStructure(id)))
         }
     }
 
@@ -11409,7 +11249,7 @@ impl Game {
                 map.values.clear();
                 Ok(Default::default())
             },
-            None => Err(gml::Error::FunctionError("ds_map_clear".into(), ds::Error::NonexistentStructure(id).into())),
+            None => Err(gml::Error::soft(ds::Error::NonexistentStructure(id))),
         }
     }
 
@@ -11417,19 +11257,14 @@ impl Game {
         let (id, src_id) = expect_args!(args, [int, int])?;
         let src = match self.maps.get(src_id) {
             Some(map) => map.clone(),
-            None => {
-                return Err(gml::Error::FunctionError(
-                    "ds_map_copy".into(),
-                    ds::Error::NonexistentStructure(src_id).into(),
-                ))
-            },
+            None => return Err(gml::Error::soft(ds::Error::NonexistentStructure(src_id))),
         };
         match self.maps.get_mut(id) {
             Some(map) => {
                 *map = src;
                 Ok(Default::default())
             },
-            None => Err(gml::Error::FunctionError("ds_map_copy".into(), ds::Error::NonexistentStructure(id).into())),
+            None => Err(gml::Error::soft(ds::Error::NonexistentStructure(id))),
         }
     }
 
@@ -11437,7 +11272,7 @@ impl Game {
         let id = expect_args!(args, [int])?;
         match self.maps.get(id) {
             Some(map) => Ok(map.keys.len().into()),
-            None => Err(gml::Error::FunctionError("ds_map_size".into(), ds::Error::NonexistentStructure(id).into())),
+            None => Err(gml::Error::soft(ds::Error::NonexistentStructure(id))),
         }
     }
 
@@ -11445,7 +11280,7 @@ impl Game {
         let id = expect_args!(args, [int])?;
         match self.maps.get(id) {
             Some(map) => Ok(map.keys.is_empty().into()),
-            None => Err(gml::Error::FunctionError("ds_map_empty".into(), ds::Error::NonexistentStructure(id).into())),
+            None => Err(gml::Error::soft(ds::Error::NonexistentStructure(id))),
         }
     }
 
@@ -11458,7 +11293,7 @@ impl Game {
                 map.values.insert(index, val);
                 Ok(Default::default())
             },
-            None => Err(gml::Error::FunctionError("ds_map_add".into(), ds::Error::NonexistentStructure(id).into())),
+            None => Err(gml::Error::soft(ds::Error::NonexistentStructure(id))),
         }
     }
 
@@ -11471,7 +11306,7 @@ impl Game {
                 }
                 Ok(Default::default())
             },
-            None => Err(gml::Error::FunctionError("ds_map_replace".into(), ds::Error::NonexistentStructure(id).into())),
+            None => Err(gml::Error::soft(ds::Error::NonexistentStructure(id))),
         }
     }
 
@@ -11485,7 +11320,7 @@ impl Game {
                 }
                 Ok(Default::default())
             },
-            None => Err(gml::Error::FunctionError("ds_map_delete".into(), ds::Error::NonexistentStructure(id).into())),
+            None => Err(gml::Error::soft(ds::Error::NonexistentStructure(id))),
         }
     }
 
@@ -11493,7 +11328,7 @@ impl Game {
         let (id, key) = expect_args!(args, [int, any])?;
         match self.maps.get(id) {
             Some(map) => Ok(map.contains_key(&key, self.ds_precision).into()),
-            None => Err(gml::Error::FunctionError("ds_map_exists".into(), ds::Error::NonexistentStructure(id).into())),
+            None => Err(gml::Error::soft(ds::Error::NonexistentStructure(id))),
         }
     }
 
@@ -11501,9 +11336,7 @@ impl Game {
         let (id, key) = expect_args!(args, [int, any])?;
         match self.maps.get(id) {
             Some(map) => Ok(map.get_index(&key, self.ds_precision).map_or(0.into(), |i| map.values[i].clone())),
-            None => {
-                Err(gml::Error::FunctionError("ds_map_find_value".into(), ds::Error::NonexistentStructure(id).into()))
-            },
+            None => Err(gml::Error::soft(ds::Error::NonexistentStructure(id))),
         }
     }
 
@@ -11514,10 +11347,7 @@ impl Game {
                 let index = map.get_index_unchecked(&key, self.ds_precision);
                 if index > 0 { Ok(map.keys[index - 1].clone()) } else { Ok(Default::default()) }
             },
-            None => Err(gml::Error::FunctionError(
-                "ds_map_find_previous".into(),
-                ds::Error::NonexistentStructure(id).into(),
-            )),
+            None => Err(gml::Error::soft(ds::Error::NonexistentStructure(id))),
         }
     }
 
@@ -11528,9 +11358,7 @@ impl Game {
                 let index = map.get_next_index(&key, self.ds_precision);
                 if index < map.keys.len() { Ok(map.keys[index].clone()) } else { Ok(Default::default()) }
             },
-            None => {
-                Err(gml::Error::FunctionError("ds_map_find_next".into(), ds::Error::NonexistentStructure(id).into()))
-            },
+            None => Err(gml::Error::soft(ds::Error::NonexistentStructure(id))),
         }
     }
 
@@ -11538,9 +11366,7 @@ impl Game {
         let id = expect_args!(args, [int])?;
         match self.maps.get(id) {
             Some(map) => Ok(map.keys.first().map(Value::clone).unwrap_or_default()),
-            None => {
-                Err(gml::Error::FunctionError("ds_map_find_first".into(), ds::Error::NonexistentStructure(id).into()))
-            },
+            None => Err(gml::Error::soft(ds::Error::NonexistentStructure(id))),
         }
     }
 
@@ -11548,9 +11374,7 @@ impl Game {
         let id = expect_args!(args, [int])?;
         match self.maps.get(id) {
             Some(map) => Ok(map.keys.last().map(Value::clone).unwrap_or_default()),
-            None => {
-                Err(gml::Error::FunctionError("ds_map_find_last".into(), ds::Error::NonexistentStructure(id).into()))
-            },
+            None => Err(gml::Error::soft(ds::Error::NonexistentStructure(id))),
         }
     }
 
@@ -11564,7 +11388,7 @@ impl Game {
                 output.extend(map.values.iter().map(|v| hex::encode_upper(v.as_bytes())));
                 Ok(output.into())
             },
-            None => Err(gml::Error::FunctionError("ds_map_write".into(), ds::Error::NonexistentStructure(id).into())),
+            None => Err(gml::Error::soft(ds::Error::NonexistentStructure(id))),
         }
     }
 
@@ -11600,7 +11424,7 @@ impl Game {
                 }
                 Ok(Default::default())
             },
-            None => Err(gml::Error::FunctionError("ds_map_read".into(), ds::Error::NonexistentStructure(id).into())),
+            None => Err(gml::Error::soft(ds::Error::NonexistentStructure(id))),
         }
     }
 
@@ -11614,7 +11438,7 @@ impl Game {
         if self.priority_queues.delete(id) {
             Ok(Default::default())
         } else {
-            Err(gml::Error::FunctionError("ds_priority_destroy".into(), ds::Error::NonexistentStructure(id).into()))
+            Err(gml::Error::soft(ds::Error::NonexistentStructure(id)))
         }
     }
 
@@ -11626,9 +11450,7 @@ impl Game {
                 pq.values.clear();
                 Ok(Default::default())
             },
-            None => {
-                Err(gml::Error::FunctionError("ds_priority_clear".into(), ds::Error::NonexistentStructure(id).into()))
-            },
+            None => Err(gml::Error::soft(ds::Error::NonexistentStructure(id))),
         }
     }
 
@@ -11636,21 +11458,14 @@ impl Game {
         let (id, src_id) = expect_args!(args, [int, int])?;
         let src = match self.priority_queues.get(src_id) {
             Some(queue) => queue.clone(),
-            None => {
-                return Err(gml::Error::FunctionError(
-                    "ds_priority_copy".into(),
-                    ds::Error::NonexistentStructure(src_id).into(),
-                ))
-            },
+            None => return Err(gml::Error::soft(ds::Error::NonexistentStructure(src_id))),
         };
         match self.priority_queues.get_mut(id) {
             Some(queue) => {
                 *queue = src;
                 Ok(Default::default())
             },
-            None => {
-                Err(gml::Error::FunctionError("ds_priority_copy".into(), ds::Error::NonexistentStructure(id).into()))
-            },
+            None => Err(gml::Error::soft(ds::Error::NonexistentStructure(id))),
         }
     }
 
@@ -11658,9 +11473,7 @@ impl Game {
         let id = expect_args!(args, [int])?;
         match self.priority_queues.get(id) {
             Some(pq) => Ok(pq.priorities.len().into()),
-            None => {
-                Err(gml::Error::FunctionError("ds_priority_size".into(), ds::Error::NonexistentStructure(id).into()))
-            },
+            None => Err(gml::Error::soft(ds::Error::NonexistentStructure(id))),
         }
     }
 
@@ -11668,9 +11481,7 @@ impl Game {
         let id = expect_args!(args, [int])?;
         match self.priority_queues.get(id) {
             Some(pq) => Ok(pq.priorities.is_empty().into()),
-            None => {
-                Err(gml::Error::FunctionError("ds_priority_empty".into(), ds::Error::NonexistentStructure(id).into()))
-            },
+            None => Err(gml::Error::soft(ds::Error::NonexistentStructure(id))),
         }
     }
 
@@ -11682,9 +11493,7 @@ impl Game {
                 pq.values.push(val);
                 Ok(Default::default())
             },
-            None => {
-                Err(gml::Error::FunctionError("ds_priority_add".into(), ds::Error::NonexistentStructure(id).into()))
-            },
+            None => Err(gml::Error::soft(ds::Error::NonexistentStructure(id))),
         }
     }
 
@@ -11698,10 +11507,7 @@ impl Game {
                 }
                 Ok(Default::default())
             },
-            None => Err(gml::Error::FunctionError(
-                "ds_priority_change_priority".into(),
-                ds::Error::NonexistentStructure(id).into(),
-            )),
+            None => Err(gml::Error::soft(ds::Error::NonexistentStructure(id))),
         }
     }
 
@@ -11716,10 +11522,7 @@ impl Game {
                     Ok(Default::default())
                 }
             },
-            None => Err(gml::Error::FunctionError(
-                "ds_priority_find_priority".into(),
-                ds::Error::NonexistentStructure(id).into(),
-            )),
+            None => Err(gml::Error::soft(ds::Error::NonexistentStructure(id))),
         }
     }
 
@@ -11734,10 +11537,7 @@ impl Game {
                 }
                 Ok(Default::default())
             },
-            None => Err(gml::Error::FunctionError(
-                "ds_priority_delete_value".into(),
-                ds::Error::NonexistentStructure(id).into(),
-            )),
+            None => Err(gml::Error::soft(ds::Error::NonexistentStructure(id))),
         }
     }
 
@@ -11752,10 +11552,7 @@ impl Game {
                     Ok(Default::default())
                 }
             },
-            None => Err(gml::Error::FunctionError(
-                "ds_priority_delete_min".into(),
-                ds::Error::NonexistentStructure(id).into(),
-            )),
+            None => Err(gml::Error::soft(ds::Error::NonexistentStructure(id))),
         }
     }
 
@@ -11769,10 +11566,7 @@ impl Game {
                     Ok(Default::default())
                 }
             },
-            None => Err(gml::Error::FunctionError(
-                "ds_priority_find_min".into(),
-                ds::Error::NonexistentStructure(id).into(),
-            )),
+            None => Err(gml::Error::soft(ds::Error::NonexistentStructure(id))),
         }
     }
 
@@ -11787,10 +11581,7 @@ impl Game {
                     Ok(Default::default())
                 }
             },
-            None => Err(gml::Error::FunctionError(
-                "ds_priority_delete_max".into(),
-                ds::Error::NonexistentStructure(id).into(),
-            )),
+            None => Err(gml::Error::soft(ds::Error::NonexistentStructure(id))),
         }
     }
 
@@ -11804,10 +11595,7 @@ impl Game {
                     Ok(Default::default())
                 }
             },
-            None => Err(gml::Error::FunctionError(
-                "ds_priority_find_max".into(),
-                ds::Error::NonexistentStructure(id).into(),
-            )),
+            None => Err(gml::Error::soft(ds::Error::NonexistentStructure(id))),
         }
     }
 
@@ -11821,9 +11609,7 @@ impl Game {
                 output.extend(pq.values.iter().map(|v| hex::encode_upper(v.as_bytes())));
                 Ok(output.into())
             },
-            None => {
-                Err(gml::Error::FunctionError("ds_priority_write".into(), ds::Error::NonexistentStructure(id).into()))
-            },
+            None => Err(gml::Error::soft(ds::Error::NonexistentStructure(id))),
         }
     }
 
@@ -11859,19 +11645,14 @@ impl Game {
                 }
                 Ok(Default::default())
             },
-            None => {
-                Err(gml::Error::FunctionError("ds_priority_read".into(), ds::Error::NonexistentStructure(id).into()))
-            },
+            None => Err(gml::Error::soft(ds::Error::NonexistentStructure(id))),
         }
     }
 
     pub fn ds_grid_create(&mut self, args: &[Value]) -> gml::Result<Value> {
         let (width, height) = expect_args!(args, [int, int])?;
         if width < 0 || height < 0 {
-            return Err(gml::Error::FunctionError(
-                "ds_grid_create".into(),
-                "grids cannot have negative dimensions".to_string(),
-            ))
+            return Err(gml::Error::soft("grids cannot have negative dimensions".to_string()))
         }
         Ok(self.grids.put(ds::Grid::new(width as usize, height as usize)).into())
     }
@@ -11881,7 +11662,7 @@ impl Game {
         if self.grids.delete(id) {
             Ok(Default::default())
         } else {
-            Err(gml::Error::FunctionError("ds_grid_destroy".into(), ds::Error::NonexistentStructure(id).into()))
+            Err(gml::Error::soft(ds::Error::NonexistentStructure(id)))
         }
     }
 
@@ -11889,19 +11670,14 @@ impl Game {
         let (id, src_id) = expect_args!(args, [int, int])?;
         let src_grid = match self.grids.get(src_id) {
             Some(grid) => grid.clone(),
-            None => {
-                return Err(gml::Error::FunctionError(
-                    "ds_grid_copy".into(),
-                    ds::Error::NonexistentStructure(src_id).into(),
-                ))
-            },
+            None => return Err(gml::Error::soft(ds::Error::NonexistentStructure(src_id))),
         };
         match self.grids.get_mut(id) {
             Some(grid) => {
                 *grid = src_grid;
                 Ok(Default::default())
             },
-            None => Err(gml::Error::FunctionError("ds_grid_copy".into(), ds::Error::NonexistentStructure(id).into())),
+            None => Err(gml::Error::soft(ds::Error::NonexistentStructure(id))),
         }
     }
 
@@ -11910,15 +11686,12 @@ impl Game {
         match self.grids.get_mut(id) {
             Some(grid) => {
                 if width < 0 || height < 0 {
-                    return Err(gml::Error::FunctionError(
-                        "ds_grid_resize".into(),
-                        "grids cannot have negative dimensions".to_string(),
-                    ))
+                    return Err(gml::Error::soft("grids cannot have negative dimensions".to_string()))
                 }
                 grid.resize(width as usize, height as usize);
                 Ok(Default::default())
             },
-            None => Err(gml::Error::FunctionError("ds_grid_resize".into(), ds::Error::NonexistentStructure(id).into())),
+            None => Err(gml::Error::soft(ds::Error::NonexistentStructure(id))),
         }
     }
 
@@ -11926,7 +11699,7 @@ impl Game {
         let id = expect_args!(args, [int])?;
         match self.grids.get(id) {
             Some(grid) => Ok(grid.width().into()),
-            None => Err(gml::Error::FunctionError("ds_grid_width".into(), ds::Error::NonexistentStructure(id).into())),
+            None => Err(gml::Error::soft(ds::Error::NonexistentStructure(id))),
         }
     }
 
@@ -11934,7 +11707,7 @@ impl Game {
         let id = expect_args!(args, [int])?;
         match self.grids.get(id) {
             Some(grid) => Ok(grid.height().into()),
-            None => Err(gml::Error::FunctionError("ds_grid_height".into(), ds::Error::NonexistentStructure(id).into())),
+            None => Err(gml::Error::soft(ds::Error::NonexistentStructure(id))),
         }
     }
 
@@ -11947,7 +11720,7 @@ impl Game {
                 }
                 Ok(Default::default())
             },
-            None => Err(gml::Error::FunctionError("ds_grid_clear".into(), ds::Error::NonexistentStructure(id).into())),
+            None => Err(gml::Error::soft(ds::Error::NonexistentStructure(id))),
         }
     }
 
@@ -11959,7 +11732,7 @@ impl Game {
             }
             Ok(Default::default())
         } else {
-            Err(gml::Error::FunctionError("ds_grid_set".into(), ds::Error::NonexistentStructure(id).into()))
+            Err(gml::Error::soft(ds::Error::NonexistentStructure(id)))
         }
     }
 
@@ -11973,7 +11746,7 @@ impl Game {
             }
             Ok(Default::default())
         } else {
-            Err(gml::Error::FunctionError("ds_grid_add".into(), ds::Error::NonexistentStructure(id).into()))
+            Err(gml::Error::soft(ds::Error::NonexistentStructure(id)))
         }
     }
 
@@ -11986,7 +11759,7 @@ impl Game {
             }
             Ok(Default::default())
         } else {
-            Err(gml::Error::FunctionError("ds_grid_multiply".into(), ds::Error::NonexistentStructure(id).into()))
+            Err(gml::Error::soft(ds::Error::NonexistentStructure(id)))
         }
     }
 
@@ -11998,7 +11771,7 @@ impl Game {
             }
             Ok(Default::default())
         } else {
-            Err(gml::Error::FunctionError("ds_grid_set_region".into(), ds::Error::NonexistentStructure(id).into()))
+            Err(gml::Error::soft(ds::Error::NonexistentStructure(id)))
         }
     }
 
@@ -12020,7 +11793,7 @@ impl Game {
             }
             Ok(Default::default())
         } else {
-            Err(gml::Error::FunctionError("ds_grid_set_disk".into(), ds::Error::NonexistentStructure(id).into()))
+            Err(gml::Error::soft(ds::Error::NonexistentStructure(id)))
         }
     }
 
@@ -12054,7 +11827,7 @@ impl Game {
         if let Some(grid) = self.grids.get(id) {
             Ok(grid.get(x, y).cloned().unwrap_or_default())
         } else {
-            Err(gml::Error::FunctionError("ds_grid_get".into(), ds::Error::NonexistentStructure(id).into()))
+            Err(gml::Error::soft(ds::Error::NonexistentStructure(id)))
         }
     }
 
@@ -12063,7 +11836,7 @@ impl Game {
         if let Some(grid) = self.grids.get(id) {
             Ok(grid.region(x1, y1, x2, y2).filter_map(Value::as_real).sum::<Real>().into())
         } else {
-            Err(gml::Error::FunctionError("ds_grid_get_sum".into(), ds::Error::NonexistentStructure(id).into()))
+            Err(gml::Error::soft(ds::Error::NonexistentStructure(id)))
         }
     }
 
@@ -12077,7 +11850,7 @@ impl Game {
                 .fold(Real::from(-100000000), |acc, val| if val >= acc { val } else { acc })
                 .into())
         } else {
-            Err(gml::Error::FunctionError("ds_grid_get_max".into(), ds::Error::NonexistentStructure(id).into()))
+            Err(gml::Error::soft(ds::Error::NonexistentStructure(id)))
         }
     }
 
@@ -12091,7 +11864,7 @@ impl Game {
                 .fold(Real::from(100000000), |acc, val| if val <= acc { val } else { acc })
                 .into())
         } else {
-            Err(gml::Error::FunctionError("ds_grid_get_min".into(), ds::Error::NonexistentStructure(id).into()))
+            Err(gml::Error::soft(ds::Error::NonexistentStructure(id)))
         }
     }
 
@@ -12110,7 +11883,7 @@ impl Game {
                 .unwrap_or_default()
                 .into())
         } else {
-            Err(gml::Error::FunctionError("ds_grid_get_max".into(), ds::Error::NonexistentStructure(id).into()))
+            Err(gml::Error::soft(ds::Error::NonexistentStructure(id)))
         }
     }
 
@@ -12139,7 +11912,7 @@ impl Game {
         if let Some(grid) = self.grids.get(id) {
             Ok(grid.region(x1, y1, x2, y2).any(|cell| ds::cmp(cell, &val, self.ds_precision).is_eq()).into())
         } else {
-            Err(gml::Error::FunctionError("ds_grid_value_exists".into(), ds::Error::NonexistentStructure(id).into()))
+            Err(gml::Error::soft(ds::Error::NonexistentStructure(id)))
         }
     }
 
@@ -12153,7 +11926,7 @@ impl Game {
                 .unwrap_or_default()
                 .into())
         } else {
-            Err(gml::Error::FunctionError("ds_grid_value_x".into(), ds::Error::NonexistentStructure(id).into()))
+            Err(gml::Error::soft(ds::Error::NonexistentStructure(id)))
         }
     }
 
@@ -12167,7 +11940,7 @@ impl Game {
                 .unwrap_or_default()
                 .into())
         } else {
-            Err(gml::Error::FunctionError("ds_grid_value_y".into(), ds::Error::NonexistentStructure(id).into()))
+            Err(gml::Error::soft(ds::Error::NonexistentStructure(id)))
         }
     }
 
@@ -12176,10 +11949,7 @@ impl Game {
         if let Some(grid) = self.grids.get(id) {
             Ok(grid.disk(xm, ym, r).any(|cell| ds::cmp(cell, &val, self.ds_precision).is_eq()).into())
         } else {
-            Err(gml::Error::FunctionError(
-                "ds_grid_value_disk_exists".into(),
-                ds::Error::NonexistentStructure(id).into(),
-            ))
+            Err(gml::Error::soft(ds::Error::NonexistentStructure(id)))
         }
     }
 
@@ -12193,7 +11963,7 @@ impl Game {
                 .unwrap_or_default()
                 .into())
         } else {
-            Err(gml::Error::FunctionError("ds_grid_value_disk_x".into(), ds::Error::NonexistentStructure(id).into()))
+            Err(gml::Error::soft(ds::Error::NonexistentStructure(id)))
         }
     }
 
@@ -12207,7 +11977,7 @@ impl Game {
                 .unwrap_or_default()
                 .into())
         } else {
-            Err(gml::Error::FunctionError("ds_grid_value_disk_y".into(), ds::Error::NonexistentStructure(id).into()))
+            Err(gml::Error::soft(ds::Error::NonexistentStructure(id)))
         }
     }
 
@@ -12227,7 +11997,7 @@ impl Game {
             }
             Ok(output.into())
         } else {
-            Err(gml::Error::FunctionError("ds_grid_write".into(), ds::Error::NonexistentStructure(id).into()))
+            Err(gml::Error::soft(ds::Error::NonexistentStructure(id)))
         }
     }
 
@@ -12261,7 +12031,7 @@ impl Game {
                 }
                 Ok(Default::default())
             },
-            None => Err(gml::Error::FunctionError("ds_grid_read".into(), ds::Error::NonexistentStructure(id).into())),
+            None => Err(gml::Error::soft(ds::Error::NonexistentStructure(id))),
         }
     }
 
@@ -12277,7 +12047,7 @@ impl Game {
             }
             Ok(Default::default())
         } else {
-            Err(gml::Error::NonexistentAsset(asset::Type::Sound, sound_id))
+            Err(gml::Error::no_asset(asset::Type::Sound, sound_id))
         }
     }
 
@@ -12292,7 +12062,7 @@ impl Game {
             }
             Ok(Default::default())
         } else {
-            Err(gml::Error::NonexistentAsset(asset::Type::Sound, sound_id))
+            Err(gml::Error::no_asset(asset::Type::Sound, sound_id))
         }
     }
 
@@ -12325,7 +12095,7 @@ impl Game {
             }
             Ok(Default::default())
         } else {
-            Err(gml::Error::NonexistentAsset(asset::Type::Sound, sound_id))
+            Err(gml::Error::no_asset(asset::Type::Sound, sound_id))
         }
     }
 

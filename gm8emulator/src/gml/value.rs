@@ -2,6 +2,8 @@ use crate::{game::external::dll, gml, math::Real};
 use serde::{Deserialize, Serialize};
 use std::fmt::{self, Display};
 
+type Result<T> = std::result::Result<T, gml::SyntaxError>;
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Value {
     Real(Real),
@@ -20,7 +22,7 @@ impl Display for Value {
 macro_rules! gml_cmp_impl {
     ($($v: vis $fname: ident aka $op_variant: ident: real: $r_cond: expr, string: $s_cond: expr)*) => {
         $(
-            $v fn $fname(self, rhs: Self) -> gml::Result<Self> {
+            $v fn $fname(self, rhs: Self) -> Result<Self> {
                 let freal: fn(Real) -> bool = $r_cond;
                 let fstr: fn(&[u8], &[u8]) -> bool = $s_cond;
                 Ok(if match (self, rhs) {
@@ -39,10 +41,10 @@ macro_rules! gml_cmp_impl {
 
 macro_rules! invalid_op {
     ($op: ident, $value: expr) => {
-        Err(gml::Error::InvalidOperandsUnary(gml_parser::token::Operator::$op, $value))
+        Err(gml::SyntaxError::InvalidOperandsUnary(gml_parser::token::Operator::$op, $value))
     };
     ($op: ident, $left: expr, $right: expr) => {
-        Err(gml::Error::InvalidOperandsBinary(gml_parser::token::Operator::$op, $left, $right))
+        Err(gml::SyntaxError::InvalidOperandsBinary(gml_parser::token::Operator::$op, $left, $right))
     };
 }
 
@@ -179,7 +181,7 @@ impl Value {
     }
 
     /// Unary bit complement.
-    pub fn complement(self) -> gml::Result<Self> {
+    pub fn complement(self) -> Result<Self> {
         match self {
             Self::Real(val) => Ok((!val.round().to_i32()).into()),
             _ => invalid_op!(Complement, self),
@@ -187,7 +189,7 @@ impl Value {
     }
 
     /// GML operator 'div' which gives the whole number of times RHS can go into LHS. In other words floor(lhs/rhs)
-    pub fn intdiv(self, rhs: Self) -> gml::Result<Self> {
+    pub fn intdiv(self, rhs: Self) -> Result<Self> {
         match (self, rhs) {
             (Self::Real(lhs), Self::Real(rhs)) => Ok((lhs / rhs).floor().into()),
             (x, y) => invalid_op!(IntDivide, x, y),
@@ -195,21 +197,21 @@ impl Value {
     }
 
     /// GML && operator
-    pub fn bool_and(self, rhs: Self) -> gml::Result<Self> {
+    pub fn bool_and(self, rhs: Self) -> Result<Self> {
         Ok((self.is_truthy() && rhs.is_truthy()).into())
     }
 
     /// GML || operator
-    pub fn bool_or(self, rhs: Self) -> gml::Result<Self> {
+    pub fn bool_or(self, rhs: Self) -> Result<Self> {
         Ok((self.is_truthy() || rhs.is_truthy()).into())
     }
 
     /// GML ^^ operator
-    pub fn bool_xor(self, rhs: Self) -> gml::Result<Self> {
+    pub fn bool_xor(self, rhs: Self) -> Result<Self> {
         Ok((self.is_truthy() != rhs.is_truthy()).into())
     }
 
-    pub fn add(self, rhs: Self) -> gml::Result<Self> {
+    pub fn add(self, rhs: Self) -> Result<Self> {
         match (self, rhs) {
             (Self::Real(lhs), Self::Real(rhs)) => Ok((lhs + rhs).into()),
             (Self::Str(lhs), Self::Str(rhs)) => {
@@ -222,7 +224,7 @@ impl Value {
         }
     }
 
-    pub fn add_assign(&mut self, rhs: Self) -> gml::Result<()> {
+    pub fn add_assign(&mut self, rhs: Self) -> Result<()> {
         match (self, rhs) {
             (Self::Real(lhs), Self::Real(rhs)) => Ok(*lhs += rhs),
             (Self::Str(lhs), Self::Str(ref rhs)) => {
@@ -237,70 +239,70 @@ impl Value {
         }
     }
 
-    pub fn bitand(self, rhs: Self) -> gml::Result<Self> {
+    pub fn bitand(self, rhs: Self) -> Result<Self> {
         match (self, rhs) {
             (Self::Real(lhs), Self::Real(rhs)) => Ok((lhs.round().to_i32() & rhs.round().to_i32()).into()),
             (x, y) => invalid_op!(BitwiseAnd, x, y),
         }
     }
 
-    pub fn bitand_assign(&mut self, rhs: Self) -> gml::Result<()> {
+    pub fn bitand_assign(&mut self, rhs: Self) -> Result<()> {
         match (self, rhs) {
             (Self::Real(lhs), Self::Real(rhs)) => Ok(*lhs = (lhs.round().to_i32() & rhs.round().to_i32()).into()),
             (x, y) => invalid_op!(AssignBitwiseAnd, x.clone(), y),
         }
     }
 
-    pub fn bitor(self, rhs: Self) -> gml::Result<Self> {
+    pub fn bitor(self, rhs: Self) -> Result<Self> {
         match (self, rhs) {
             (Self::Real(lhs), Self::Real(rhs)) => Ok((lhs.round().to_i32() | rhs.round().to_i32()).into()),
             (x, y) => invalid_op!(BitwiseOr, x, y),
         }
     }
 
-    pub fn bitor_assign(&mut self, rhs: Self) -> gml::Result<()> {
+    pub fn bitor_assign(&mut self, rhs: Self) -> Result<()> {
         match (self, rhs) {
             (Self::Real(lhs), Self::Real(rhs)) => Ok(*lhs = (lhs.round().to_i32() | rhs.round().to_i32()).into()),
             (x, y) => invalid_op!(AssignBitwiseOr, x.clone(), y),
         }
     }
 
-    pub fn bitxor(self, rhs: Self) -> gml::Result<Self> {
+    pub fn bitxor(self, rhs: Self) -> Result<Self> {
         match (self, rhs) {
             (Self::Real(lhs), Self::Real(rhs)) => Ok((lhs.round().to_i32() ^ rhs.round().to_i32()).into()),
             (x, y) => invalid_op!(BitwiseXor, x, y),
         }
     }
 
-    pub fn bitxor_assign(&mut self, rhs: Self) -> gml::Result<()> {
+    pub fn bitxor_assign(&mut self, rhs: Self) -> Result<()> {
         match (self, rhs) {
             (Self::Real(lhs), Self::Real(rhs)) => Ok(*lhs = (lhs.round().to_i32() ^ rhs.round().to_i32()).into()),
             (x, y) => invalid_op!(AssignBitwiseXor, x.clone(), y),
         }
     }
 
-    pub fn div(self, rhs: Self) -> gml::Result<Self> {
+    pub fn div(self, rhs: Self) -> Result<Self> {
         match (self, rhs) {
             (Self::Real(lhs), Self::Real(rhs)) => Ok((lhs / rhs).into()),
             (x, y) => invalid_op!(Divide, x, y),
         }
     }
 
-    pub fn div_assign(&mut self, rhs: Self) -> gml::Result<()> {
+    pub fn div_assign(&mut self, rhs: Self) -> Result<()> {
         match (self, rhs) {
             (Self::Real(lhs), Self::Real(rhs)) => Ok(*lhs /= rhs),
             (x, y) => invalid_op!(AssignDivide, x.clone(), y),
         }
     }
 
-    pub fn modulo(self, rhs: Self) -> gml::Result<Self> {
+    pub fn modulo(self, rhs: Self) -> Result<Self> {
         match (self, rhs) {
             (Self::Real(lhs), Self::Real(rhs)) => Ok((lhs % rhs).into()),
             (x, y) => invalid_op!(Modulo, x, y),
         }
     }
 
-    pub fn mul(self, rhs: Self) -> gml::Result<Self> {
+    pub fn mul(self, rhs: Self) -> Result<Self> {
         match (self, rhs) {
             (Self::Real(lhs), Self::Real(rhs)) => Ok((lhs * rhs).into()),
             (Self::Real(lhs), Self::Str(rhs)) => Ok({
@@ -311,49 +313,49 @@ impl Value {
         }
     }
 
-    pub fn mul_assign(&mut self, rhs: Self) -> gml::Result<()> {
+    pub fn mul_assign(&mut self, rhs: Self) -> Result<()> {
         match (self, rhs) {
             (Self::Real(lhs), Self::Real(rhs)) => Ok(*lhs *= rhs),
             (x, y) => invalid_op!(AssignMultiply, x.clone(), y),
         }
     }
 
-    pub fn neg(self) -> gml::Result<Self> {
+    pub fn neg(self) -> Result<Self> {
         match self {
             Self::Real(f) => Ok((-f).into()),
             Self::Str(_) => invalid_op!(Subtract, self),
         }
     }
 
-    pub fn not(self) -> gml::Result<Self> {
+    pub fn not(self) -> Result<Self> {
         match self {
             Self::Real(_) => Ok((!self.is_truthy()).into()),
             Self::Str(_) => invalid_op!(Not, self),
         }
     }
 
-    pub fn shl(self, rhs: Self) -> gml::Result<Self> {
+    pub fn shl(self, rhs: Self) -> Result<Self> {
         match (self, rhs) {
             (Self::Real(lhs), Self::Real(rhs)) => Ok((lhs.round().to_i32() << rhs.round().to_i32()).into()),
             (x, y) => invalid_op!(BinaryShiftLeft, x, y),
         }
     }
 
-    pub fn shr(self, rhs: Self) -> gml::Result<Self> {
+    pub fn shr(self, rhs: Self) -> Result<Self> {
         match (self, rhs) {
             (Self::Real(lhs), Self::Real(rhs)) => Ok((lhs.round().to_i32() >> rhs.round().to_i32()).into()),
             (x, y) => invalid_op!(BinaryShiftRight, x, y),
         }
     }
 
-    pub fn sub(self, rhs: Self) -> gml::Result<Self> {
+    pub fn sub(self, rhs: Self) -> Result<Self> {
         match (self, rhs) {
             (Self::Real(lhs), Self::Real(rhs)) => Ok((lhs - rhs).into()),
             (x, y) => invalid_op!(Subtract, x, y),
         }
     }
 
-    pub fn sub_assign(&mut self, rhs: Self) -> gml::Result<()> {
+    pub fn sub_assign(&mut self, rhs: Self) -> Result<()> {
         match (self, rhs) {
             (Self::Real(lhs), Self::Real(rhs)) => Ok(*lhs -= rhs),
             (x, y) => invalid_op!(AssignSubtract, x.clone(), y),

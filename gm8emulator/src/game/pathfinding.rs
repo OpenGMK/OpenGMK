@@ -29,10 +29,12 @@ pub enum Error {
     NonexistentStructure(i32),
 }
 
-impl From<Error> for String {
-    fn from(e: Error) -> Self {
-        match e {
-            Error::NonexistentStructure(id) => format!("mp_grid with index {} does not exist", id),
+impl std::error::Error for Error {}
+
+impl std::fmt::Display for Error {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            Error::NonexistentStructure(id) => write!(f, "mp_grid with index {} does not exist", id),
         }
     }
 }

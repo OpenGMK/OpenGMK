@@ -254,30 +254,34 @@ impl Game {
                             .room
                             .instance_list
                             .insert_dummy(Instance::new_dummy(game.assets.objects.get_asset(0).map(|x| x.as_ref())));
-                        game.execute(&instructions, &mut Context {
-                            this: dummy_instance,
-                            other: dummy_instance,
-                            arguments: [
-                                surf_old.into(),
-                                surf_new.into(),
-                                width.into(),
-                                height.into(),
-                                progress.into(),
-                                Default::default(),
-                                Default::default(),
-                                Default::default(),
-                                Default::default(),
-                                Default::default(),
-                                Default::default(),
-                                Default::default(),
-                                Default::default(),
-                                Default::default(),
-                                Default::default(),
-                                Default::default(),
-                            ],
-                            argument_count: 5,
-                            ..Default::default()
-                        })?;
+                        game.try_execute(
+                            &instructions,
+                            &mut Context {
+                                this: dummy_instance,
+                                other: dummy_instance,
+                                arguments: [
+                                    surf_old.into(),
+                                    surf_new.into(),
+                                    width.into(),
+                                    height.into(),
+                                    progress.into(),
+                                    Default::default(),
+                                    Default::default(),
+                                    Default::default(),
+                                    Default::default(),
+                                    Default::default(),
+                                    Default::default(),
+                                    Default::default(),
+                                    Default::default(),
+                                    Default::default(),
+                                    Default::default(),
+                                    Default::default(),
+                                ],
+                                argument_count: 5,
+                                ..Default::default()
+                            },
+                            false,
+                        )?;
                         game.room.instance_list.remove_dummy(dummy_instance);
                     }
                 } else {

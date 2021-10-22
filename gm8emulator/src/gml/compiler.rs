@@ -219,7 +219,7 @@ impl Compiler {
                     });
                 } else {
                     output.push(Instruction::RuntimeError {
-                        error: gml::Error::InvalidSwitchBody(switch_expr.body.to_string()),
+                        error: gml::SyntaxError::InvalidSwitchBody(switch_expr.body.to_string()),
                     });
                 }
             },
@@ -261,7 +261,7 @@ impl Compiler {
 
             // Unknown/invalid AST
             _ => {
-                output.push(Instruction::RuntimeError { error: gml::Error::UnexpectedASTExpr(line.to_string()) });
+                output.push(Instruction::RuntimeError { error: gml::SyntaxError::UnexpectedASTExpr(line.to_string()) });
             },
         }
     }
@@ -291,14 +291,14 @@ impl Compiler {
                         let owner = self.make_instance_identifier(&binary_expr.left, locals);
                         self.identifier_to_variable(var_name, Some(owner), ArrayAccessor::None, locals)
                     },
-                    _ => Node::RuntimeError { error: gml::Error::InvalidDeref(binary_expr.right.to_string()) },
+                    _ => Node::RuntimeError { error: gml::SyntaxError::InvalidDeref(binary_expr.right.to_string()) },
                 },
 
                 Operator::Index => match &binary_expr.right {
                     ast::Expr::Group(dimensions) => {
                         let accessor = match self.make_array_accessor(dimensions, locals) {
                             Ok(a) => a,
-                            Err(e) => return Node::RuntimeError { error: gml::Error::TooManyArrayDimensions(e) },
+                            Err(e) => return Node::RuntimeError { error: gml::SyntaxError::TooManyArrayDimensions(e) },
                         };
                         match &binary_expr.left {
                             ast::Expr::LiteralIdentifier(string) => {
@@ -315,16 +315,18 @@ impl Compiler {
                                     self.identifier_to_variable(i, Some(owner), accessor, locals)
                                 } else {
                                     Node::RuntimeError {
-                                        error: gml::Error::InvalidIndexLhs(format!("{:?}", binary_expr)),
+                                        error: gml::SyntaxError::InvalidIndexLhs(format!("{:?}", binary_expr)),
                                     }
                                 }
                             },
-                            _ => {
-                                Node::RuntimeError { error: gml::Error::InvalidIndexLhs(binary_expr.left.to_string()) }
+                            _ => Node::RuntimeError {
+                                error: gml::SyntaxError::InvalidIndexLhs(binary_expr.left.to_string()),
                             },
                         }
                     },
-                    _ => Node::RuntimeError { error: gml::Error::InvalidArrayAccessor(binary_expr.right.to_string()) },
+                    _ => Node::RuntimeError {
+                        error: gml::SyntaxError::InvalidArrayAccessor(binary_expr.right.to_string()),
+                    },
                 },
 
                 op => {
@@ -349,7 +351,7 @@ impl Compiler {
                         Operator::Or => BinaryOperator::Or,
                         Operator::Subtract => BinaryOperator::Subtract,
                         Operator::Xor => BinaryOperator::Xor,
-                        op => return Node::RuntimeError { error: gml::Error::InvalidBinaryOperator(*op) },
+                        op => return Node::RuntimeError { error: gml::SyntaxError::InvalidBinaryOperator(*op) },
                     };
 
                     let left = self.compile_ast_expr(&binary_expr.left, locals);
@@ -390,7 +392,7 @@ impl Compiler {
                     Node::Function { args, function_id }
                 } else {
                     Node::RuntimeError {
-                        error: gml::Error::UnknownFunction(String::from_utf8_lossy(function.name).into()),
+                        error: gml::SyntaxError::UnknownFunction(String::from_utf8_lossy(function.name).into()),
                     }
                 }
             },
@@ -402,7 +404,7 @@ impl Compiler {
                     Operator::Subtract => UnaryOperator::Neg,
                     Operator::Not => UnaryOperator::Not,
                     Operator::Complement => UnaryOperator::Complement,
-                    _ => return Node::RuntimeError { error: gml::Error::InvalidUnaryOperator(unary_expr.op) },
+                    _ => return Node::RuntimeError { error: gml::SyntaxError::InvalidUnaryOperator(unary_expr.op) },
                 };
                 match new_node {
                     Node::Literal { value } => match operator.call(value) {
@@ -413,7 +415,7 @@ impl Compiler {
                 }
             },
 
-            _ => Node::RuntimeError { error: gml::Error::UnexpectedASTExpr(expr.to_string()) },
+            _ => Node::RuntimeError { error: gml::SyntaxError::UnexpectedASTExpr(expr.to_string()) },
         }
     }
 
@@ -470,14 +472,16 @@ impl Compiler {
                         self.make_set_instruction(string, Some(owner), ArrayAccessor::None, value, locals)
                     }
                 } else {
-                    Instruction::RuntimeError { error: gml::Error::InvalidDeref(binary_expr.right.to_string()) }
+                    Instruction::RuntimeError { error: gml::SyntaxError::InvalidDeref(binary_expr.right.to_string()) }
                 }
             },
             ast::Expr::Binary(binary_expr) if binary_expr.op == Operator::Index => {
                 if let ast::Expr::Group(dimensions) = &binary_expr.right {
                     let accessor = match self.make_array_accessor(dimensions, locals) {
                         Ok(a) => a,
-                        Err(e) => return Instruction::RuntimeError { error: gml::Error::TooManyArrayDimensions(e) },
+                        Err(e) => {
+                            return Instruction::RuntimeError { error: gml::SyntaxError::TooManyArrayDimensions(e) }
+                        },
                     };
                     match &binary_expr.left {
                         ast::Expr::LiteralIdentifier(string) => {
@@ -497,19 +501,19 @@ impl Compiler {
                                 }
                             } else {
                                 Instruction::RuntimeError {
-                                    error: gml::Error::InvalidDeref(binary_expr.right.to_string()),
+                                    error: gml::SyntaxError::InvalidDeref(binary_expr.right.to_string()),
                                 }
                             }
                         },
                         _ => Instruction::RuntimeError {
-                            error: gml::Error::InvalidIndexLhs(binary_expr.left.to_string()),
+                            error: gml::SyntaxError::InvalidIndexLhs(binary_expr.left.to_string()),
                         },
                     }
                 } else {
-                    Instruction::RuntimeError { error: gml::Error::InvalidIndex(binary_expr.right.to_string()) }
+                    Instruction::RuntimeError { error: gml::SyntaxError::InvalidIndex(binary_expr.right.to_string()) }
                 }
             },
-            _ => Instruction::RuntimeError { error: gml::Error::InvalidAssignment(binary_expr.left.to_string()) },
+            _ => Instruction::RuntimeError { error: gml::SyntaxError::InvalidAssignment(binary_expr.left.to_string()) },
         }
     }
 

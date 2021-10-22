@@ -130,6 +130,9 @@ pub struct Game {
     pub uninit_args_are_zero: bool,
     pub swap_creation_events: bool,
 
+    pub all_errors_abort: bool,
+    pub show_errors: bool,
+
     pub potential_step_settings: pathfinding::PotentialStepSettings,
 
     pub fps: u32,                 // initially 0
@@ -1234,6 +1237,8 @@ impl Game {
             uninit_fields_are_zero: settings.zero_uninitialized_vars,
             uninit_args_are_zero: !settings.error_on_uninitialized_args,
             swap_creation_events: settings.swap_creation_events,
+            all_errors_abort: settings.always_abort,
+            show_errors: settings.show_error_messages,
             potential_step_settings: Default::default(),
             transition_kind: 0,
             transition_steps: 80,
@@ -1470,7 +1475,7 @@ impl Game {
                 )
             }
         } else {
-            return Err(gml::Error::NonexistentAsset(asset::Type::Room, room_id).into())
+            return Err(gml::HardError::InvalidRoom.into())
         };
 
         // Update this early so the other events run
@@ -1608,7 +1613,7 @@ impl Game {
                 // Run this instance's room creation code
                 let mut new_context = Context::with_single_instance(*handle);
                 new_context.event_object = instance.object;
-                self.execute(&instance.creation.clone()?, &mut new_context)?;
+                self.try_execute(&instance.creation.clone()?, &mut new_context, false)?;
 
                 if !self.swap_creation_events {
                     // Run create event for this instance
@@ -1630,7 +1635,7 @@ impl Game {
                 .instance_list
                 .insert_dummy(Instance::new_dummy(self.assets.objects.get_asset(0).map(|x| x.as_ref())));
             let mut new_context = Context::with_single_instance(dummy_instance);
-            self.execute(&room.creation_code?, &mut new_context)?;
+            self.try_execute(&room.creation_code?, &mut new_context, false)?;
             self.room.instance_list.remove_dummy(dummy_instance);
         }
 
@@ -1734,22 +1739,26 @@ impl Game {
         use std::io::Read;
         self.input.keyboard_clear_all();
         self.input.mouse_clear_all();
-        let mut file = std::fs::File::open(path)
-            .map(std::io::BufReader::new)
-            .map_err(|e| gml::Error::FunctionError("game_load".into(), format!("{}", e)))?;
-        let mut magnum = [0u8; 4];
-        file.read(&mut magnum).map_err(|e| gml::Error::FunctionError("game_load".into(), format!("{}", e)))?;
-        if magnum != [0x1d, 0x02, 0x00, 0x00] {
-            return Err(Box::new(gml::Error::FunctionError(
-                "game_load".into(),
-                "tried to load wrong version of save file".into(),
-            )))
+        let load = || -> gml::Result<()> {
+            let mut file = match std::fs::File::open(path) {
+                Ok(f) => std::io::BufReader::new(f),
+                Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(()),
+                Err(e) => return Err(gml::Error::soft(e)),
+            };
+            let mut magnum = [0u8; 4];
+            file.read(&mut magnum).map_err(gml::Error::soft)?;
+            if magnum != [0x1d, 0x02, 0x00, 0x00] {
+                return Err(gml::Error::soft("tried to load wrong version of save file"))
+            }
+            let save: GMSave = bincode::deserialize_from(file).map_err(gml::Error::soft)?;
+            save.into_game(self).map_err(gml::Error::soft)?;
+            self.scene_change = None;
+            Ok(())
+        };
+        match load() {
+            Err(e @ gml::Error::Soft(_, _)) => self.throw_error(e).map(|_| ()).map_err(From::from),
+            res => res.map_err(From::from),
         }
-        let save: GMSave = bincode::deserialize_from(file)
-            .map_err(|e| gml::Error::FunctionError("game_load".into(), format!("{}", e)))?;
-        save.into_game(self).map_err(|e| gml::Error::FunctionError("game_load".into(), e))?;
-        self.scene_change = None;
-        Ok(Default::default())
     }
 
     /// Runs a frame loop and draws the screen. Exits immediately, without waiting for any FPS limitation.
@@ -2000,7 +2009,7 @@ impl Game {
                 },
                 external::Call::Ipc(_) => {
                     let args = convert_args();
-                    Ok(self.externals.call_ipc(id as _, &args).into())
+                    Ok(self.externals.call_ipc(id as _, &args)?)
                 },
             }
         } else {
@@ -2020,7 +2029,6 @@ impl Game {
             Some(ExtensionFunction::Dll(id)) => {
                 let id = *id;
                 self.call_external(id, context, &args[..arg_count])
-                    .map_err(|err| gml::Error::ExternalFunction(sym, err.to_string()))
             },
             Some(ExtensionFunction::Gml(gml)) => {
                 let instructions = gml.clone();
@@ -2041,7 +2049,7 @@ impl Game {
                 .instance_list
                 .insert_dummy(Instance::new_dummy(self.assets.objects.get_asset(0).map(|x| x.as_ref())));
             let instructions = self.compiler.compile(&self.library_init_strings[i])?;
-            self.execute(&instructions, &mut Context::with_single_instance(dummy_instance))?;
+            self.try_execute(&instructions, &mut Context::with_single_instance(dummy_instance), true)?;
             self.room.instance_list.remove_dummy(dummy_instance);
         }
 
@@ -2062,6 +2070,19 @@ impl Game {
 
         // Load first room
         self.load_room(self.room.id)
+    }
+
+    pub fn throw_error(&self, error: gml::Error) -> gml::Result<gml::Value> {
+        if !self.all_errors_abort && !self.show_errors {
+            match error {
+                gml::Error::Soft(e, v) => {
+                    println!("WARNING: ignored error: {}", e);
+                    return Ok(v)
+                },
+                _ => (),
+            }
+        }
+        Err(error)
     }
 
     /// Gets the whole String to be used as the window title, including score and lives if applicable

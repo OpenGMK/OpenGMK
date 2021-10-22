@@ -1,6 +1,6 @@
 #![cfg(not(all(target_os = "windows", target_arch = "x86")))]
 
-use super::dll;
+use super::{dll, Error};
 use byteorder::{ReadBytesExt, WriteBytesExt, LE};
 use dll::PROTOCOL_VERSION;
 use serde::de;
@@ -31,17 +31,20 @@ impl IpcManager {
         Self { child: None }
     }
 
-    pub fn define(&mut self, signature: &dll::ExternalSignature) -> Result<IpcExternal, String> {
+    pub fn define(&mut self, signature: &dll::ExternalSignature) -> Result<IpcExternal, Error> {
         // would just use get_or_insert for this but then i can't throw errors
         let child = match &mut self.child {
             Some(child) => child,
-            None => self.child.get_or_insert(ChildProcess::new()?),
+            None => self.child.get_or_insert(ChildProcess::new().map_err(Error::Ipc)?),
         };
         child.send(dll::Wow64Message::Define(signature.clone())).map(IpcExternal)
     }
 
-    pub fn call(&mut self, external: &IpcExternal, args: &[dll::Value]) -> dll::Value {
-        self.child.as_mut().unwrap().send(dll::Wow64Message::Call(external.0, args.to_vec())).unwrap()
+    pub fn call(&mut self, external: &IpcExternal, args: &[dll::Value]) -> Result<dll::Value, Error> {
+        self.child
+            .as_mut()
+            .ok_or_else(|| Error::Ipc("external called before child created".into()))?
+            .send(dll::Wow64Message::Call(external.0, args.to_vec()))
     }
 
     pub fn free(&mut self, external: IpcExternal) {
@@ -81,7 +84,7 @@ impl ChildProcess {
         Ok(Self { child, msgbuf: Vec::new(), stdin, stdout })
     }
 
-    pub fn send<T>(&mut self, message: dll::Wow64Message) -> Result<T, String>
+    pub fn send<T>(&mut self, message: dll::Wow64Message) -> Result<T, Error>
     where
         T: for<'de> de::Deserialize<'de>,
     {
@@ -92,7 +95,7 @@ impl ChildProcess {
             .write_u32::<LE>(self.msgbuf.len() as u32)
             .and_then(|_| self.stdin.write_all(self.msgbuf.as_slice()))
             .and_then(|_| self.stdin.flush())
-            .map_err(|io| format!("failed to write to child stdin: {}", io))?;
+            .map_err(|io| Error::Ipc(format!("failed to write to child stdin: {}", io)))?;
         self.stdout
             .read_u32::<LE>()
             .and_then(|len| {
@@ -102,10 +105,10 @@ impl ChildProcess {
                 unsafe { self.msgbuf.set_len(length) };
                 self.stdout.read_exact(self.msgbuf.as_mut_slice())
             })
-            .map_err(|io| format!("failed to read from child stdout: {}", io))?;
+            .map_err(|io| Error::Ipc(format!("failed to read from child stdout: {}", io)))?;
         let response = bincode::deserialize::<Result<T, String>>(self.msgbuf.as_slice())
             .expect("failed to deserialize message (client)");
-        response
+        response.map_err(Error::Native)
     }
 }
 

@@ -247,7 +247,7 @@ impl Game {
             }
             Ok(())
         } else {
-            Err(gml::Error::NonexistentAsset(asset::Type::Sprite, instance.sprite_index.get()))
+            Err(gml::Error::no_asset(asset::Type::Sprite, instance.sprite_index.get()))
         }
     }
 

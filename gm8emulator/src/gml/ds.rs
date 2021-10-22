@@ -30,6 +30,15 @@ pub struct Grid {
 pub enum Error {
     NonexistentStructure(i32),
 }
+impl std::error::Error for Error {}
+
+impl std::fmt::Display for Error {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            Self::NonexistentStructure(id) => write!(f, "data structure with index {} does not exist", id),
+        }
+    }
+}
 
 impl From<Error> for String {
     fn from(e: Error) -> Self {
