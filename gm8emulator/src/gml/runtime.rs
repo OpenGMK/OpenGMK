@@ -135,7 +135,36 @@ pub enum InstanceIdentifier {
 }
 
 #[derive(Debug)]
-pub enum Error {
+pub enum TraceEntry {
+    Function(&'static str),
+    Script(String),
+    ExtensionFunction(usize),
+}
+
+#[derive(Debug)]
+pub struct Error {
+    pub error: ErrorType,
+    pub traceback: Vec<TraceEntry>,
+}
+
+impl std::error::Error for Error {}
+
+impl Display for Error {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.error)?;
+        for entry in &self.traceback {
+            match entry {
+                TraceEntry::Function(s) => write!(f, " in function {}", s)?,
+                TraceEntry::Script(s) => write!(f, " in script {}", s)?,
+                TraceEntry::ExtensionFunction(s) => write!(f, " in extension function {}", s)?,
+            }
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug)]
+pub enum ErrorType {
     /// GM8-recognized error that cannot be ignored.
     Hard(HardError),
     /// GM8-recognized error, handled immediately, may be ignored.
@@ -148,9 +177,7 @@ pub enum Error {
     Emu(EmuError),
 }
 
-impl std::error::Error for Error {}
-
-impl std::fmt::Display for Error {
+impl std::fmt::Display for ErrorType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Hard(e) => write!(f, "hard error: {}", e),
@@ -162,25 +189,35 @@ impl std::fmt::Display for Error {
     }
 }
 
+impl From<ErrorType> for Error {
+    fn from(error: ErrorType) -> Self {
+        Self { error, traceback: vec![] }
+    }
+}
+
 impl Error {
     pub fn soft(s: impl Display) -> Self {
-        Self::Soft(s.to_string(), Default::default())
+        ErrorType::Soft(s.to_string(), Default::default()).into()
     }
 
     pub fn no_asset(ty: asset::Type, id: i32) -> Self {
-        Self::Soft(format!("nonexistent asset id {} ({})", id, ty), Default::default())
+        ErrorType::Soft(format!("nonexistent asset id {} ({})", id, ty), Default::default()).into()
     }
 
     pub fn no_asset_min1(ty: asset::Type, id: i32) -> Self {
-        Self::Soft(format!("nonexistent asset id {} ({})", id, ty), (-1).into())
+        ErrorType::Soft(format!("nonexistent asset id {} ({})", id, ty), (-1).into()).into()
     }
 
     pub fn soft_min1(s: impl Display) -> Self {
-        Self::Soft(s.to_string(), (-1).into())
+        ErrorType::Soft(s.to_string(), (-1).into()).into()
+    }
+
+    pub fn soft_str(s: impl Display) -> Self {
+        ErrorType::Soft(s.to_string(), "".into()).into()
     }
 
     pub fn delphi(s: impl Display) -> Self {
-        Self::Delphi(s.to_string())
+        ErrorType::Delphi(s.to_string()).into()
     }
 }
 
@@ -207,7 +244,7 @@ impl Display for EmuError {
 
 impl From<EmuError> for Error {
     fn from(e: EmuError) -> Self {
-        Self::Emu(e)
+        ErrorType::Emu(e).into()
     }
 }
 
@@ -276,7 +313,7 @@ impl Display for SyntaxError {
 
 impl From<SyntaxError> for Error {
     fn from(e: SyntaxError) -> Self {
-        Self::Syntax(e, Default::default())
+        ErrorType::Syntax(e, Default::default()).into()
     }
 }
 
@@ -303,7 +340,7 @@ impl Display for HardError {
 
 impl From<HardError> for Error {
     fn from(e: HardError) -> Self {
-        Self::Hard(e)
+        ErrorType::Hard(e).into()
     }
 }
 
@@ -408,7 +445,10 @@ impl Game {
     pub fn invoke(&mut self, function_id: usize, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         match mappings::FUNCTIONS.index(function_id).unwrap().1.invoke(self, context, args) {
             res @ Ok(_) => res,
-            Err(e) => self.throw_error(e),
+            Err(mut e) => {
+                e.traceback.push(gml::TraceEntry::Function(mappings::FUNCTIONS.index(function_id).unwrap().0));
+                self.throw_error(e)
+            },
         }
     }
 
@@ -420,7 +460,7 @@ impl Game {
         error_fatal: bool,
     ) -> gml::Result<ReturnType> {
         match self.execute(instructions, context) {
-            Err(Error::Syntax(e, opt)) if !self.all_errors_abort && !self.show_errors => {
+            Err(gml::Error { error: ErrorType::Syntax(e, opt), .. }) if !self.all_errors_abort && !self.show_errors => {
                 println!("WARNING: ignored error: {}", e);
                 if let Some(val) = opt {
                     context.return_value = val;
@@ -704,16 +744,14 @@ impl Game {
                 self.invoke(*function_id, context, &arg_values[..args.len()])
             },
             Node::Script { args, script_id } => {
-                if let Some(Some(script)) = self.assets.scripts.get(*script_id) {
-                    let instructions = script.compiled.clone();
-
+                if self.assets.scripts.get(*script_id).is_some() {
                     let mut arg_values: [Value; 16] = Default::default();
                     for (src, dest) in args.iter().zip(arg_values.iter_mut()) {
                         *dest = self.eval(src, context)?;
                     }
 
                     let mut new_context = Context::copy_with_args(context, arg_values, args.len());
-                    self.execute(&instructions, &mut new_context)?;
+                    self.run_script(*script_id, &mut new_context)?;
                     Ok(new_context.return_value)
                 } else {
                     Err(Error::no_asset(asset::Type::Script, *script_id as i32))

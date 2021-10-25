@@ -3065,9 +3065,7 @@ impl Game {
 
     pub fn action_execute_script(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (script_id, arg1, arg2, arg3, arg4, arg5) = expect_args!(args, [int, any, any, any, any, any])?;
-        if let Some(script) = self.assets.scripts.get_asset(script_id) {
-            let instructions = script.compiled.clone();
-
+        if self.assets.scripts.get_asset(script_id).is_some() {
             let mut new_context = Context::copy_with_args(
                 context,
                 [
@@ -3090,7 +3088,7 @@ impl Game {
                 ],
                 5,
             );
-            self.execute(&instructions, &mut new_context)?;
+            self.run_script(script_id as usize, &mut new_context)?;
             Ok(new_context.return_value)
         } else {
             Err(gml::Error::no_asset(asset::Type::Script, script_id))
@@ -5841,7 +5839,7 @@ impl Game {
     pub fn file_text_read_string(&mut self, args: &[Value]) -> gml::Result<Value> {
         let handle = expect_args!(args, [int])?;
         let f = self.text_files.get_mut(handle - 1).ok_or(gml::Error::soft(file::Error::InvalidFile(handle)))?;
-        f.read_string().map(Value::from).map_err(|e| gml::Error::Soft(e.to_string(), "".into()))
+        f.read_string().map(Value::from).map_err(gml::Error::soft_str)
     }
 
     pub fn file_text_read_real(&mut self, args: &[Value]) -> gml::Result<Value> {
@@ -9060,14 +9058,13 @@ impl Game {
     pub fn script_execute(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         if let Some(script_id) = args.get(0) {
             let script_id = script_id.round();
-            if let Some(script) = self.assets.scripts.get_asset(script_id) {
-                let instructions = script.compiled.clone();
+            if self.assets.scripts.get_asset(script_id).is_some() {
                 let mut new_args: [Value; 16] = Default::default();
                 for (src, dest) in args[1..].iter().zip(new_args.iter_mut()) {
                     *dest = src.clone();
                 }
                 let mut new_context = Context::copy_with_args(context, new_args, args.len() - 1);
-                self.execute(&instructions, &mut new_context)?;
+                self.run_script(script_id as usize, &mut new_context)?;
                 Ok(new_context.return_value)
             } else {
                 Err(gml::Error::no_asset(asset::Type::Script, script_id))

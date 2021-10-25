@@ -1756,7 +1756,9 @@ impl Game {
             Ok(())
         };
         match load() {
-            Err(e @ gml::Error::Soft(_, _)) => self.throw_error(e).map(|_| ()).map_err(From::from),
+            Err(e) if matches!(e.error, gml::ErrorType::Soft(_, _)) => {
+                self.throw_error(e).map(|_| ()).map_err(From::from)
+            },
             res => res.map_err(From::from),
         }
     }
@@ -1981,6 +1983,20 @@ impl Game {
         }
     }
 
+    pub fn run_script(&mut self, id: usize, context: &mut Context) -> gml::Result<()> {
+        if let Some(Some(script)) = self.assets.scripts.get(id) {
+            let instructions = script.compiled.clone();
+            let name = script.name.clone();
+            self.execute(&instructions, context).map_err(|mut e| {
+                e.traceback.push(gml::TraceEntry::Script(self.decode_str(name.as_ref()).into_owned()));
+                e
+            })?;
+            Ok(())
+        } else {
+            Err(gml::Error::no_asset(asset::Type::Script, id as i32))
+        }
+    }
+
     pub fn call_external(&mut self, id: i32, context: &mut Context, args: &[gml::Value]) -> gml::Result<gml::Value> {
         use external::dll;
         if let Some(external) = self.externals.get_external(id) {
@@ -2033,7 +2049,10 @@ impl Game {
             Some(ExtensionFunction::Gml(gml)) => {
                 let instructions = gml.clone();
                 let mut context = Context::copy_with_args(context, args, arg_count);
-                self.execute(&instructions, &mut context)?;
+                self.execute(&instructions, &mut context).map_err(|mut e| {
+                    e.traceback.push(gml::TraceEntry::ExtensionFunction(id));
+                    e
+                })?;
                 Ok(context.return_value)
             },
             None => Ok(Default::default()), // unfortunately required
@@ -2074,10 +2093,10 @@ impl Game {
 
     pub fn throw_error(&self, error: gml::Error) -> gml::Result<gml::Value> {
         if !self.all_errors_abort && !self.show_errors {
-            match error {
-                gml::Error::Soft(e, v) => {
-                    println!("WARNING: ignored error: {}", e);
-                    return Ok(v)
+            match error.error {
+                gml::ErrorType::Soft(_, ref v) => {
+                    println!("WARNING: ignored error: {}", error);
+                    return Ok(v.clone())
                 },
                 _ => (),
             }
