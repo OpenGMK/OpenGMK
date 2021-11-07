@@ -218,7 +218,7 @@ pub enum SceneChange {
 
 /// A function defined in an extension, which could either be a DLL external or some compiled GML
 pub enum ExtensionFunction {
-    Dll(ID),
+    Dll(String, ID),
     Gml(Rc<[Instruction]>),
 }
 
@@ -635,7 +635,7 @@ impl Game {
                                     FunctionValueKind::GMString => external::dll::ValueType::Str,
                                 },
                             }) {
-                                Ok(id) => extension_functions.push(Some(ExtensionFunction::Dll(id))),
+                                Ok(id) => extension_functions.push(Some(ExtensionFunction::Dll(sym.into(), id))),
                                 Err(e) => {
                                     println!(
                                         "WARNING: failed to load extension function {} (from {}): {}",
@@ -2017,9 +2017,11 @@ impl Game {
         arg_count: usize,
     ) -> gml::Result<gml::Value> {
         match &self.extension_functions[id] {
-            Some(ExtensionFunction::Dll(id)) => {
+            Some(ExtensionFunction::Dll(sym, id)) => {
+                let sym = sym.clone();
                 let id = *id;
                 self.call_external(id, context, &args[..arg_count])
+                    .map(gml::Value::from)
                     .map_err(|err| gml::Error::ExternalFunction(sym, err.to_string()))
             },
             Some(ExtensionFunction::Gml(gml)) => {
