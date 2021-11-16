@@ -2726,9 +2726,9 @@ impl Game {
 
             // Set up the iterator
             let iter_vert = (x2 - x1).abs() < (y2 - y1).abs();
-            let point_count = (if iter_vert { y2 - y1 } else { x2 - x1 }) + 1;
             // If iterating vertically, make sure we're going top to bottom
             let (x1, y1, x2, y2) = if iter_vert && y2 < y1 { (x2, y2, x1, y1) } else { (x1, y1, x2, y2) };
+            let point_count = (if iter_vert { y2 - y1 } else { x2 - x1 }) + 1;
             // Helper function for getting points on the line
             let get_point = |i: i32| {
                 // Avoid dividing by zero
