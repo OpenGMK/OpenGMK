@@ -212,8 +212,7 @@ impl Game {
         if show_border != self.window_border {
             self.window_border = show_border;
             if self.play_type != PlayType::Record {
-                // TODO: Borderless
-                unimplemented!()
+                self.window.set_borderless(!show_border);
             }
         }
         Ok(Default::default())
