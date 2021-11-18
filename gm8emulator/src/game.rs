@@ -9,6 +9,7 @@ pub mod model;
 pub mod movement;
 pub mod particle;
 pub mod pathfinding;
+pub mod platform;
 pub mod recording;
 pub mod replay;
 pub mod savestate;
