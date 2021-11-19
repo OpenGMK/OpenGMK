@@ -1929,12 +1929,15 @@ impl Game {
             let instance = self.room.instance_list.get(handle);
             let new_index = instance.image_index.get() + instance.image_speed.get();
             instance.image_index.set(new_index);
-            if let Some(sprite) = self.assets.sprites.get_asset(instance.sprite_index.get()) {
-                let frame_count = sprite.frames.len() as f64;
-                if new_index.into_inner() >= frame_count {
-                    instance.image_index.set(new_index - Real::from(frame_count));
-                    self.run_instance_event(ev::OTHER, 7, handle, handle, None)?; // animation end event
-                }
+            let frame_count = self
+                .assets
+                .sprites
+                .get_asset(instance.sprite_index.get())
+                .map(|s| s.frames.len() as f64)
+                .unwrap_or(0.0);
+            if new_index.into_inner() >= frame_count {
+                instance.image_index.set(new_index - Real::from(frame_count));
+                self.run_instance_event(ev::OTHER, 7, handle, handle, None)?; // animation end event
             }
         }
         self.cursor_sprite_frame += 1;
