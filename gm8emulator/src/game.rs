@@ -1942,6 +1942,11 @@ impl Game {
         }
         self.cursor_sprite_frame += 1;
 
+        // Tell renderer to finish the frame
+        if self.auto_draw && self.scene_change.is_none() && self.play_type != PlayType::Record {
+            self.renderer.present(self.window_inner_size.0, self.window_inner_size.1, self.scaling);
+        }
+
         // Clear inputs for this frame
         self.input.step();
 

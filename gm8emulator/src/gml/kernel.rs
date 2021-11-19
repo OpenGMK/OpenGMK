@@ -503,6 +503,10 @@ impl Game {
     pub fn screen_redraw(&mut self, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [])?;
         self.draw()?;
+        let (width, height) = self.window_inner_size;
+        if self.play_type != PlayType::Record {
+            self.renderer.present(width, height, self.scaling);
+        }
         Ok(Default::default())
     }
 

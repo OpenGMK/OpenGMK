@@ -203,11 +203,6 @@ impl Game {
             self.draw_view(0, 0, self.room.width, self.room.height, 0, 0, self.room.width, self.room.height, 0.0)?;
         }
 
-        // Tell renderer to finish the frame
-        if self.play_type != PlayType::Record {
-            self.renderer.present(self.window_inner_size.0, self.window_inner_size.1, self.scaling);
-        }
-
         // Reset viewport
         self.renderer.set_view(
             0,
