@@ -1543,10 +1543,11 @@ impl Game {
         self.resize_window(view_width as u32, view_height as u32);
 
         // Update some stored vars
+        let mut room_state = room_state;
+        std::mem::swap(&mut self.room, &mut room_state);
         if self.room.persistent && !self.game_start {
-            self.stored_rooms.push(self.room.clone());
+            self.stored_rooms.push(room_state);
         }
-        self.room = room_state;
         // clearing input here breaks direct keyboard checks, so just step instead
         // self.input.keyboard_clear_all();
         // self.input.mouse_clear_all();
