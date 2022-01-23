@@ -406,6 +406,26 @@ impl Frame<'_> {
         unsafe { c::igIsMouseClicked(1, false) }
     }
 
+    pub fn left_released(&self) -> bool {
+        unsafe { c::igIsMouseReleased(0) }
+    }
+
+    pub fn right_released(&self) -> bool {
+        unsafe { c::igIsMouseReleased(1) }
+    }
+
+    pub fn left_down(&self) -> bool {
+        unsafe { c::igIsMouseDown(0) }
+    }
+
+    pub fn right_down(&self) -> bool {
+        unsafe { c::igIsMouseDown(1) }
+    }
+
+    pub fn mouse_down(&self) -> bool {
+        unsafe { c::igIsAnyMouseDown() }
+    }
+
     pub fn middle_clicked(&self) -> bool {
         unsafe { c::igIsMouseClicked(2, false) }
     }
