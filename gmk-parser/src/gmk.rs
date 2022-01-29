@@ -1,5 +1,5 @@
 use byteorder::{LE, ReadBytesExt};
-use crate::{format, GameVersion, rsrc};
+use crate::{format, GameVersion, rsrc, Settings};
 use log::{error, info};
 use std::{borrow::Cow, io::{self, Read, Seek}};
 
@@ -163,6 +163,112 @@ impl Gmk {
             let mut contents = Vec::new();
             flate2::bufread::ZlibDecoder::new(data).read_to_end(&mut contents)?;
             Ok((name, contents))
+        }
+    }
+
+    /// Returns the settings header belonging to this file.
+    pub fn settings(&self) -> io::Result<Settings> {
+        fn read_data_maybe(data: &mut impl Read) -> io::Result<Option<Box<[u8]>>> {
+            if data.read_u32::<LE>()? != 0 {
+                let len = data.read_u32::<LE>()? as usize;
+                let mut output = Vec::with_capacity(len);
+                unsafe {
+                    output.set_len(len);
+                }
+                data.read_exact(&mut output)?;
+                Ok(Some(output.into_boxed_slice()))
+            } else {
+                Ok(None)
+            }
+        }
+
+        unsafe {
+            let slice = self.data.get_unchecked(self.settings_offset..(self.settings_offset + self.settings_len));
+            let mut data = flate2::bufread::ZlibDecoder::new(slice);
+            let fullscreen = data.read_u32::<LE>()? != 0;
+            let interpolate_pixels = data.read_u32::<LE>()? != 0;
+            let dont_draw_border = data.read_u32::<LE>()? != 0;
+            let display_cursor = data.read_u32::<LE>()? != 0;
+            let scaling = data.read_i32::<LE>()?;
+            let allow_resize = data.read_u32::<LE>()? != 0;
+            let window_on_top = data.read_u32::<LE>()? != 0;
+            let clear_colour = data.read_u32::<LE>()?;
+            let set_resolution = data.read_u32::<LE>()? != 0;
+            let colour_depth = data.read_u32::<LE>()?;
+            let resolution = data.read_u32::<LE>()?;
+            let frequency = data.read_u32::<LE>()?;
+            let dont_show_buttons = data.read_u32::<LE>()? != 0;
+            let (vsync, force_cpu_render) = match (self.game_version, data.read_u32::<LE>()?) {
+                (GameVersion::GameMaker8_0, x) => (x != 0, true), // see 8.1.141 changelog
+                (GameVersion::GameMaker8_1, x) => ((x & 1) != 0, (x & (1 << 7)) != 0),
+            };
+            let disable_screensaver = data.read_u32::<LE>()? != 0;
+            let f4_fullscreen_toggle = data.read_u32::<LE>()? != 0;
+            let f1_help_menu = data.read_u32::<LE>()? != 0;
+            let esc_close_game = data.read_u32::<LE>()? != 0;
+            let f5_save_f6_load = data.read_u32::<LE>()? != 0;
+            let f9_screenshot = data.read_u32::<LE>()? != 0;
+            let treat_close_as_esc = data.read_u32::<LE>()? != 0;
+            let priority = data.read_u32::<LE>()?;
+            let freeze_on_lose_focus = data.read_u32::<LE>()? != 0;
+            let loading_bar = data.read_u32::<LE>()?;
+            let (backdata, frontdata) =
+            if loading_bar != 0 { (read_data_maybe(&mut data)?, read_data_maybe(&mut data)?) } else { (None, None) };
+            let custom_load_image = read_data_maybe(&mut data)?;
+            let transparent = data.read_u32::<LE>()? != 0;
+            let translucency = data.read_u32::<LE>()?;
+            let scale_progress_bar = data.read_u32::<LE>()? != 0;
+            let show_error_messages = data.read_u32::<LE>()? != 0;
+            let log_errors = data.read_u32::<LE>()? != 0;
+            let always_abort = data.read_u32::<LE>()? != 0;
+            let (zero_uninitialized_vars, error_on_uninitialized_args) = match (self.game_version, data.read_u32::<LE>()?) {
+                (GameVersion::GameMaker8_0, x) => (x != 0, false),
+                (GameVersion::GameMaker8_1, x) => ((x & 1) != 0, (x & 2) != 0),
+            };
+            let swap_creation_events = match data.read_u32::<LE>() {
+                Ok(_webgl) => data.read_u32::<LE>()? != 0,
+                Err(_) => false,
+            };
+
+            Ok(Settings {
+                fullscreen,
+                scaling,
+                interpolate_pixels,
+                clear_colour,
+                allow_resize,
+                window_on_top,
+                dont_draw_border,
+                dont_show_buttons,
+                display_cursor,
+                freeze_on_lose_focus,
+                disable_screensaver,
+                force_cpu_render,
+                set_resolution,
+                colour_depth,
+                resolution,
+                frequency,
+                vsync,
+                esc_close_game,
+                treat_close_as_esc,
+                f1_help_menu,
+                f4_fullscreen_toggle,
+                f5_save_f6_load,
+                f9_screenshot,
+                priority,
+                custom_load_image,
+                transparent,
+                translucency,
+                loading_bar,
+                backdata,
+                frontdata,
+                scale_progress_bar,
+                show_error_messages,
+                log_errors,
+                always_abort,
+                zero_uninitialized_vars,
+                error_on_uninitialized_args,
+                swap_creation_events,
+            })
         }
     }
 }

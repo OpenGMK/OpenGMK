@@ -300,6 +300,7 @@ dependencies = [
  "gl_generator",
  "glob",
  "gm8exe",
+ "gmk-parser",
  "gml-parser",
  "hex",
  "image",
