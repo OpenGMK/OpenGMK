@@ -1,10 +1,11 @@
 use crate::{
-    game::{string::RCStr, Background, Game, View},
+    game::{Background, Game, View},
+    gml,
     instance::DummyFieldHolder,
     instancelist::{InstanceList, TileList},
+    types::Colour,
 };
 use serde::{Deserialize, Serialize};
-use shared::types::Colour;
 use std::collections::HashSet;
 
 /// A save file for use with game_save() and game_load().
@@ -30,7 +31,7 @@ pub struct GMSave {
 
 #[derive(Serialize, Deserialize)]
 struct GMRoomSave {
-    caption: RCStr,
+    caption: gml::String,
     width: i32,
     height: i32,
     room_speed: u32,
@@ -68,7 +69,7 @@ impl GMSave {
                 persistent: game.room.persistent,
                 bgcol: game.room.colour,
                 show_bgcol: game.room.show_colour,
-                show_windowcol: true, // TODO: 
+                show_windowcol: true, // TODO:
                 backgrounds: game.room.backgrounds.clone(),
                 views_enabled: game.room.views_enabled,
                 views: game.room.views.clone(),

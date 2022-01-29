@@ -14,10 +14,10 @@ pub struct View {
     pub source_y: i32,
 
     /// Region of the room this view is looking at - width
-    pub source_w: u32,
+    pub source_w: i32,
 
     /// Region of the room this view is looking at - height
-    pub source_h: u32,
+    pub source_h: i32,
 
     /// Port on screen to draw this view to - x coordinate
     pub port_x: i32,
@@ -76,6 +76,6 @@ impl View {
             angle.sin().into(),
             angle.cos().into(),
         );
-        (util::ieee_round(x), util::ieee_round(y))
+        (Real::from(x).round().to_i32(), Real::from(y).round().to_i32())
     }
 }

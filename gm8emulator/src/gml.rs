@@ -8,10 +8,12 @@ pub mod mappings;
 pub mod network;
 pub mod rand;
 pub mod runtime;
+pub mod string;
 pub mod value;
 
 pub use compiler::Compiler;
 pub use context::Context;
+pub use string::String;
 pub use value::Value;
 
 pub type Result<T> = std::result::Result<T, runtime::Error>;
@@ -37,7 +39,7 @@ pub enum Function {
 }
 
 impl Function {
-    fn invoke(&self, game: &mut Game, context: &mut Context, args: &[Value]) -> Result<Value> {
+    pub fn invoke(&self, game: &mut Game, context: &mut Context, args: &[Value]) -> Result<Value> {
         match self {
             Self::Runtime(f) => f(game, context, args),
             Self::Engine(f) => f(game, args),

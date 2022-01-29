@@ -1,7 +1,6 @@
-use crate::math::Real;
-use gmio::{
-    atlas::AtlasRef,
-    render::{PrimitiveType, Renderer, VertexBuffer},
+use crate::{
+    math::Real,
+    render::{atlas::AtlasRef, PrimitiveType, Renderer, VertexBuffer},
 };
 use serde::{Deserialize, Serialize};
 

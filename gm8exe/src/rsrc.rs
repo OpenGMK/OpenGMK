@@ -14,10 +14,7 @@ pub struct WindowsIcon {
 
 /// Finds the icon group from the exe file which will be used for the window icon.
 /// Returns an entire rebuilt .ico file, or None if there isn't one associated with this exe.
-pub fn find_icons(
-    data: &mut io::Cursor<&mut [u8]>,
-    pe_sections: &[PESection],
-) -> io::Result<Option<Vec<u8>>> {
+pub fn find_icons(data: &mut io::Cursor<&mut [u8]>, pe_sections: &[PESection]) -> io::Result<Option<Vec<u8>>> {
     // top level header
     let rsrc_base = data.position();
     data.seek(SeekFrom::Current(12))?;

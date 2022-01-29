@@ -2,13 +2,12 @@ use crate::{
     game::{Assets, GetAsset},
     gml::rand::Random,
     math::Real,
-};
-use gmio::{
-    atlas::{AtlasBuilder, AtlasRef},
-    render::{BlendType, Renderer},
+    render::{
+        atlas::{AtlasBuilder, AtlasRef},
+        BlendType, Renderer,
+    },
 };
 use serde::{Deserialize, Serialize};
-use std::convert::TryFrom;
 
 pub struct PSIterDrawOrder(usize);
 impl PSIterDrawOrder {
@@ -145,10 +144,9 @@ impl Manager {
     }
 
     pub fn draw_sort(&mut self) {
-        let systems = &self.systems; // borrowck :)
         self.draw_order.sort_by(|id1, id2| {
-            let left = systems.get_asset(*id1).unwrap();
-            let right = systems.get_asset(*id2).unwrap();
+            let left = self.systems.get_asset(*id1).unwrap();
+            let right = self.systems.get_asset(*id2).unwrap();
 
             right.depth.cmp_nan_first(&left.depth)
         });
@@ -341,24 +339,24 @@ impl Manager {
                         pt.size_incr = fps_mod * 0.05.into();
                         pt.speed_min = fps_mod * 2.into();
                         pt.speed_incr = fps_mod * (-0.1).into();
-                        pt.life_min = (Real::from(10) / fps_mod).round();
-                        pt.life_max = (Real::from(15) / fps_mod).round();
+                        pt.life_min = (Real::from(10) / fps_mod).round().to_i32();
+                        pt.life_max = (Real::from(15) / fps_mod).round().to_i32();
                     },
                     EffectSize::Medium => {
                         pt.size_min = 0.3.into();
                         pt.size_incr = fps_mod * 0.1.into();
                         pt.speed_min = fps_mod * 4.into();
                         pt.speed_incr = fps_mod * (-0.18).into();
-                        pt.life_min = (Real::from(12) / fps_mod).round();
-                        pt.life_max = (Real::from(17) / fps_mod).round();
+                        pt.life_min = (Real::from(12) / fps_mod).round().to_i32();
+                        pt.life_max = (Real::from(17) / fps_mod).round().to_i32();
                     },
                     EffectSize::Large => {
                         pt.size_min = 0.4.into();
                         pt.size_incr = fps_mod * 0.2.into();
                         pt.speed_min = fps_mod * 7.into();
                         pt.speed_incr = fps_mod * (-0.2).into();
-                        pt.life_min = (Real::from(15) / fps_mod).round();
-                        pt.life_max = (Real::from(20) / fps_mod).round();
+                        pt.life_min = (Real::from(15) / fps_mod).round().to_i32();
+                        pt.life_max = (Real::from(20) / fps_mod).round().to_i32();
                     },
                 }
                 pt.size_max = pt.size_min;
@@ -385,17 +383,17 @@ impl Manager {
                     EffectSize::Small => {
                         pt.size_min = 0.1.into();
                         pt.size_incr = fps_mod * 0.1.into();
-                        pt.life_min = (Real::from(15) / fps_mod).round();
+                        pt.life_min = (Real::from(15) / fps_mod).round().to_i32();
                     },
                     EffectSize::Medium => {
                         pt.size_min = 0.3.into();
                         pt.size_incr = fps_mod * 0.2.into();
-                        pt.life_min = (Real::from(17) / fps_mod).round();
+                        pt.life_min = (Real::from(17) / fps_mod).round().to_i32();
                     },
                     EffectSize::Large => {
                         pt.size_min = 0.4.into();
                         pt.size_incr = fps_mod * 0.4.into();
-                        pt.life_min = (Real::from(20) / fps_mod).round();
+                        pt.life_min = (Real::from(20) / fps_mod).round().to_i32();
                     },
                 }
 
@@ -417,18 +415,18 @@ impl Manager {
                 match size {
                     EffectSize::Small => {
                         pt.size_incr = fps_mod * 0.15.into();
-                        pt.life_min = (Real::from(10) / fps_mod).round();
-                        pt.life_max = (Real::from(12) / fps_mod).round();
+                        pt.life_min = (Real::from(10) / fps_mod).round().to_i32();
+                        pt.life_max = (Real::from(12) / fps_mod).round().to_i32();
                     },
                     EffectSize::Medium => {
                         pt.size_incr = fps_mod * 0.25.into();
-                        pt.life_min = (Real::from(13) / fps_mod).round();
-                        pt.life_max = (Real::from(15) / fps_mod).round();
+                        pt.life_min = (Real::from(13) / fps_mod).round().to_i32();
+                        pt.life_max = (Real::from(15) / fps_mod).round().to_i32();
                     },
                     EffectSize::Large => {
                         pt.size_incr = fps_mod * 0.4.into();
-                        pt.life_min = (Real::from(18) / fps_mod).round();
-                        pt.life_max = (Real::from(20) / fps_mod).round();
+                        pt.life_min = (Real::from(18) / fps_mod).round().to_i32();
+                        pt.life_max = (Real::from(20) / fps_mod).round().to_i32();
                     },
                 }
                 self.system_create_particles(system, x, y, id, Some(col), 1, rand);
@@ -448,18 +446,18 @@ impl Manager {
                 match size {
                     EffectSize::Small => {
                         pt.size_incr = fps_mod * 0.2.into();
-                        pt.life_min = (Real::from(10) / fps_mod).round();
-                        pt.life_max = (Real::from(12) / fps_mod).round();
+                        pt.life_min = (Real::from(10) / fps_mod).round().to_i32();
+                        pt.life_max = (Real::from(12) / fps_mod).round().to_i32();
                     },
                     EffectSize::Medium => {
                         pt.size_incr = fps_mod * 0.35.into();
-                        pt.life_min = (Real::from(13) / fps_mod).round();
-                        pt.life_max = (Real::from(15) / fps_mod).round();
+                        pt.life_min = (Real::from(13) / fps_mod).round().to_i32();
+                        pt.life_max = (Real::from(15) / fps_mod).round().to_i32();
                     },
                     EffectSize::Large => {
                         pt.size_incr = fps_mod * 0.6.into();
-                        pt.life_min = (Real::from(18) / fps_mod).round();
-                        pt.life_max = (Real::from(20) / fps_mod).round();
+                        pt.life_min = (Real::from(18) / fps_mod).round().to_i32();
+                        pt.life_max = (Real::from(20) / fps_mod).round().to_i32();
                     },
                 }
                 self.system_create_particles(system, x, y, id, Some(col), 1, rand);
@@ -486,22 +484,22 @@ impl Manager {
                 let number = match size {
                     EffectSize::Small => {
                         pt.speed_max = fps_mod * 3.into();
-                        pt.life_min = (Real::from(15) / fps_mod).round();
-                        pt.life_max = (Real::from(25) / fps_mod).round();
+                        pt.life_min = (Real::from(15) / fps_mod).round().to_i32();
+                        pt.life_max = (Real::from(25) / fps_mod).round().to_i32();
                         pt.grav_amount = 0.1.into();
                         75
                     },
                     EffectSize::Medium => {
                         pt.speed_max = fps_mod * 6.into();
-                        pt.life_min = (Real::from(20) / fps_mod).round();
-                        pt.life_max = (Real::from(30) / fps_mod).round();
+                        pt.life_min = (Real::from(20) / fps_mod).round().to_i32();
+                        pt.life_max = (Real::from(30) / fps_mod).round().to_i32();
                         pt.grav_amount = 0.15.into();
                         150
                     },
                     EffectSize::Large => {
                         pt.speed_max = fps_mod * 8.into();
-                        pt.life_min = (Real::from(30) / fps_mod).round();
-                        pt.life_max = (Real::from(40) / fps_mod).round();
+                        pt.life_min = (Real::from(30) / fps_mod).round().to_i32();
+                        pt.life_max = (Real::from(40) / fps_mod).round().to_i32();
                         pt.grav_amount = 0.17.into();
                         250
                     },
@@ -521,7 +519,7 @@ impl Manager {
                     EffectSize::Small => {
                         pt.size_min = 0.2.into();
                         pt.size_max = 0.4.into();
-                        pt.life_min = (Real::from(25) / fps_mod).round();
+                        pt.life_min = (Real::from(25) / fps_mod).round().to_i32();
                         pt.life_max = pt.life_min;
                         for _ in 0..6 {
                             let dx = rand.next_int(9) - 5;
@@ -532,7 +530,7 @@ impl Manager {
                     EffectSize::Medium => {
                         pt.size_min = 0.4.into();
                         pt.size_max = 0.7.into();
-                        pt.life_min = (Real::from(30) / fps_mod).round();
+                        pt.life_min = (Real::from(30) / fps_mod).round().to_i32();
                         pt.life_max = pt.life_min;
                         for _ in 0..11 {
                             let dx = rand.next_int(29) - 15;
@@ -543,7 +541,7 @@ impl Manager {
                     EffectSize::Large => {
                         pt.size_min = 0.4.into();
                         pt.size_max = 1.into();
-                        pt.life_min = (Real::from(50) / fps_mod).round();
+                        pt.life_min = (Real::from(50) / fps_mod).round().to_i32();
                         pt.life_max = pt.life_min;
                         for _ in 0..16 {
                             let dx = rand.next_int(59) - 30;
@@ -574,7 +572,7 @@ impl Manager {
                         pt.size_max = 0.4.into();
                         pt.speed_min = fps_mod * 3.into();
                         pt.speed_max = fps_mod * 4.into();
-                        pt.life_min = (Real::from(25) / fps_mod).round();
+                        pt.life_min = (Real::from(25) / fps_mod).round().to_i32();
                         pt.life_max = pt.life_min;
                         for _ in 0..6 {
                             let dx = rand.next_int(9) - 5;
@@ -587,7 +585,7 @@ impl Manager {
                         pt.size_max = 0.7.into();
                         pt.speed_min = fps_mod * 5.into();
                         pt.speed_max = fps_mod * 6.into();
-                        pt.life_min = (Real::from(30) / fps_mod).round();
+                        pt.life_min = (Real::from(30) / fps_mod).round().to_i32();
                         pt.life_max = pt.life_min;
                         for _ in 0..11 {
                             let dx = rand.next_int(29) - 15;
@@ -600,7 +598,7 @@ impl Manager {
                         pt.size_max = 1.into();
                         pt.speed_min = fps_mod * 6.into();
                         pt.speed_max = fps_mod * 7.into();
-                        pt.life_min = (Real::from(50) / fps_mod).round();
+                        pt.life_min = (Real::from(50) / fps_mod).round().to_i32();
                         pt.life_max = pt.life_min;
                         for _ in 0..16 {
                             let dx = rand.next_int(59) - 30;
@@ -625,21 +623,21 @@ impl Manager {
                         pt.size_min = 0.4.into();
                         pt.size_max = 0.3.into(); // yes this way round
                         pt.size_incr = fps_mod * (-0.02).into();
-                        pt.life_min = (Real::from(20) / fps_mod).round();
+                        pt.life_min = (Real::from(20) / fps_mod).round().to_i32();
                         pt.life_max = pt.life_min;
                     },
                     EffectSize::Medium => {
                         pt.size_min = 0.75.into();
                         pt.size_max = 0.75.into();
                         pt.size_incr = fps_mod * (-0.03).into();
-                        pt.life_min = (Real::from(25) / fps_mod).round();
+                        pt.life_min = (Real::from(25) / fps_mod).round().to_i32();
                         pt.life_max = pt.life_min;
                     },
                     EffectSize::Large => {
                         pt.size_min = 1.2.into();
                         pt.size_max = 1.2.into();
                         pt.size_incr = fps_mod * (-0.04).into();
-                        pt.life_min = (Real::from(30) / fps_mod).round();
+                        pt.life_min = (Real::from(30) / fps_mod).round().to_i32();
                         pt.life_max = pt.life_min;
                     },
                 }
@@ -664,17 +662,17 @@ impl Manager {
                     EffectSize::Small => {
                         pt.size_min = 0.4.into();
                         pt.size_incr = Real::from(-0.02) / fps_mod;
-                        pt.life_min = (Real::from(20) / fps_mod).round();
+                        pt.life_min = (Real::from(20) / fps_mod).round().to_i32();
                     },
                     EffectSize::Medium => {
                         pt.size_min = 0.75.into();
                         pt.size_incr = Real::from(-0.03) / fps_mod;
-                        pt.life_min = (Real::from(25) / fps_mod).round();
+                        pt.life_min = (Real::from(25) / fps_mod).round().to_i32();
                     },
                     EffectSize::Large => {
                         pt.size_min = 1.2.into();
                         pt.size_incr = Real::from(-0.04) / fps_mod;
-                        pt.life_min = (Real::from(30) / fps_mod).round();
+                        pt.life_min = (Real::from(30) / fps_mod).round().to_i32();
                     },
                 }
                 pt.size_max = pt.size_min;
@@ -692,7 +690,7 @@ impl Manager {
                 pt.alpha1 = 0.into();
                 pt.alpha2 = 0.3.into();
                 pt.alpha3 = 0.into();
-                pt.life_min = (Real::from(100) / fps_mod).round();
+                pt.life_min = (Real::from(100) / fps_mod).round().to_i32();
                 pt.life_max = pt.life_min;
                 pt.size_min = match size {
                     EffectSize::Small => 2.into(),
@@ -726,7 +724,7 @@ impl Manager {
                 pt.alpha1 = 0.4.into();
                 pt.alpha2 = 0.4.into();
                 pt.alpha3 = 0.4.into();
-                pt.life_min = (Real::from(0.2) / fps_mod * room_height.into()).round();
+                pt.life_min = (Real::from(0.2) / fps_mod * room_height.into()).round().to_i32();
                 pt.life_max = pt.life_min;
                 let number = match size {
                     EffectSize::Small => 2,
@@ -769,7 +767,7 @@ impl Manager {
                 pt.dir_max = 300.into();
                 pt.dir_incr = 0.into();
                 pt.dir_wiggle = 20.into();
-                pt.life_min = (Real::from(0.5) / fps_mod * room_height.into()).round();
+                pt.life_min = (Real::from(0.5) / fps_mod * room_height.into()).round().to_i32();
                 pt.life_max = pt.life_min;
                 let number = match size {
                     EffectSize::Small => 1,
@@ -880,9 +878,9 @@ fn colour_lerp(c1: i32, c2: i32, lerp: Real) -> i32 {
     let (r1, r2) = (c1 & 0xff, c2 & 0xff);
     let (g1, g2) = ((c1 >> 8) & 0xff, (c2 >> 8) & 0xff);
     let (b1, b2) = ((c1 >> 16) & 0xff, (c2 >> 16) & 0xff);
-    let r = (Real::from(r1) * c1_part + Real::from(r2) * c2_part).round();
-    let g = (Real::from(g1) * c1_part + Real::from(g2) * c2_part).round();
-    let b = (Real::from(b1) * c1_part + Real::from(b2) * c2_part).round();
+    let r = (Real::from(r1) * c1_part + Real::from(r2) * c2_part).round().to_i32();
+    let g = (Real::from(g1) * c1_part + Real::from(g2) * c2_part).round().to_i32();
+    let b = (Real::from(b1) * c1_part + Real::from(b2) * c2_part).round().to_i32();
     r | (g << 8) | (b << 16)
 }
 
@@ -1233,7 +1231,8 @@ impl Particle {
             let speed = Distribution::Linear.range(rand, ptype.speed_min.into(), ptype.speed_max.into()).into();
             let direction = Distribution::Linear.range(rand, ptype.dir_min.into(), ptype.dir_max.into()).into();
             let image_angle = Distribution::Linear.range(rand, ptype.ang_min.into(), ptype.ang_max.into()).into();
-            let lifetime = Distribution::Linear.range(rand, ptype.life_min.into(), ptype.life_max.into()).round();
+            let lifetime =
+                Distribution::Linear.range(rand, ptype.life_min.into(), ptype.life_max.into()).round().to_i32();
             let colour = Self::init_colour(rand, &ptype.colour); // do this despite colour_arg for rng parity
             let alpha = ptype.alpha1;
             let size = Distribution::Linear.range(rand, ptype.size_min.into(), ptype.size_max.into()).into();
@@ -1272,15 +1271,15 @@ impl Particle {
             ParticleColour::Two(c, _) => *c,
             ParticleColour::Three(c, _, _) => *c,
             ParticleColour::RGB { rmin, rmax, gmin, gmax, bmin, bmax } => {
-                let r = Distribution::Linear.range(rand, (*rmin).into(), (*rmax).into()).round();
-                let g = Distribution::Linear.range(rand, (*gmin).into(), (*gmax).into()).round();
-                let b = Distribution::Linear.range(rand, (*bmin).into(), (*bmax).into()).round();
+                let r = Distribution::Linear.range(rand, (*rmin).into(), (*rmax).into()).round().to_i32();
+                let g = Distribution::Linear.range(rand, (*gmin).into(), (*gmax).into()).round().to_i32();
+                let b = Distribution::Linear.range(rand, (*bmin).into(), (*bmax).into()).round().to_i32();
                 r | (g << 8) | (b << 16)
             },
             ParticleColour::HSV { hmin, hmax, smin, smax, vmin, vmax } => {
-                let h = Distribution::Linear.range(rand, (*hmin).into(), (*hmax).into()).round();
-                let s = Distribution::Linear.range(rand, (*smin).into(), (*smax).into()).round();
-                let v = Distribution::Linear.range(rand, (*vmin).into(), (*vmax).into()).round();
+                let h = Distribution::Linear.range(rand, (*hmin).into(), (*hmax).into()).round().to_i32();
+                let s = Distribution::Linear.range(rand, (*smin).into(), (*smax).into()).round().to_i32();
+                let v = Distribution::Linear.range(rand, (*vmin).into(), (*vmax).into()).round().to_i32();
 
                 let h = Real::from(h) * Real::from(360.0) / Real::from(255.0);
                 let s = Real::from(s) / Real::from(255.0);
@@ -1300,9 +1299,9 @@ impl Particle {
                     _ => (Real::from(0.0), Real::from(0.0), Real::from(0.0)),
                 };
 
-                let out_r = ((r + m) * Real::from(255.0)).round();
-                let out_g = ((g + m) * Real::from(255.0)).round();
-                let out_b = ((b + m) * Real::from(255.0)).round();
+                let out_r = ((r + m) * Real::from(255.0)).round().to_i32();
+                let out_g = ((g + m) * Real::from(255.0)).round().to_i32();
+                let out_b = ((b + m) * Real::from(255.0)).round().to_i32();
                 out_r | (out_g << 8) | (out_b << 16)
             },
             ParticleColour::Mix(c1, c2) => colour_lerp(*c1, *c2, rand.next(1.0).into()),
@@ -1431,12 +1430,12 @@ impl Particle {
                     }
                 }
                 if let Some(sprite) = assets.sprites.get_asset(sprite) {
-                    sprite.get_atlas_ref(Real::from(subimage % sprite.frames.len() as i32))
+                    sprite.get_atlas_ref(subimage % sprite.frames.len() as i32)
                 } else {
                     None
                 }
             },
-            ParticleGraphic::Shape(s) => usize::try_from(s).ok().and_then(|s| shapes.get(s)),
+            ParticleGraphic::Shape(s) => usize::try_from(s).ok().and_then(|s| shapes.get(s).copied()),
         };
         let mut angle_wiggle_factor = ((self.timer + self.random_start * 2) % 16) as f64 / 4.0;
         if 2.0 < angle_wiggle_factor {

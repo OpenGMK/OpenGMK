@@ -1,5 +1,7 @@
 use crate::{
-    asset::{assert_ver, Asset, Error, PascalString, ReadChunk, ReadPascalString, WritePascalString},
+    asset::{
+        assert_ver, assert_ver_multiple, Asset, Error, PascalString, ReadChunk, ReadPascalString, WritePascalString,
+    },
     GameVersion,
 };
 use byteorder::{ReadBytesExt, WriteBytesExt, LE};
@@ -65,7 +67,7 @@ impl Asset for Sprite {
 
         let version = reader.read_u32::<LE>()?;
         if strict {
-            assert_ver(version, VERSION)?;
+            assert_ver_multiple(version, &[VERSION, 810])?;
         }
 
         let origin_x = reader.read_i32::<LE>()?;
@@ -111,6 +113,9 @@ impl Asset for Sprite {
                 Ok(CollisionMap { width, height, bbox_left, bbox_right, bbox_top, bbox_bottom, data })
             }
 
+            if version == 810 {
+                reader.read_u32::<LE>()?; // collision shape, unused
+            }
             let per_frame_colliders = reader.read_u32::<LE>()? != 0;
             let colliders: Vec<CollisionMap> = if per_frame_colliders {
                 (0..frame_count).map(|_| read_collision(&mut reader, strict)).collect::<Result<_, _>>()?

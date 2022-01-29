@@ -1,114 +1,164 @@
+pub mod dll;
 mod dummy;
-mod win32;
-mod win64;
+pub mod win32;
+mod wow64;
 
-use crate::{
-    game::string::RCStr,
-    gml::{self, Value},
-};
-use cfg_if::cfg_if;
-use encoding_rs::Encoding;
+use crate::{gml, gml::Function, types::ID};
 use serde::{Deserialize, Serialize};
-use shared::dll;
+use std::path::Path;
 
-pub use shared::dll::{CallConv, ValueType as DLLValueType};
+#[cfg(not(all(target_os = "windows", target_arch = "x86")))]
+use dummy as native;
+#[cfg(all(target_os = "windows", target_arch = "x86"))]
+use win32 as native;
 
-cfg_if! {
-    if
-    #[cfg(all(target_os = "windows", target_arch = "x86"))] {
-        use win32 as platform;
-    } else if #[cfg(target_os = "windows")] {
-        use win64 as platform;
-    } else {
-        use dummy as platform;
-    }
-}
+#[cfg(all(target_os = "windows", target_arch = "x86"))]
+use dummy as ipc;
+#[cfg(not(all(target_os = "windows", target_arch = "x86")))]
+use wow64 as ipc;
+
+pub use native::NativeExternal;
 
 pub enum Call {
-    DummyNull(dll::ValueType),
-    DummyOne,
-    DllCall(platform::ExternalImpl),
-}
-
-#[derive(Clone, Serialize, Deserialize)]
-pub struct DefineInfo {
-    pub dll_name: RCStr,
-    pub fn_name: RCStr,
-    pub call_conv: CallConv,
-    pub res_type: dll::ValueType,
-    pub arg_types: Vec<dll::ValueType>,
+    Dummy(gml::Value),
+    Emulated(Function),
+    Native(NativeExternal),
+    Ipc(ipc::IpcExternal),
 }
 
 pub struct External {
-    call: Call,
-    pub info: DefineInfo,
+    pub call: Call,
+    pub signature: dll::ExternalSignature,
 }
 
-/*
-Spec required for ExternalImpl {
-    /// Create a new ExternalImpl with the given DefineInfo.
-    /// The given encoding specifies the encoding of the strings in `info`.
-    pub fn new(info: &DefineInfo, encoding: &'static Encoding) -> Result<Self, String>;
-    /// Calls the ExternalImpl.
-    /// Make sure the args iterator matches the function *before* calling it, as it will not be checked.
-    // This takes an iterator in order to reduce the number of times the args list has to be copied.
-    // Setting it up this way makes dealing with traits more annoying, so I just didn't.
-    pub fn call<I: Iterator<Item = gml::Value>>(&self, args: I) -> Result<gml::Value, String>;
-}
- */
+pub struct ExternalManager {
+    externals: Vec<Option<External>>,
+    dummy_audio: bool,
 
-impl External {
-    pub fn new(info: DefineInfo, disable_sound: bool, encoding: &'static Encoding) -> Result<Self, String> {
-        if info.arg_types.len() > 4 && info.arg_types.contains(&dll::ValueType::Str) {
-            return Err("DLL functions with more than 4 arguments cannot have string arguments".into())
+    native_manager: native::NativeManager,
+    ipc_manager: ipc::IpcManager,
+}
+
+#[derive(Clone, Serialize, Deserialize)]
+pub struct ExternalState {
+    signatures: Vec<Option<dll::ExternalSignature>>,
+}
+
+impl ExternalManager {
+    pub fn new(dummy_audio: bool) -> Self {
+        Self {
+            externals: Vec::new(),
+            dummy_audio,
+            native_manager: native::NativeManager::new(),
+            ipc_manager: ipc::IpcManager::new(),
         }
-        if info.arg_types.len() >= 16 {
-            return Err("DLL functions can have at most 16 arguments".into())
-        }
-        let mut dll_name_lower = std::path::Path::new(info.dll_name.decode(encoding).as_ref())
-            .file_name()
-            .unwrap()
-            .to_string_lossy()
-            .to_string();
-        dll_name_lower.make_ascii_lowercase();
-        let call = match dll_name_lower.as_str() {
-            "gmfmodsimple.dll" if disable_sound && info.fn_name.as_ref() == b"FMODSoundAdd" => Call::DummyOne,
-            "gmfmodsimple.dll" | "ssound.dll" | "supersound.dll" | "sxms-3.dll" if disable_sound => {
-                Call::DummyNull(info.res_type)
-            },
-            _ => Call::DllCall(platform::ExternalImpl::new(&info, encoding)?),
-        };
-        Ok(Self { call, info })
     }
 
-    pub fn call(&self, args: &[Value]) -> gml::Result<Value> {
-        if args.len() != self.info.arg_types.len() {
-            eprintln!(
-                "Warning: call to external function {} from {} with an invalid argument count was ignored",
-                self.info.fn_name, self.info.dll_name
-            );
-            Ok(Default::default())
+    fn make_call(&mut self, signature: &dll::ExternalSignature) -> Result<Call, String> {
+        if let Some(dummy) = self.should_dummy(&signature) {
+            return Ok(Call::Dummy(dummy))
+        }
+        if cfg!(all(target_os = "windows", target_arch = "x86")) {
+            Ok(Call::Native(self.native_manager.define(&signature)?))
         } else {
-            let args = args.iter().zip(&self.info.arg_types).map(|(v, t)| match t {
-                dll::ValueType::Real => f64::from(v.clone()).into(),
-                dll::ValueType::Str => RCStr::from(v.clone()).into(),
-            });
-            self.call.call(args)
+            Ok(Call::Ipc(self.ipc_manager.define(&signature)?))
         }
     }
-}
 
-impl Call {
-    fn call(&self, args: impl Iterator<Item = Value>) -> gml::Result<Value> {
-        match self {
-            Call::DummyNull(res_type) => match res_type {
-                dll::ValueType::Real => Ok(0.into()),
-                dll::ValueType::Str => Ok("".into()),
-            },
-            Call::DummyOne => Ok(1.into()),
-            Call::DllCall(call) => {
-                call.call(args).map_err(|e| gml::Error::FunctionError("external_call".into(), e.into()))
-            },
+    pub fn define(&mut self, signature: dll::ExternalSignature) -> Result<ID, String> {
+        let external = External { call: self.make_call(&signature)?, signature };
+        if let Some((id, cell)) = self.externals.iter_mut().enumerate().find(|(_, o)| o.is_none()) {
+            *cell = Some(external);
+            Ok(id as ID)
+        } else {
+            let id = self.externals.len();
+            self.externals.push(Some(external));
+            Ok(id as ID)
         }
+    }
+
+    pub fn get_external(&self, id: i32) -> Option<&External> {
+        id.try_into().ok().and_then(|id: usize| self.externals.get(id).map(Option::as_ref).flatten())
+    }
+
+    pub fn call_native(&mut self, id: usize, args: &[dll::Value]) -> gml::Value {
+        match &self.externals[id].as_ref().unwrap().call {
+            Call::Native(ext) => self.native_manager.call(ext, args).into(),
+            _ => unreachable!(),
+        }
+    }
+
+    pub fn call_ipc(&mut self, id: usize, args: &[dll::Value]) -> gml::Value {
+        match &self.externals[id].as_ref().unwrap().call {
+            Call::Ipc(ext) => self.ipc_manager.call(ext, args).into(),
+            _ => unreachable!(),
+        }
+    }
+
+    pub fn free(&mut self, dll: &str) {
+        for option in &mut self.externals {
+            if let Some(external) = option.as_ref() {
+                if external.signature.dll.eq_ignore_ascii_case(dll) {
+                    // ipc externals need the manager so free those with that
+                    match option.take().unwrap().call {
+                        Call::Ipc(e) => self.ipc_manager.free(e),
+                        _ => (),
+                    }
+                }
+            }
+        }
+    }
+
+    pub fn save_state(&self) -> ExternalState {
+        let signatures = self.externals.iter().map(|o| o.as_ref().map(|e| e.signature.clone())).collect();
+        ExternalState { signatures }
+    }
+
+    pub fn load_state(&mut self, mut state: ExternalState) {
+        self.externals.clear();
+        for opt in state.signatures.drain(..) {
+            let external = opt.map(|s| External { call: self.make_call(&s).unwrap(), signature: s });
+            self.externals.push(external);
+        }
+    }
+
+    fn should_dummy(&self, signature: &dll::ExternalSignature) -> Option<gml::Value> {
+        let dll = &signature.dll;
+        let sym = &signature.symbol;
+        let dll = Path::new(dll).file_name().and_then(|oss| oss.to_str()).unwrap_or(dll);
+
+        let mut dummy = None;
+        if self.dummy_audio {
+            if dll.eq_ignore_ascii_case("gmfmodsimple.dll") {
+                if sym == "FMODSoundAdd" {
+                    dummy = Some(gml::Value::Real(1.into()));
+                } else {
+                    dummy = Some(gml::Value::Real(0.into()));
+                }
+            } else if dll.eq_ignore_ascii_case("ssound.dll") || dll.eq_ignore_ascii_case("supersound.dll") {
+                if sym == "SS_Init" {
+                    dummy = Some(gml::Value::Str("Yes".into()));
+                } else {
+                    dummy = Some(gml::Value::Real(0.into()));
+                }
+            } else if dll.eq_ignore_ascii_case("sgaudio.dll") || dll.eq_ignore_ascii_case("sxms-3.dll") {
+                dummy = Some(gml::Value::Real(0.into()));
+            } else if dll.eq_ignore_ascii_case("caster.dll") {
+                if sym == "caster_error_message" || sym == "caster_version" {
+                    dummy = Some(gml::Value::Str("".into()));
+                } else {
+                    dummy = Some(gml::Value::Real(0.into()));
+                }
+            }
+        }
+
+        if dll.eq_ignore_ascii_case("gmeffect_0.1.dll") {
+            // TODO: don't
+            // ^ floogle's original comment, whatever it may mean
+            // ^ viri's original comment, made without consulting floogle
+            dummy = Some(gml::Value::Real(0.into()));
+        }
+
+        dummy
     }
 }

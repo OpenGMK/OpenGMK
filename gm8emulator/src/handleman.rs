@@ -1,10 +1,7 @@
 // This module implements the handle indices allocation as in the original GM.
 
 use serde::{Deserialize, Serialize};
-use std::{
-    convert::{TryFrom, TryInto},
-    error, result,
-};
+use std::{error, result};
 
 // Required because handle initialization closures must be able to return any errors.
 // TODO: Do we also need "+ Send + Sync + 'static" for BoxedStdError?
@@ -66,6 +63,7 @@ impl<T, const LEN: usize> HandleArray<T, LEN> {
     // https://github.com/rust-lang/rust/issues/44796
     // https://stackoverflow.com/a/66776497
     const NONE_INIT: Option<T> = None;
+
     pub fn new() -> Self {
         Self([Self::NONE_INIT; LEN])
     }

@@ -362,15 +362,23 @@ impl Compiler {
                                 Err(error) => Node::RuntimeError { error },
                             }
                         },
-                        (left, right) => {
-                            Node::Binary { left: Box::new(left), right: Box::new(right), operator: op_function }
+                        (left, right) => Node::Binary {
+                            left: Box::new(left),
+                            right: Box::new(right),
+                            operator: op_function,
+                            type_unsafe: false,
                         },
                     }
                 },
             },
 
             ast::Expr::Function(function) => {
-                let args = function.params.iter().map(|x| self.compile_ast_expr(&x, locals)).collect::<Vec<_>>().into_boxed_slice();
+                let args = function
+                    .params
+                    .iter()
+                    .map(|x| self.compile_ast_expr(&x, locals))
+                    .collect::<Vec<_>>()
+                    .into_boxed_slice();
 
                 if let Some(script_id) = self.get_script_id(function.name) {
                     Node::Script { args, script_id }
@@ -591,6 +599,7 @@ impl Compiler {
                     left: Box::new(Node::Variable { accessor: VariableAccessor { var: *var, array, owner } }),
                     right: Box::new(value),
                     operator,
+                    type_unsafe: false,
                 },
             }
         } else {
@@ -601,6 +610,7 @@ impl Compiler {
                     left: Box::new(Node::Field { accessor: FieldAccessor { index, array, owner } }),
                     right: Box::new(value),
                     operator,
+                    type_unsafe: true,
                 },
             }
         }

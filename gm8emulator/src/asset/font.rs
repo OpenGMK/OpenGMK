@@ -1,15 +1,18 @@
-use crate::{asset::Sprite, game::string::RCStr};
-use encoding_rs::Encoding;
-use gmio::{
-    atlas::AtlasBuilder,
-    render::{AtlasRef, Renderer},
+use crate::{
+    asset::Sprite,
+    gml,
+    render::{
+        atlas::{AtlasBuilder, AtlasRef},
+        Renderer,
+    },
 };
+use encoding_rs::Encoding;
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct Font {
-    pub name: RCStr,
-    pub sys_name: RCStr,
+    pub name: gml::String,
+    pub sys_name: gml::String,
     pub charset: u32,
     pub size: u32,
     pub bold: bool,
@@ -105,7 +108,7 @@ pub fn create_chars_from_sprite(sprite: &Sprite, prop: bool, sep: i32, renderer:
     if prop {
         // proportional font, get the left and right bounds of each character
         for frame in &sprite.frames {
-            let data = renderer.dump_sprite(&frame.atlas_ref);
+            let data = renderer.dump_sprite(frame.atlas_ref);
             let column_empty =
                 |&x: &u32| (0..sprite.height).any(|y| data[(y * sprite.width + x) as usize * 4 + 3] != 0);
             let left_edge = (0..sprite.width).find(column_empty).map(|x| x as i32).unwrap_or(sprite.width as i32 - 1);

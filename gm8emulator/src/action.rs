@@ -51,7 +51,7 @@ pub struct Action {
 
 /// Abstraction for a tree of Actions
 /// Note that Vec is necessary here due to functions such as object_event_add and object_event_clear
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Default, Serialize, Deserialize)]
 pub struct Tree(Vec<Action>);
 
 /// Body of an action, depending on the action kind.
@@ -64,16 +64,17 @@ pub enum Body {
         /// The body of this action to be executed
         body: GmlBody,
 
-        /// The 'if' and 'else' actions under this one, if this action is a question.
-        if_else: Option<(Box<[Action]>, Box<[Action]>)>,
+        /// Whether the action is a question
+        is_condition: bool,
     },
+    Else,
     Repeat {
         /// The expression giving the number of times to repeat.
         count: Node,
-
-        /// The tree of actions to repeat.
-        body: Box<[Action]>,
     },
+    BlockBegin,
+    BlockEnd,
+    Comment,
     Exit,
 }
 
@@ -101,46 +102,20 @@ impl std::fmt::Debug for GmlBody {
 impl Tree {
     /// Turn a list of gm8exe CodeActions into an Action tree.
     pub fn from_list(list: &[CodeAction], compiler: &mut Compiler) -> Result<Self, String> {
-        let mut iter = list.iter().enumerate().peekable();
         let mut output = Vec::new();
-        Self::from_iter(&mut iter, compiler, false, &mut output)?;
+        Self::from_slice(list, 0, compiler, &mut output)?;
         Ok(Self(output))
     }
 
-    fn from_iter<'a, T>(
-        iter: &mut std::iter::Peekable<T>,
+    fn from_slice(
+        slice: &[CodeAction],
+        start_index: usize,
         compiler: &mut Compiler,
-        single_group: bool,
         output: &mut Vec<Action>,
-    ) -> Result<(), String>
-    where
-        T: Iterator<Item = (usize, &'a CodeAction)>,
-    {
-        // If we're only iterating a single group of actions, and the first is not a BEGIN_GROUP action,
-        // then we only want to collect one action.
-        let stop_immediately = if let Some((_, CodeAction { action_kind: kind::BEGIN_GROUP, .. })) = iter.peek() {
-            false
-        } else {
-            single_group
-        };
-
-        while let Some((i, action)) = iter.next() {
+    ) -> Result<(), String> {
+        for (i, action) in slice.iter().enumerate().map(|(i, a)| (i + start_index, a)) {
             match action.action_kind {
                 kind::NORMAL => {
-                    // If the action we got is a condition then immediately parse its if/else bodies from the iterator
-                    let if_else = if action.is_condition {
-                        let mut if_body = Vec::new();
-                        Self::from_iter(iter, compiler, true, &mut if_body)?;
-                        let mut else_body = Vec::new();
-                        if let Some((_, CodeAction { action_kind: kind::ELSE, .. })) = iter.peek() {
-                            iter.next(); // skip "else"
-                            Self::from_iter(iter, compiler, true, &mut else_body)?;
-                        }
-                        Some((if_body.into_boxed_slice(), else_body.into_boxed_slice()))
-                    } else {
-                        None
-                    };
-
                     match action.execution_type {
                         // Execution type NONE does nothing, so don't compile anything
                         execution_type::NONE => (),
@@ -164,7 +139,7 @@ impl Tree {
                                             action.param_count,
                                         )?,
                                         body: GmlBody::Function(fn_id),
-                                        if_else,
+                                        is_condition: action.is_condition,
                                     },
                                 });
                             } else {
@@ -188,16 +163,38 @@ impl Tree {
                                         action.param_count,
                                     )?,
                                     body: GmlBody::Code(compiler.compile(&action.fn_code.0).map_err(|e| e.message)?),
-                                    if_else,
+                                    is_condition: action.is_condition,
                                 },
                             });
                         },
                     }
                 },
 
-                kind::BEGIN_GROUP => {
-                    Self::from_iter(iter, compiler, true, output)?;
+                kind::ELSE => {
+                    output.push(Action {
+                        index: i,
+                        target: if action.applies_to_something { Some(action.applies_to) } else { None },
+                        relative: action.is_relative,
+                        invert_condition: action.invert_condition,
+                        body: Body::Else,
+                    });
                 },
+
+                kind::BEGIN_GROUP => output.push(Action {
+                    index: i,
+                    target: if action.applies_to_something { Some(action.applies_to) } else { None },
+                    relative: action.is_relative,
+                    invert_condition: action.invert_condition,
+                    body: Body::BlockBegin,
+                }),
+
+                kind::END_GROUP => output.push(Action {
+                    index: i,
+                    target: if action.applies_to_something { Some(action.applies_to) } else { None },
+                    relative: action.is_relative,
+                    invert_condition: action.invert_condition,
+                    body: Body::BlockEnd,
+                }),
 
                 kind::EXIT => {
                     output.push(Action {
@@ -210,8 +207,6 @@ impl Tree {
                 },
 
                 kind::REPEAT => {
-                    let mut body = Vec::new();
-                    Self::from_iter(iter, compiler, true, &mut body)?;
                     output.push(Action {
                         index: i,
                         target: if action.applies_to_something { Some(action.applies_to) } else { None },
@@ -219,7 +214,6 @@ impl Tree {
                         invert_condition: action.invert_condition,
                         body: Body::Repeat {
                             count: compiler.compile_expression(&action.param_strings[0].0).map_err(|e| e.message)?,
-                            body: body.into_boxed_slice(),
                         },
                     });
                 },
@@ -236,7 +230,7 @@ impl Tree {
                         body: Body::Normal {
                             args: Box::new([]),
                             body: GmlBody::Code(compiler.compile(&code).map_err(|e| e.message)?),
-                            if_else: None,
+                            is_condition: false,
                         },
                     });
                 },
@@ -250,17 +244,12 @@ impl Tree {
                         body: Body::Normal {
                             args: Box::new([]),
                             body: GmlBody::Code(compiler.compile(&action.param_strings[0].0).map_err(|e| e.message)?),
-                            if_else: None,
+                            is_condition: false,
                         },
                     });
                 },
 
                 _ => (),
-            }
-
-            // Is it time to stop reading actions?
-            if (single_group && action.action_kind == kind::END_GROUP) || stop_immediately {
-                break
             }
         }
 
@@ -298,7 +287,7 @@ impl Tree {
             target: None,
             relative: false,
             invert_condition: false,
-            body: Body::Normal { args: Box::new([]), body: GmlBody::Code(code), if_else: None },
+            body: Body::Normal { args: Box::new([]), body: GmlBody::Code(code), is_condition: false },
         });
     }
 }
@@ -314,8 +303,28 @@ impl Game {
         event_number: usize,
         as_object: i32,
     ) -> gml::Result<()> {
-        self.exec_slice(&tree.borrow().0, this, other, event_type, event_number, as_object)?;
+        self.exec_slice(&tree.borrow().0, this, other, event_type, event_number, as_object, false)?;
         Ok(())
+    }
+
+    fn skip_actions(slice: &[Action]) -> usize {
+        let mut block_depth: u32 = 0;
+        for (i, action) in slice.iter().enumerate() {
+            match action.body {
+                Body::BlockBegin => block_depth += 1,
+                Body::BlockEnd => {
+                    block_depth = block_depth.saturating_sub(1);
+                    if block_depth == 0 {
+                        return i + 1
+                    }
+                },
+                Body::Repeat { .. } => (),
+                Body::Normal { is_condition, .. } if is_condition => (),
+                Body::Normal { .. } | Body::Comment | Body::Exit | Body::Else if block_depth > 0 => (),
+                Body::Normal { .. } | Body::Comment | Body::Exit | Body::Else => return i + 1,
+            }
+        }
+        slice.len()
     }
 
     fn exec_slice(
@@ -326,14 +335,22 @@ impl Game {
         event_type: usize,
         event_number: usize,
         as_object: i32,
-    ) -> gml::Result<ReturnType> {
-        for action in slice.iter() {
+        one_block: bool,
+    ) -> gml::Result<(ReturnType, usize)> {
+        let mut block_depth = 0usize;
+        let mut skip_count = 0;
+        for (i, action) in slice.iter().enumerate() {
             if self.scene_change.is_some() {
-                return Ok(ReturnType::Exit)
+                return Ok((ReturnType::Exit, i))
+            }
+
+            if skip_count > 0 {
+                skip_count -= 1;
+                continue
             }
 
             match &action.body {
-                Body::Normal { args, body: gml_body, if_else } => {
+                Body::Normal { args, body: gml_body, is_condition } => {
                     let mut context = Context {
                         this,
                         other,
@@ -377,67 +394,109 @@ impl Game {
                         },
                         Some(i) if i < 0 => (),
                         Some(i) => {
-                            if let Some(Some(object)) = self.assets.objects.get(i as usize) {
-                                context.other = this;
-                                let ids = object.children.clone();
-                                let mut iter = self.room.instance_list.iter_by_identity(ids);
-                                while let Some(instance) = iter.next(&self.room.instance_list) {
-                                    context.this = instance;
+                            context.other = this;
+                            let mut iter = self.room.instance_list.iter_by_identity(i);
+                            while let Some(instance) = iter.next(&self.room.instance_list) {
+                                context.this = instance;
 
-                                    let mut arg_values: [Value; 16] = Default::default();
-                                    for (dest, src) in arg_values.iter_mut().zip(args.iter()) {
-                                        *dest = self.eval(src, &mut context)?;
-                                    }
-
-                                    returned_value = match gml_body {
-                                        GmlBody::Function(f) => {
-                                            self.invoke(*f, &mut context, &arg_values[..args.len()])?
-                                        },
-                                        GmlBody::Code(code) => {
-                                            context.arguments = arg_values;
-                                            context.argument_count = args.len();
-                                            self.execute(code, &mut context)?;
-                                            context.return_value.clone()
-                                        },
-                                    };
+                                let mut arg_values: [Value; 16] = Default::default();
+                                for (dest, src) in arg_values.iter_mut().zip(args.iter()) {
+                                    *dest = self.eval(src, &mut context)?;
                                 }
+
+                                returned_value = match gml_body {
+                                    GmlBody::Function(f) => self.invoke(*f, &mut context, &arg_values[..args.len()])?,
+                                    GmlBody::Code(code) => {
+                                        context.arguments = arg_values;
+                                        context.argument_count = args.len();
+                                        self.execute(code, &mut context)?;
+                                        context.return_value.clone()
+                                    },
+                                };
                             }
                         },
                     }
 
-                    if let Some((if_body, else_body)) = if_else {
-                        let target =
-                            if returned_value.is_truthy() != action.invert_condition { if_body } else { else_body };
-                        match self.exec_slice(target, this, other, event_type, event_number, as_object)? {
-                            ReturnType::Continue => (),
-                            ReturnType::Exit => return Ok(ReturnType::Exit),
+                    if *is_condition {
+                        let do_if = returned_value.is_truthy() != action.invert_condition;
+                        if do_if {
+                            if let Some(target) = slice.get(i + 1..) {
+                                match self.exec_slice(target, this, other, event_type, event_number, as_object, true)? {
+                                    (ReturnType::Continue, len) => {
+                                        skip_count = len;
+                                        if let Some(Body::Else) = slice.get(i + len + 1).map(|a| &a.body) {
+                                            skip_count +=
+                                                1 + slice.get(i + 1 + len + 1..).map(Self::skip_actions).unwrap_or(0);
+                                        };
+                                    },
+                                    (ReturnType::Exit, len) => return Ok((ReturnType::Exit, i + len)),
+                                }
+                            }
+                        } else {
+                            skip_count = slice.get(i + 1..).map(Self::skip_actions).unwrap_or(0);
+                            if slice
+                                .get(i + 1 + skip_count)
+                                .map(|action| matches!(action.body, Body::Else))
+                                .unwrap_or(false)
+                            {
+                                if let Some(target) = slice.get(i + 1 + skip_count + 1..) {
+                                    match self.exec_slice(
+                                        target,
+                                        this,
+                                        other,
+                                        event_type,
+                                        event_number,
+                                        as_object,
+                                        true,
+                                    )? {
+                                        (ReturnType::Continue, len) => skip_count += 1 + len,
+                                        (ReturnType::Exit, len) => {
+                                            return Ok((ReturnType::Exit, i + 1 + skip_count + 1 + len))
+                                        },
+                                    }
+                                }
+                            }
                         }
                     }
-                },
-                Body::Repeat { count, body } => {
-                    let mut context = Context {
-                        this,
-                        other,
-                        event_action: action.index,
-                        relative: action.relative,
-                        event_type,
-                        event_number,
-                        event_object: as_object,
-                        ..Default::default()
-                    };
-                    let mut count = i32::from(self.eval(count, &mut context)?);
-                    while count > 0 {
-                        match self.exec_slice(body, this, other, event_type, event_number, as_object)? {
-                            ReturnType::Continue => (),
-                            ReturnType::Exit => return Ok(ReturnType::Exit),
-                        }
-                        count -= 1;
+                    if one_block && block_depth == 0 {
+                        return Ok((ReturnType::Continue, i + 1 + skip_count))
                     }
                 },
-                Body::Exit => return Ok(ReturnType::Exit),
+                Body::Repeat { count } => {
+                    if let Some(body) = slice.get(i + 1..) {
+                        let mut context = Context {
+                            this,
+                            other,
+                            event_action: action.index,
+                            relative: action.relative,
+                            event_type,
+                            event_number,
+                            event_object: as_object,
+                            ..Default::default()
+                        };
+                        let mut count = i32::from(self.eval(count, &mut context)?);
+                        while count > 0 {
+                            match self.exec_slice(body, this, other, event_type, event_number, as_object, true)? {
+                                (ReturnType::Continue, _) => (),
+                                (ReturnType::Exit, len) => return Ok((ReturnType::Exit, len)),
+                            }
+                            count -= 1;
+                        }
+                        skip_count = slice.get(i + 1..).map(Self::skip_actions).unwrap_or(0);
+                    }
+                },
+                Body::BlockBegin => block_depth += 1,
+                Body::BlockEnd => {
+                    block_depth = block_depth.saturating_sub(1);
+                    if one_block && block_depth == 0 {
+                        return Ok((ReturnType::Continue, i + 1 + skip_count))
+                    }
+                },
+                Body::Exit => return Ok((ReturnType::Exit, i)),
+                Body::Else | Body::Comment => (),
             }
         }
 
-        Ok(ReturnType::Continue)
+        Ok((ReturnType::Continue, slice.len()))
     }
 }

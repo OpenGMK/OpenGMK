@@ -1,9 +1,9 @@
-use crate::{game::string::RCStr, math::Real};
+use crate::{gml, math::Real};
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct Path {
-    pub name: RCStr,
+    pub name: gml::String,
     pub points: Vec<Point>,
     pub control_nodes: Vec<ControlNode>,
     pub length: Real,
@@ -103,6 +103,30 @@ impl Path {
                 self.generate_smooth(precision - 1, point_avg, point2.halfway_between(&point3), point3);
             }
         }
+    }
+
+    /// Returns the center of the Path
+    pub fn center(&self) -> (Real, Real) {
+        // GM defaults
+        let mut left = Real::from(100000000);
+        let mut right = Real::from(-100000000);
+        let mut top = Real::from(100000000);
+        let mut bottom = Real::from(-100000000);
+        for point in &self.points {
+            if point.x < left {
+                left = point.x;
+            }
+            if point.x > right {
+                right = point.x;
+            }
+            if point.y < top {
+                top = point.y;
+            }
+            if point.y > bottom {
+                bottom = point.y;
+            }
+        }
+        ((left + right) / Real::from(2), (top + bottom) / Real::from(2))
     }
 
     /// Returns a Point on the path at the given offset, where 0 is the beginning and 1 is the end

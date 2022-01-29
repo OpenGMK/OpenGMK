@@ -1,9 +1,9 @@
 [package]
 name = "gm8exe"
-version = "0.1.0"
+version = "0.2.0"
 authors = ["The OpenGMK Project Developers"]
 license = "GPL-2.0-only"
-edition = "2018"
+edition = "2021"
 
 [dependencies]
 byteorder = "1"

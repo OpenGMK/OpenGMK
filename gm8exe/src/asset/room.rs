@@ -1,5 +1,5 @@
 use crate::{
-    asset::{assert_ver, Asset, Error, PascalString, ReadPascalString, WritePascalString},
+    asset::{assert_ver_multiple, Asset, Error, PascalString, ReadPascalString, WritePascalString},
     colour::Colour,
     def::ID,
     GameVersion,
@@ -75,6 +75,10 @@ pub struct Instance {
     pub object: ID,
     pub id: ID,
     pub creation_code: PascalString,
+    pub xscale: f64,
+    pub yscale: f64,
+    pub blend: u32,
+    pub angle: f64,
 }
 
 pub struct Tile {
@@ -87,6 +91,9 @@ pub struct Tile {
     pub height: u32,
     pub depth: i32,
     pub id: ID,
+    pub xscale: f64,
+    pub yscale: f64,
+    pub blend: u32,
 }
 
 pub struct View {
@@ -116,7 +123,7 @@ impl Asset for Room {
 
         let entry_version = reader.read_u32::<LE>()?;
         if strict {
-            assert_ver(entry_version, VERSION)?;
+            assert_ver_multiple(entry_version, &[VERSION, 810, 811])?;
         }
 
         let caption = reader.read_pas_string()?;
@@ -183,6 +190,10 @@ impl Asset for Room {
                     object: reader.read_i32::<LE>()?,
                     id: reader.read_i32::<LE>()?,
                     creation_code: reader.read_pas_string()?,
+                    xscale: if entry_version >= 810 { reader.read_f64::<LE>()? } else { 1.0 },
+                    yscale: if entry_version >= 810 { reader.read_f64::<LE>()? } else { 1.0 },
+                    blend: if entry_version >= 810 { reader.read_u32::<LE>()? } else { u32::MAX },
+                    angle: if entry_version >= 811 { reader.read_f64::<LE>()? } else { 0.0 },
                 })
             })
             .collect::<io::Result<_>>()?;
@@ -200,6 +211,9 @@ impl Asset for Room {
                     height: reader.read_u32::<LE>()?,
                     depth: reader.read_i32::<LE>()?,
                     id: reader.read_i32::<LE>()?,
+                    xscale: if entry_version >= 810 { reader.read_f64::<LE>()? } else { 1.0 },
+                    yscale: if entry_version >= 810 { reader.read_f64::<LE>()? } else { 1.0 },
+                    blend: if entry_version >= 810 { reader.read_u32::<LE>()? } else { u32::MAX },
                 })
             })
             .collect::<io::Result<_>>()?;

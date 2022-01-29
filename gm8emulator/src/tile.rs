@@ -1,6 +1,5 @@
-use crate::math::Real;
+use crate::{math::Real, types::ID};
 use serde::{Deserialize, Serialize};
-use shared::types::ID;
 use std::cell::Cell;
 
 /// An instance of a background tile.

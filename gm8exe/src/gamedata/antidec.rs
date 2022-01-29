@@ -1,8 +1,5 @@
 use byteorder::{ReadBytesExt, LE};
-use std::{
-    convert::TryInto,
-    io::{self, Read, Seek, SeekFrom},
-};
+use std::io::{self, Read, Seek, SeekFrom};
 
 /// The settings used to decrypt antidec2-protected data, usually extracted from machine code
 #[derive(Copy, Clone)]

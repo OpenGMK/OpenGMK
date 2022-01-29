@@ -1,5 +1,4 @@
-use crate::{gml::Value, instance::DummyFieldHolder};
-use shared::types::ID;
+use crate::{gml::Value, instance::DummyFieldHolder, types::ID};
 
 #[derive(Default)]
 pub struct Context {
@@ -44,11 +43,7 @@ impl Context {
     /// Creates a default context with a given instance handle as both the `self` and `other` parameters.
     #[inline(always)]
     pub fn with_single_instance(handle: usize) -> Self {
-        Self {
-            this: handle,
-            other: handle,
-            ..Default::default()
-        }
+        Self { this: handle, other: handle, ..Default::default() }
     }
 
     /// Creates a new context with some given arguments and a default `locals` map,

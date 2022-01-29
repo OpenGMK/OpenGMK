@@ -7,20 +7,6 @@ pub fn bgra2rgba(data: &mut [u8]) {
 /// Converts RGBA pixeldata to BGRA pixeldata in-place.
 pub use bgra2rgba as rgba2bgra;
 
-/// The default way to round as defined by IEEE 754 - nearest, ties to even.
-pub fn ieee_round(real: f64) -> i32 {
-    let floor = real.floor();
-    let floori = floor as i64 as i32;
-    let diff = real - floor;
-    if diff < 0.5 {
-        floori
-    } else if diff > 0.5 {
-        floori + 1
-    } else {
-        floori + (floori & 1)
-    }
-}
-
 // Helper fn: rotate mutable x and y around a center point, given sin and cos of the angle to rotate by
 pub fn rotate_around(x: &mut f64, y: &mut f64, center_x: f64, center_y: f64, sin: f64, cos: f64) {
     *x -= center_x;
@@ -39,7 +25,7 @@ pub fn rotate_around_center(x: &mut f64, y: &mut f64, sin: f64, cos: f64) {
 
 #[cfg(test)]
 mod tests {
-    use super::{bgra2rgba, ieee_round, rgba2bgra};
+    use super::{bgra2rgba, rgba2bgra};
 
     #[test]
     fn bgra_rgba() {
@@ -51,20 +37,5 @@ mod tests {
         assert_eq!(cool_pixels, rgba_pixels);
         rgba2bgra(&mut cool_pixels);
         assert_eq!(cool_pixels, bgra_pixels);
-    }
-
-    #[test]
-    fn round() {
-        assert_eq!(ieee_round(-3.5), -4);
-        assert_eq!(ieee_round(-2.5), -2);
-        assert_eq!(ieee_round(-1.5), -2);
-        assert_eq!(ieee_round(-0.5), 0);
-        assert_eq!(ieee_round(0.5), 0);
-        assert_eq!(ieee_round(1.5), 2);
-        assert_eq!(ieee_round(2.5), 2);
-        assert_eq!(ieee_round(3.5), 4);
-        for i in 0..1000 {
-            assert_eq!(ieee_round(i as f64 + 0.5) % 2, 0);
-        }
     }
 }

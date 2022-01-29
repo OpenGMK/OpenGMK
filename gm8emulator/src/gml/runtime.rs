@@ -48,7 +48,7 @@ pub enum Node {
     ExtensionFunction { args: Box<[Node]>, id: usize },
     Field { accessor: FieldAccessor },
     Variable { accessor: VariableAccessor },
-    Binary { left: Box<Node>, right: Box<Node>, operator: BinaryOperator },
+    Binary { left: Box<Node>, right: Box<Node>, operator: BinaryOperator, type_unsafe: bool },
     Unary { child: Box<Node>, operator: UnaryOperator },
     RuntimeError { error: Error },
 }
@@ -161,6 +161,8 @@ pub enum Error {
     FunctionError(String, String),
     ReplayError(String),
     BadDirectoryError(String),
+    ExternalFunction(String, String),
+    InvalidExternal(i32),
 }
 
 impl std::error::Error for Error {}
@@ -206,6 +208,8 @@ impl Display for Error {
             Self::FunctionError(fname, s) => write!(f, "{}: {}", fname, s),
             Self::ReplayError(s) => write!(f, "{}", s),
             Self::BadDirectoryError(s) => write!(f, "cannot encode working directory {} with current encoding", s),
+            Self::ExternalFunction(s, e) => write!(f, "failed to call external function \"{}\": {}", s, e),
+            Self::InvalidExternal(i) => write!(f, "tried to call nonexistent external function with id {}", i),
         }
     }
 }
@@ -259,7 +263,9 @@ impl fmt::Debug for Node {
             Node::ExtensionFunction { args, id } => write!(f, "<extfn {:?}: {:?}>", id, args),
             Node::Field { accessor } => write!(f, "<field: {:?}>", accessor),
             Node::Variable { accessor } => write!(f, "<variable: {:?}>", accessor),
-            Node::Binary { left, right, operator } => write!(f, "<binary {:?}: {:?}, {:?}>", operator, left, right),
+            Node::Binary { left, right, operator, type_unsafe } => {
+                write!(f, "<binary {:?}: {:?}, {:?}, {:?}>", operator, left, right, type_unsafe)
+            },
             Node::Unary { child, operator } => write!(f, "<unary {:?}: {:?}>", operator, child),
             Node::RuntimeError { error } => write!(f, "<error: {:?}>", error),
         }
@@ -333,16 +339,13 @@ impl Game {
                         self.set_instance_field(instance, accessor.index, array_index, value);
                     },
                     Target::Objects(index) => {
-                        if let Some(Some(object)) = self.assets.objects.get(index as usize) {
-                            let ids = object.children.clone();
-                            let mut iter = self.room.instance_list.iter_by_identity(ids);
-                            while let Some(instance) = iter.next(&self.room.instance_list) {
-                                self.set_instance_field(instance, accessor.index, array_index, value.clone());
-                            }
+                        let mut iter = self.room.instance_list.iter_by_identity(index);
+                        while let Some(instance) = iter.next(&self.room.instance_list) {
+                            self.set_instance_field(instance, accessor.index, array_index, value.clone());
                         }
                     },
                     Target::All => {
-                        let mut iter = self.room.instance_list.iter_by_insertion();
+                        let mut iter = self.room.instance_list.iter_by_drawing();
                         while let Some(instance) = iter.next(&self.room.instance_list) {
                             self.set_instance_field(instance, accessor.index, array_index, value.clone());
                         }
@@ -374,16 +377,13 @@ impl Game {
                         self.set_instance_var(instance, &accessor.var, array_index, value, context)?;
                     },
                     Target::Objects(index) => {
-                        if let Some(Some(object)) = self.assets.objects.get(index as usize) {
-                            let ids = object.children.clone();
-                            let mut iter = self.room.instance_list.iter_by_identity(ids);
-                            while let Some(instance) = iter.next(&self.room.instance_list) {
-                                self.set_instance_var(instance, &accessor.var, array_index, value.clone(), context)?;
-                            }
+                        let mut iter = self.room.instance_list.iter_by_identity(index);
+                        while let Some(instance) = iter.next(&self.room.instance_list) {
+                            self.set_instance_var(instance, &accessor.var, array_index, value.clone(), context)?;
                         }
                     },
                     Target::All => {
-                        let mut iter = self.room.instance_list.iter_by_insertion();
+                        let mut iter = self.room.instance_list.iter_by_drawing();
                         while let Some(instance) = iter.next(&self.room.instance_list) {
                             self.set_instance_var(instance, &accessor.var, array_index, value.clone(), context)?;
                         }
@@ -509,7 +509,7 @@ impl Game {
                         }
                     },
                     gml::ALL => {
-                        let mut iter = self.room.instance_list.iter_by_insertion();
+                        let mut iter = self.room.instance_list.iter_by_drawing();
                         while let Some(instance) = iter.next(&self.room.instance_list) {
                             context.this = instance;
                             match self.execute(body, context)? {
@@ -526,20 +526,18 @@ impl Game {
                     },
                     i if i < 0 => (),
                     i if i < 100_000 => {
-                        if let Some(Some(object)) = self.assets.objects.get(i as usize) {
-                            let mut iter = self.room.instance_list.iter_by_identity(object.children.clone());
-                            while let Some(instance) = iter.next(&self.room.instance_list) {
-                                context.this = instance;
-                                match self.execute(body, context)? {
-                                    ReturnType::Normal => (),
-                                    ReturnType::Continue => continue,
-                                    ReturnType::Break => break,
-                                    ReturnType::Exit => {
-                                        context.this = old_this;
-                                        context.other = old_other;
-                                        return Ok(ReturnType::Exit)
-                                    },
-                                }
+                        let mut iter = self.room.instance_list.iter_by_identity(i);
+                        while let Some(instance) = iter.next(&self.room.instance_list) {
+                            context.this = instance;
+                            match self.execute(body, context)? {
+                                ReturnType::Normal => (),
+                                ReturnType::Continue => continue,
+                                ReturnType::Break => break,
+                                ReturnType::Exit => {
+                                    context.this = old_this;
+                                    context.other = old_other;
+                                    return Ok(ReturnType::Exit)
+                                },
                             }
                         }
                     },
@@ -561,7 +559,12 @@ impl Game {
                 context.this = old_this;
                 context.other = old_other;
             },
-            Instruction::GlobalVar { fields } => self.globalvars.extend(fields),
+            Instruction::GlobalVar { fields } => {
+                self.globalvars.extend(fields);
+                for &field in fields {
+                    self.globals.fields.entry(field).or_insert(Field::new(0, Default::default()));
+                }
+            },
             Instruction::RuntimeError { error } => return Err(error.clone()),
         }
 
@@ -607,7 +610,7 @@ impl Game {
                     *dest = self.eval(src, context)?;
                 }
 
-                self.run_extension_function(*id, Context::copy_with_args(context, arg_values, args.len()))
+                self.run_extension_function(*id, context, arg_values, args.len())
             },
             Node::Field { accessor } => {
                 let target = self.get_target(context, &accessor.owner, self.globalvars.contains(&accessor.index))?;
@@ -620,12 +623,9 @@ impl Game {
                     )),
                     Target::Single(Some(instance)) => self.get_instance_field(instance, accessor.index, array_index),
                     Target::Objects(index) => {
-                        if let Some(instance) = self.assets.objects.get(index as usize).and_then(|x| match x {
-                            Some(x) => {
-                                self.room.instance_list.iter_by_identity(x.children.clone()).next(&self.room.instance_list)
-                            },
-                            None => None,
-                        }) {
+                        if let Some(instance) =
+                            self.room.instance_list.iter_by_identity(index).next(&self.room.instance_list)
+                        {
                             self.get_instance_field(instance, accessor.index, array_index)
                         } else {
                             if self.uninit_fields_are_zero {
@@ -639,7 +639,8 @@ impl Game {
                         }
                     },
                     Target::All => {
-                        if let Some(instance) = self.room.instance_list.iter_by_insertion().next(&self.room.instance_list) {
+                        if let Some(instance) = self.room.instance_list.iter_by_drawing().next(&self.room.instance_list)
+                        {
                             self.get_instance_field(instance, accessor.index, array_index)
                         } else {
                             if self.uninit_fields_are_zero {
@@ -695,12 +696,9 @@ impl Game {
                         self.get_instance_var(instance, &accessor.var, array_index, context)
                     },
                     Target::Objects(index) => {
-                        if let Some(instance) = self.assets.objects.get(index as usize).and_then(|x| match x {
-                            Some(x) => {
-                                self.room.instance_list.iter_by_identity(x.children.clone()).next(&self.room.instance_list)
-                            },
-                            None => None,
-                        }) {
+                        if let Some(instance) =
+                            self.room.instance_list.iter_by_identity(index).next(&self.room.instance_list)
+                        {
                             self.get_instance_var(instance, &accessor.var, array_index, context)
                         } else {
                             if self.uninit_fields_are_zero {
@@ -720,7 +718,8 @@ impl Game {
                         }
                     },
                     Target::All => {
-                        if let Some(instance) = self.room.instance_list.iter_by_insertion().next(&self.room.instance_list) {
+                        if let Some(instance) = self.room.instance_list.iter_by_drawing().next(&self.room.instance_list)
+                        {
                             self.get_instance_var(instance, &accessor.var, array_index, context)
                         } else {
                             if self.uninit_fields_are_zero {
@@ -779,8 +778,14 @@ impl Game {
                     },
                 }
             },
-            Node::Binary { left, right, operator } => {
-                operator.call(self.eval(left, context)?, self.eval(right, context)?)
+            Node::Binary { left, right, operator, type_unsafe } => {
+                // the + in += can happen here, and += ignores errors in the + portion
+                let left = self.eval(left, context)?;
+                match operator.call(left.clone(), self.eval(right, context)?) {
+                    res @ Ok(_) => res,
+                    Err(_) if *type_unsafe => Ok(left),
+                    res => res,
+                }
             },
             Node::Unary { child, operator } => operator.call(self.eval(child, context)?),
             Node::RuntimeError { error } => Err(error.clone()),
@@ -1014,12 +1019,20 @@ impl Game {
             InstanceVariable::BackgroundVisible => {
                 Ok(self.room.backgrounds.get(array_index as usize).unwrap_or(&self.room.backgrounds[0]).visible.into())
             },
-            InstanceVariable::BackgroundForeground => {
-                Ok(self.room.backgrounds.get(array_index as usize).unwrap_or(&self.room.backgrounds[0]).is_foreground.into())
-            },
-            InstanceVariable::BackgroundIndex => {
-                Ok(self.room.backgrounds.get(array_index as usize).unwrap_or(&self.room.backgrounds[0]).background_id.into())
-            },
+            InstanceVariable::BackgroundForeground => Ok(self
+                .room
+                .backgrounds
+                .get(array_index as usize)
+                .unwrap_or(&self.room.backgrounds[0])
+                .is_foreground
+                .into()),
+            InstanceVariable::BackgroundIndex => Ok(self
+                .room
+                .backgrounds
+                .get(array_index as usize)
+                .unwrap_or(&self.room.backgrounds[0])
+                .background_id
+                .into()),
             InstanceVariable::BackgroundX => {
                 Ok(self.room.backgrounds.get(array_index as usize).unwrap_or(&self.room.backgrounds[0]).x_offset.into())
             },
@@ -1027,23 +1040,33 @@ impl Game {
                 Ok(self.room.backgrounds.get(array_index as usize).unwrap_or(&self.room.backgrounds[0]).y_offset.into())
             },
             InstanceVariable::BackgroundWidth => {
-                let index = self.room.backgrounds.get(array_index as usize).unwrap_or(&self.room.backgrounds[0]).background_id;
+                let index =
+                    self.room.backgrounds.get(array_index as usize).unwrap_or(&self.room.backgrounds[0]).background_id;
                 if let Some(bg) = self.assets.backgrounds.get_asset(index) { Ok(bg.width.into()) } else { Ok(0.into()) }
             },
             InstanceVariable::BackgroundHeight => {
-                let index = self.room.backgrounds.get(array_index as usize).unwrap_or(&self.room.backgrounds[0]).background_id;
+                let index =
+                    self.room.backgrounds.get(array_index as usize).unwrap_or(&self.room.backgrounds[0]).background_id;
                 if let Some(bg) = self.assets.backgrounds.get_asset(index) {
                     Ok(bg.height.into())
                 } else {
                     Ok(0.into())
                 }
             },
-            InstanceVariable::BackgroundHtiled => {
-                Ok(self.room.backgrounds.get(array_index as usize).unwrap_or(&self.room.backgrounds[0]).tile_horizontal.into())
-            },
-            InstanceVariable::BackgroundVtiled => {
-                Ok(self.room.backgrounds.get(array_index as usize).unwrap_or(&self.room.backgrounds[0]).tile_vertical.into())
-            },
+            InstanceVariable::BackgroundHtiled => Ok(self
+                .room
+                .backgrounds
+                .get(array_index as usize)
+                .unwrap_or(&self.room.backgrounds[0])
+                .tile_horizontal
+                .into()),
+            InstanceVariable::BackgroundVtiled => Ok(self
+                .room
+                .backgrounds
+                .get(array_index as usize)
+                .unwrap_or(&self.room.backgrounds[0])
+                .tile_vertical
+                .into()),
             InstanceVariable::BackgroundXscale => {
                 Ok(self.room.backgrounds.get(array_index as usize).unwrap_or(&self.room.backgrounds[0]).xscale.into())
             },
@@ -1111,10 +1134,10 @@ impl Game {
             },
             InstanceVariable::MouseX => Ok(self.get_mouse_in_room().0.into()),
             InstanceVariable::MouseY => Ok(self.get_mouse_in_room().1.into()),
-            InstanceVariable::MouseButton => Ok(self.input_manager.mouse_get_button().into()),
-            InstanceVariable::MouseLastbutton => Ok(self.input_manager.mouse_get_lastbutton().into()),
-            InstanceVariable::KeyboardKey => Ok(self.input_manager.key_get_key().into()),
-            InstanceVariable::KeyboardLastkey => Ok(self.input_manager.key_get_lastkey().into()),
+            InstanceVariable::MouseButton => Ok(f64::from(self.input.mouse_button()).into()),
+            InstanceVariable::MouseLastbutton => Ok(f64::from(self.input.mouse_lastbutton()).into()),
+            InstanceVariable::KeyboardKey => Ok(f64::from(self.input.keyboard_key()).into()),
+            InstanceVariable::KeyboardLastkey => Ok(f64::from(self.input.keyboard_lastkey()).into()),
             InstanceVariable::KeyboardLastchar => todo!("keyboard_lastchar getter"),
             InstanceVariable::KeyboardString => todo!("keyboard_string getter"),
             InstanceVariable::CursorSprite => Ok(self.cursor_sprite.into()),
@@ -1274,9 +1297,6 @@ impl Game {
             },
             InstanceVariable::PathPosition => {
                 let new_value = Real::from(value).max(Real::from(0.0)).min(Real::from(1.0));
-                if let Some(path) = self.assets.paths.get_asset(instance.path_index.get()) {
-                    instance.path_pointspeed.set(path.get_point(new_value).speed);
-                }
                 instance.path_position.set(new_value);
             },
             InstanceVariable::PathPositionprevious => instance.path_positionprevious.set(value.into()),
@@ -1314,14 +1334,14 @@ impl Game {
                 let old_lives = self.lives;
                 self.lives = value.into();
                 if old_lives > 0 && self.lives <= 0 {
-                    self.run_object_event(7, 6, None)?;
+                    self.run_other_event(6)?;
                 }
             },
             InstanceVariable::Health => {
                 let old_health = self.health;
                 self.health = value.into();
                 if old_health > 0.into() && self.health <= 0.into() {
-                    self.run_object_event(7, 9, None)?;
+                    self.run_other_event(9)?;
                 }
             },
             InstanceVariable::RoomCaption => {
@@ -1452,26 +1472,30 @@ impl Game {
             },
             InstanceVariable::MouseButton => {
                 let button = value.round();
-                if button > 0 {
-                    self.input_manager.mouse_set_button(button as _);
+                if let Ok(mb) = i8::try_from(button) {
+                    if matches!(mb, 1 | 2 | 3) {
+                        self.input.set_mouse_button(mb);
+                    }
                 }
             },
             InstanceVariable::MouseLastbutton => {
                 let button = value.round();
-                if button > 0 {
-                    self.input_manager.mouse_set_lastbutton(button as _);
+                if let Ok(mb) = i8::try_from(button) {
+                    if matches!(mb, 1 | 2 | 3) {
+                        self.input.set_mouse_lastbutton(mb);
+                    }
                 }
             },
             InstanceVariable::KeyboardKey => {
                 let code = value.round();
-                if code > 0 {
-                    self.input_manager.key_set_key(code as _);
+                if let Ok(vk) = u8::try_from(code) {
+                    self.input.set_keyboard_key(vk);
                 }
             },
             InstanceVariable::KeyboardLastkey => {
                 let code = value.round();
-                if code > 0 {
-                    self.input_manager.key_set_lastkey(code as _);
+                if let Ok(vk) = u8::try_from(code) {
+                    self.input.set_keyboard_lastkey(vk);
                 }
             },
             InstanceVariable::KeyboardLastchar => todo!("keyboard_lastchar setter"),

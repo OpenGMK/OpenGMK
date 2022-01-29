@@ -1,21 +1,26 @@
 #![feature(seek_stream_len)]
-#![allow(dead_code)] // Shut up.
 
 mod action;
 mod asset;
 mod game;
 mod gml;
 mod handleman;
+mod imgui;
 mod input;
 mod instance;
 mod instancelist;
 mod math;
+mod render;
 mod tile;
+mod types;
 mod util;
 
+use game::{
+    savestate::{self, SaveState},
+    Game, PlayType, Replay,
+};
 use std::{
     env, fs,
-    io::{BufReader, Write},
     path::{Path, PathBuf},
     process,
 };
@@ -48,9 +53,9 @@ fn xmain() -> i32 {
     opts.optflag("v", "verbose", "enables verbose logging");
     opts.optflag("r", "realtime", "disables clock spoofing");
     opts.optflag("l", "no-framelimit", "disables the frame-limiter");
-    opts.optopt("p", "port", "port to open for external game control (default 15560)", "PORT");
     opts.optopt("n", "project-name", "name of TAS project to create or load", "NAME");
     opts.optopt("f", "replay-file", "path to savestate file to replay", "FILE");
+    opts.optopt("o", "output-file", "output savestate name in replay mode", "FILE.bin");
     opts.optmulti("a", "game-arg", "argument to pass to the game", "ARG");
 
     let matches = match opts.parse(&args[1..]) {
@@ -78,20 +83,21 @@ fn xmain() -> i32 {
     let spoof_time = !matches.opt_present("r");
     let frame_limiter = !matches.opt_present("l");
     let verbose = matches.opt_present("v");
-    let port = match matches.opt_str("p").map(|x| x.parse::<u16>()).transpose() {
-        Ok(p) => p,
-        Err(e) => {
-            eprintln!("invalid port provided: {}", e);
-            return EXIT_FAILURE
-        },
-    }
-    .unwrap_or(15560);
+    let output_bin = matches.opt_str("o").map(PathBuf::from);
     let project_path = matches.opt_str("n").map(|name| {
         let mut p = env::current_dir().expect("std::env::current_dir() failed");
         p.push("projects");
         p.push(name);
         p
     });
+
+    if let Some(bin) = &output_bin {
+        if bin.extension().and_then(|x| x.to_str()) != Some("bin") {
+            eprintln!("invalid output file for -o: must be a .gmtas file");
+            return EXIT_FAILURE
+        }
+    }
+
     let temp_dir = project_path.as_ref().map(|proj_path| {
         // attempt to find temp dir in project path
         std::fs::read_dir(proj_path)
@@ -119,27 +125,33 @@ fn xmain() -> i32 {
             })
     });
     let can_clear_temp_dir = temp_dir.is_none();
-    let replay = matches.opt_str("f").map(|filename| {
-        let mut filepath = PathBuf::from(&filename);
-        match filepath.extension().and_then(|x| x.to_str()) {
-            Some("bin") => {
-                let f = fs::File::open(&filepath).unwrap();
-                let replay = bincode::deserialize_from::<_, game::SaveState>(BufReader::new(f)).unwrap().into_replay();
-                filepath.set_extension("gmtas");
-                fs::File::create(&filepath).unwrap().write_all(&bincode::serialize(&replay).unwrap()).unwrap();
-                replay
-            },
+    let replay = match matches
+        .opt_str("f")
+        .map(|filename| {
+            let filepath = PathBuf::from(&filename);
+            match filepath.extension().and_then(|x| x.to_str()) {
+                Some("bin") => match SaveState::from_file(&filepath, &mut savestate::Buffer::new()) {
+                    Ok(state) => Ok(state.into_replay()),
+                    Err(e) => Err(format!("couldn't load {:?}: {:?}", filepath, e)),
+                },
 
-            Some("gmtas") => {
-                bincode::deserialize_from::<_, game::Replay>(BufReader::new(fs::File::open(&filepath).unwrap()))
-                    .unwrap()
-            },
+                Some("gmtas") => match Replay::from_file(&filepath) {
+                    Ok(replay) => Ok(replay),
+                    Err(e) => Err(format!("couldn't load {:?}: {:?}", filepath, e)),
+                },
 
-            _ => {
-                panic!("Unknown filetype for -f, expected '.bin' or '.gmtas'");
-            },
-        }
-    });
+                _ => Err("unknown filetype for -f, expected '.bin' or '.gmtas'".into()),
+            }
+        })
+        .transpose()
+    {
+        Ok(r) => r,
+        Err(e) => {
+            eprintln!("{}", e);
+            return EXIT_FAILURE
+        },
+    };
+
     let input = {
         if matches.free.len() == 1 {
             &matches.free[0]
@@ -200,26 +212,28 @@ fn xmain() -> i32 {
     let encoding = encoding_rs::SHIFT_JIS; // TODO: argument
 
     let play_type = if project_path.is_some() {
-        game::PlayType::Record
+        PlayType::Record
     } else if replay.is_some() {
-        game::PlayType::Replay
+        PlayType::Replay
     } else {
-        game::PlayType::Normal
+        PlayType::Normal
     };
 
-    let mut components = match game::Game::launch(assets, absolute_path, game_args, temp_dir, encoding, frame_limiter, play_type) {
-        Ok(g) => g,
-        Err(e) => {
-            eprintln!("Failed to launch game: {}", e);
-            return EXIT_FAILURE
-        },
-    };
+    let mut components =
+        match Game::launch(assets, absolute_path, game_args, temp_dir, encoding, frame_limiter, play_type) {
+            Ok(g) => g,
+            Err(e) => {
+                eprintln!("Failed to launch game: {}", e);
+                return EXIT_FAILURE
+            },
+        };
 
     let time_now = gml::datetime::now_as_nanos();
 
     if let Err(err) = if let Some(path) = project_path {
         components.spoofed_time_nanos = Some(time_now);
-        components.record(path, port)
+        components.record(path);
+        Ok(())
     } else {
         // cache temp_dir and included files because the other functions take ownership
         let temp_dir: Option<PathBuf> = if can_clear_temp_dir {
@@ -234,7 +248,7 @@ fn xmain() -> i32 {
             .map(|i| PathBuf::from(components.decode_str(i.name.as_ref()).into_owned()))
             .collect::<Vec<_>>();
         let result = if let Some(replay) = replay {
-            components.replay(replay)
+            components.replay(replay, output_bin)
         } else {
             components.spoofed_time_nanos = if spoof_time { Some(time_now) } else { None };
             components.run()

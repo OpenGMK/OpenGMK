@@ -1,16 +1,16 @@
 use crate::{
-    game::{string::RCStr, Background, View},
-    gml::runtime::Instruction,
+    game::{Background, View},
+    gml::{self, runtime::Instruction},
     tile::Tile,
+    types::{Colour, ID},
 };
 use serde::{Deserialize, Serialize};
-use shared::types::{Colour, ID};
 use std::rc::Rc;
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct Room {
-    pub name: RCStr,
-    pub caption: RCStr,
+    pub name: gml::String,
+    pub caption: gml::String,
     pub width: u32,
     pub height: u32,
     pub speed: u32,
@@ -34,4 +34,8 @@ pub struct Instance {
     pub object: i32,
     pub id: ID,
     pub creation: Result<Rc<[Instruction]>, String>,
+    pub xscale: f64,
+    pub yscale: f64,
+    pub blend: u32,
+    pub angle: f64,
 }

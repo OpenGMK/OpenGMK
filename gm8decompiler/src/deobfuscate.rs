@@ -361,9 +361,9 @@ impl DeobfState {
 impl<'a, 'b, 'c> ExprWriter<'a, 'b, 'c> {
     pub fn process_expr(&mut self, ex: &'_ ast::Expr) {
         macro_rules! push_str {
-            ($lit: literal) => {
+            ($lit: literal) => {{
                 self.output.extend_from_slice(($lit).as_bytes());
-            };
+            }};
         }
 
         fn write_wrapped(writer: &mut ExprWriter, expr: &ast::Expr) {

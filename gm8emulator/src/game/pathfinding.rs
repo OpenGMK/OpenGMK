@@ -13,6 +13,30 @@ pub struct PotentialStepSettings {
     pub rotate_on_spot: bool,
 }
 
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct MpGrid {
+    mpgrid: Vec<Vec<i32>>,
+    pub(crate) left: i32,
+    pub(crate) top: i32,
+    pub(crate) hcells: usize,
+    pub(crate) vcells: usize,
+    pub(crate) cellwidth: i32,
+    pub(crate) cellheight: i32,
+}
+
+#[derive(Debug)]
+pub enum Error {
+    NonexistentStructure(i32),
+}
+
+impl From<Error> for String {
+    fn from(e: Error) -> Self {
+        match e {
+            Error::NonexistentStructure(id) => format!("mp_grid with index {} does not exist", id),
+        }
+    }
+}
+
 impl Default for PotentialStepSettings {
     fn default() -> Self {
         PotentialStepSettings {
@@ -21,6 +45,23 @@ impl Default for PotentialStepSettings {
             check_distance: 3.0.into(),
             rotate_on_spot: true,
         }
+    }
+}
+
+impl MpGrid {
+    pub fn new(left: i32, top: i32, hcells: usize, vcells: usize, cellwidth: i32, cellheight: i32) -> Self {
+        let mpgrid = vec![vec![0; vcells]; hcells];
+        Self { mpgrid, left, top, hcells, vcells, cellwidth, cellheight }
+    }
+
+    // This will panic on OOB, so make sure you check bounds before calling
+    pub fn get(&self, x: usize, y: usize) -> i32 {
+        self.mpgrid[x][y]
+    }
+
+    // This will panic on OOB, so make sure you check bounds before calling
+    pub fn set(&mut self, x: usize, y: usize, val: i32) {
+        self.mpgrid[x][y] = val;
     }
 }
 

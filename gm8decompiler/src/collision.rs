@@ -22,13 +22,13 @@ pub fn resolve_map(sprite: &Sprite) -> Option<GmkCollision> {
     let maps = &sprite.colliders;
     // Return None if empty
     if sprite.frames.is_empty() || maps.is_empty() {
-        return None;
+        return None
     }
 
     // Return None if there are less colliders than there should be
     let n_colliders = if sprite.per_frame_colliders { sprite.frames.len() } else { 1 };
     if sprite.colliders.len() < n_colliders {
-        return None;
+        return None
     }
 
     // Each map has its own bounds, so we need to find out the outmost bounds

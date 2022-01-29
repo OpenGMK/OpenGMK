@@ -2,14 +2,15 @@ use crate::{
     asset::{Object, Sprite},
     gml::{InstanceVariable, Value},
     math::Real,
+    types::ID,
     util,
 };
 use serde::{Deserialize, Serialize};
-use shared::types::ID;
 use std::{
     cell::{Cell, RefCell},
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     f64,
+    rc::Rc,
 };
 
 // Default in GameMaker 8
@@ -64,7 +65,6 @@ pub struct Instance {
     pub path_endaction: Cell<i32>, // https://docs.yoyogames.com/source/dadiospice/002_reference/paths/path_start.html
     pub path_xstart: Cell<Real>,
     pub path_ystart: Cell<Real>,
-    pub path_pointspeed: Cell<Real>,
     pub timeline_index: Cell<i32>,
     pub timeline_running: Cell<bool>,
     pub timeline_speed: Cell<Real>,
@@ -79,6 +79,8 @@ pub struct Instance {
 
     pub fields: RefCell<HashMap<usize, Field>>,
     pub alarms: RefCell<HashMap<u32, i32>>,
+
+    pub parents: Rc<RefCell<HashSet<i32>>>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -95,23 +97,71 @@ pub struct DummyFieldHolder {
 
 impl Instance {
     pub fn new(id: ID, x: Real, y: Real, object_index: i32, object: &Object) -> Self {
+        Self::new_ext(
+            id,
+            x,
+            y,
+            object_index,
+            Some(object),
+            Real::from(1),
+            Real::from(1),
+            0xFFFFFF,
+            Real::from(1),
+            Real::from(0),
+        )
+    }
+
+    pub fn new_dummy(object: Option<&Object>) -> Self {
+        Self::new_ext(
+            0,
+            Real::from(0),
+            Real::from(0),
+            0,
+            object,
+            Real::from(1),
+            Real::from(1),
+            0xFFFFFF,
+            Real::from(1),
+            Real::from(0),
+        )
+    }
+
+    pub fn new_ext(
+        id: ID,
+        x: Real,
+        y: Real,
+        object_index: i32,
+        object: Option<&Object>,
+        xscale: Real,
+        yscale: Real,
+        blend: i32,
+        alpha: Real,
+        angle: Real,
+    ) -> Self {
         Self {
-            state: Cell::new(InstanceState::Active),
             id: Cell::new(id),
+            x: Cell::new(x),
+            y: Cell::new(y),
             object_index: Cell::new(object_index),
-            solid: Cell::new(object.solid),
-            visible: Cell::new(object.visible),
-            persistent: Cell::new(object.persistent),
-            depth: Cell::new(object.depth.into()),
-            sprite_index: Cell::new(object.sprite_index),
-            image_alpha: Cell::new(Real::from(1.0)),
-            image_blend: Cell::new(0xFFFFFF),
+            solid: Cell::new(object.map(|x| x.solid).unwrap_or(false)),
+            visible: Cell::new(object.map(|x| x.visible).unwrap_or(false)),
+            persistent: Cell::new(object.map(|x| x.persistent).unwrap_or(false)),
+            depth: Cell::new(object.map(|x| x.depth.into()).unwrap_or(Real::from(0.0))),
+            sprite_index: Cell::new(object.map(|x| x.sprite_index).unwrap_or(0)),
+            image_blend: Cell::new(blend),
+            image_alpha: Cell::new(alpha),
+            image_angle: Cell::new(angle),
+            mask_index: Cell::new(object.map(|x| x.mask_index).unwrap_or(0)),
+            parents: object.map(|x| x.parents.clone()).unwrap_or_default(),
+            xprevious: Cell::new(x),
+            yprevious: Cell::new(y),
+            xstart: Cell::new(x),
+            ystart: Cell::new(y),
+            state: Cell::new(InstanceState::Active),
             image_index: Cell::new(Real::from(0.0)),
             image_speed: Cell::new(Real::from(1.0)),
-            image_xscale: Cell::new(Real::from(1.0)),
-            image_yscale: Cell::new(Real::from(1.0)),
-            image_angle: Cell::new(Real::from(0.0)),
-            mask_index: Cell::new(object.mask_index),
+            image_xscale: Cell::new(xscale),
+            image_yscale: Cell::new(yscale),
             direction: Cell::new(Real::from(0.0)),
             gravity: Cell::new(Real::from(0.0)),
             gravity_direction: Cell::new(Real::from(270.0)),
@@ -119,12 +169,6 @@ impl Instance {
             vspeed: Cell::new(Real::from(0.0)),
             speed: Cell::new(Real::from(0.0)),
             friction: Cell::new(Real::from(0.0)),
-            x: Cell::new(x),
-            y: Cell::new(y),
-            xprevious: Cell::new(Real::from(x)),
-            yprevious: Cell::new(Real::from(y)),
-            xstart: Cell::new(Real::from(x)),
-            ystart: Cell::new(Real::from(y)),
             path_index: Cell::new(-1),
             path_position: Cell::new(Real::from(0.0)),
             path_positionprevious: Cell::new(Real::from(0.0)),
@@ -134,63 +178,6 @@ impl Instance {
             path_endaction: Cell::new(0),
             path_xstart: Cell::new(Real::from(0.0)),
             path_ystart: Cell::new(Real::from(0.0)),
-            path_pointspeed: Cell::new(Real::from(0.0)),
-            timeline_index: Cell::new(-1),
-            timeline_running: Cell::new(false),
-            timeline_speed: Cell::new(Real::from(1.0)),
-            timeline_position: Cell::new(Real::from(0.0)),
-            timeline_loop: Cell::new(false),
-            bbox_top: Cell::new(BBOX_DEFAULT),
-            bbox_left: Cell::new(BBOX_DEFAULT),
-            bbox_right: Cell::new(BBOX_DEFAULT),
-            bbox_bottom: Cell::new(BBOX_DEFAULT),
-            bbox_is_stale: Cell::new(true),
-            fields: RefCell::new(HashMap::new()),
-            alarms: RefCell::new(HashMap::new()),
-        }
-    }
-
-    pub fn new_dummy(object: Option<&Object>) -> Self {
-        Self {
-            state: Cell::new(InstanceState::Active),
-            id: Cell::new(0),
-            object_index: Cell::new(0),
-            solid: Cell::new(object.map(|x| x.solid).unwrap_or(false)),
-            visible: Cell::new(object.map(|x| x.visible).unwrap_or(false)),
-            persistent: Cell::new(object.map(|x| x.persistent).unwrap_or(false)),
-            depth: Cell::new(object.map(|x| x.depth.into()).unwrap_or(Real::from(0.0))),
-            sprite_index: Cell::new(object.map(|x| x.sprite_index).unwrap_or(0)),
-            image_alpha: Cell::new(Real::from(1.0)),
-            image_blend: Cell::new(0xFFFFFF),
-            image_index: Cell::new(Real::from(0.0)),
-            image_speed: Cell::new(Real::from(1.0)),
-            image_xscale: Cell::new(Real::from(1.0)),
-            image_yscale: Cell::new(Real::from(1.0)),
-            image_angle: Cell::new(Real::from(0.0)),
-            mask_index: Cell::new(object.map(|x| x.mask_index).unwrap_or(0)),
-            direction: Cell::new(Real::from(0.0)),
-            gravity: Cell::new(Real::from(0.0)),
-            gravity_direction: Cell::new(Real::from(270.0)),
-            hspeed: Cell::new(Real::from(0.0)),
-            vspeed: Cell::new(Real::from(0.0)),
-            speed: Cell::new(Real::from(0.0)),
-            friction: Cell::new(Real::from(0.0)),
-            x: Cell::new(Real::from(0.0)),
-            y: Cell::new(Real::from(0.0)),
-            xprevious: Cell::new(Real::from(0.0)),
-            yprevious: Cell::new(Real::from(0.0)),
-            xstart: Cell::new(Real::from(0.0)),
-            ystart: Cell::new(Real::from(0.0)),
-            path_index: Cell::new(0),
-            path_position: Cell::new(Real::from(0.0)),
-            path_positionprevious: Cell::new(Real::from(0.0)),
-            path_speed: Cell::new(Real::from(0.0)),
-            path_scale: Cell::new(Real::from(1.0)),
-            path_orientation: Cell::new(Real::from(0.0)),
-            path_endaction: Cell::new(0),
-            path_xstart: Cell::new(Real::from(0.0)),
-            path_ystart: Cell::new(Real::from(0.0)),
-            path_pointspeed: Cell::new(Real::from(0.0)),
             timeline_index: Cell::new(-1),
             timeline_running: Cell::new(false),
             timeline_speed: Cell::new(Real::from(1.0)),
@@ -335,10 +322,12 @@ impl Instance {
 
                 // Set left to whichever x is lowest, right to whichever x is highest,
                 // top to whichever y is lowest, and bottom to whichever y is highest.
-                self.bbox_left.set(top_left_x.min(top_right_x.min(bottom_left_x.min(bottom_right_x))).round());
-                self.bbox_right.set(top_left_x.max(top_right_x.max(bottom_left_x.max(bottom_right_x))).round());
-                self.bbox_top.set(top_left_y.min(top_right_y.min(bottom_left_y.min(bottom_right_y))).round());
-                self.bbox_bottom.set(top_left_y.max(top_right_y.max(bottom_left_y.max(bottom_right_y))).round());
+                self.bbox_left.set(top_left_x.min(top_right_x.min(bottom_left_x.min(bottom_right_x))).round().to_i32());
+                self.bbox_right
+                    .set(top_left_x.max(top_right_x.max(bottom_left_x.max(bottom_right_x))).round().to_i32());
+                self.bbox_top.set(top_left_y.min(top_right_y.min(bottom_left_y.min(bottom_right_y))).round().to_i32());
+                self.bbox_bottom
+                    .set(top_left_y.max(top_right_y.max(bottom_left_y.max(bottom_right_y))).round().to_i32());
             } else {
                 // No valid collider provided - set default values and return
                 self.bbox_top.set(BBOX_DEFAULT);

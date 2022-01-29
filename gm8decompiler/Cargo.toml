@@ -3,11 +3,13 @@ name = "gm8decompiler"
 version = "2.1.1"
 authors = ["The OpenGMK Project Developers"]
 license = "GPL-2.0-only"
-edition = "2018"
+edition = "2021"
 
 [build-dependencies]
-# TODO: change to version = "0.3" when they finally publish 0.3
-time = { git = "https://github.com/time-rs/time/", features = ["std"], default-features = false }
+time = { version = "0.3", features = ["std"], default-features = false }
+
+[target.'cfg(windows)'.build-dependencies]
+winres = "0.1"
 
 [dependencies]
 byteorder = "1"

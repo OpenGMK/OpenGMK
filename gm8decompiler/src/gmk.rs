@@ -7,7 +7,7 @@ use gm8exe::{
     GameAssets, GameVersion,
 };
 use rayon::prelude::*;
-use std::{convert::TryInto, io, u32};
+use std::{io, u32};
 
 pub trait WriteBuffer: io::Write {
     fn write_buffer(&mut self, buf: &[u8]) -> io::Result<usize> {
@@ -44,7 +44,12 @@ where
 }
 
 // Writes a settings block to GMK
-pub fn write_settings<W>(writer: &mut W, settings: &Settings, ico_file: Option<Vec<u8>>, version: GameVersion) -> io::Result<()>
+pub fn write_settings<W>(
+    writer: &mut W,
+    settings: &Settings,
+    ico_file: Option<Vec<u8>>,
+    version: GameVersion,
+) -> io::Result<()>
 where
     W: io::Write,
 {
