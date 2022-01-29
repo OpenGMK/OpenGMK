@@ -14,6 +14,10 @@ pub struct Gmk {
     dll_name_len: usize,
     dll_offset: usize,
     dll_len: usize,
+
+    pro_flag: bool,
+    game_id: u32,
+    game_extra_id: [u32; 4],
 }
 
 impl Gmk {
@@ -127,6 +131,15 @@ impl Gmk {
         // Final decryption pass
         format::gm80::decrypt(&mut exe)?;
 
+        // Garbage field - random bytes
+        let garbage_dwords = exe.read_u32::<LE>()?;
+        exe.seek(io::SeekFrom::Current(i64::from(garbage_dwords) * 4))?;
+
+        // GM8 Pro flag, game ID
+        let pro_flag: bool = exe.read_u32::<LE>()? != 0;
+        let game_id = exe.read_u32::<LE>()?;
+        let game_extra_id = [exe.read_u32::<LE>()?, exe.read_u32::<LE>()?, exe.read_u32::<LE>()?, exe.read_u32::<LE>()?];
+
         Ok(Self {
             data,
             ico_file_raw,
@@ -137,6 +150,9 @@ impl Gmk {
             dll_name_len,
             dll_offset,
             dll_len,
+            pro_flag,
+            game_id,
+            game_extra_id,
         })
     }
 
@@ -167,6 +183,9 @@ impl Gmk {
     }
 
     /// Returns the settings header belonging to this file.
+    ///
+    /// Note that this data is compressed in the game file, and decompression is not done in advance, nor is it cached.
+    /// As such, it would be ideal to store the result of this function rather than calling it more than once.
     pub fn settings(&self) -> io::Result<Settings> {
         fn read_data_maybe(data: &mut impl Read) -> io::Result<Option<Box<[u8]>>> {
             if data.read_u32::<LE>()? != 0 {
@@ -270,5 +289,23 @@ impl Gmk {
                 swap_creation_events,
             })
         }
+    }
+
+    /// Returns whether the pro flag is set for this game, i.e. whether GameMaker Pro features would be enabled.
+    #[inline(always)]
+    pub fn pro(&self) -> bool {
+        self.pro_flag
+    }
+
+    /// Returns the game ID for this file.
+    #[inline(always)]
+    pub fn id(&self) -> u32 {
+        self.game_id
+    }
+
+    /// Returns the hidden game ID for this file.
+    #[inline(always)]
+    pub fn extra_id(&self) -> [u32; 4] {
+        self.game_extra_id
     }
 }
