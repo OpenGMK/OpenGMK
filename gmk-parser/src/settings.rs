@@ -1,5 +1,3 @@
-use std::borrow::Cow;
-
 /// The Settings header for a GM8 game
 pub struct Settings {
     /// Start in full-screen mode
@@ -162,21 +160,4 @@ pub struct Settings {
 
     /// Run create events before instance creation code (not available in base 8.1)
     pub swap_creation_events: bool,
-}
-
-/// The help dialog box associated with a GM8 game
-#[derive(Debug)]
-pub struct GameHelpDialog<'a> {
-    pub bg_colour: u32,
-    pub new_window: bool,
-    pub caption: Cow<'a, str>,
-    pub left: i32,
-    pub top: i32,
-    pub width: u32,
-    pub height: u32,
-    pub border: bool,
-    pub resizable: bool,
-    pub window_on_top: bool,
-    pub freeze_game: bool,
-    pub info: Cow<'a, str>,
 }
