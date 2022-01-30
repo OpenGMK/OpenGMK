@@ -43,6 +43,8 @@ pub use frame::Frame;
 // real editor assets
 pub mod background;
 pub use background::Background;
+pub mod extension;
+pub use extension::Extension;
 pub mod font;
 pub use font::Font;
 pub mod included_file;

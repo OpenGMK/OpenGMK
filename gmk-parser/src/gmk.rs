@@ -1,5 +1,5 @@
 use byteorder::{LE, ReadBytesExt};
-use crate::{format, GameVersion, rsrc, Settings};
+use crate::{asset::Extension, format, GameVersion, rsrc, Settings};
 use log::{error, info};
 use std::{borrow::Cow, io::{self, Read, Seek}};
 
@@ -139,6 +139,17 @@ impl Gmk {
         let pro_flag: bool = exe.read_u32::<LE>()? != 0;
         let game_id = exe.read_u32::<LE>()?;
         let game_extra_id = [exe.read_u32::<LE>()?, exe.read_u32::<LE>()?, exe.read_u32::<LE>()?, exe.read_u32::<LE>()?];
+
+        // Extensions
+        // We can't skip over these easily because they aren't compressed, so we decrypt and parse these in advance
+        if exe.read_u32::<LE>()? != 700 {
+            return Err(io::Error::from(io::ErrorKind::InvalidData));
+        }
+
+        let extension_count = exe.read_u32::<LE>()? as usize;
+        for _ in 0..extension_count {
+            let _ext = Extension::read(&mut exe, false)?;
+        }
 
         Ok(Self {
             data,
