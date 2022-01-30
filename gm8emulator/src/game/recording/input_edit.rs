@@ -5,6 +5,7 @@ use crate::{
         replay::{
             Input,
             Replay,
+            FrameRng,
         },
         recording::{
             KeyState, ContextMenu,
@@ -45,6 +46,7 @@ pub struct InputEditWindow {
 }
 
 const INPUT_TABLE_WIDTH: f32 = 50.0;
+const INPUT_TABLE_RNG_WIDTH: f32 = INPUT_TABLE_WIDTH * 2.0;
 const INPUT_TABLE_HEIGHT: f32 = 20.0;
 const INPUT_TABLE_YPOS: f32 = 44.0;
 const TABLE_PADDING: f32 = 2.0;
@@ -94,7 +96,7 @@ impl Window for InputEditWindow {
 
         if info.frame.begin_table(
             "Input",
-            self.keys.len() as i32 + 1,
+            self.keys.len() as i32 + 2, // + Frame counter and RNG Seed columns
             (cimgui_sys::ImGuiTableFlags__ImGuiTableFlags_RowBg
                 | cimgui_sys::ImGuiTableFlags__ImGuiTableFlags_Reorderable
                 | cimgui_sys::ImGuiTableFlags__ImGuiTableFlags_Borders
@@ -110,6 +112,7 @@ impl Window for InputEditWindow {
                     info.frame.table_setup_column(&format!("{}", button), cimgui_sys::ImGuiTableColumnFlags__ImGuiTableColumnFlags_WidthFixed as _, INPUT_TABLE_WIDTH);
                 }
             }
+            info.frame.table_setup_column("RNG", (cimgui_sys::ImGuiTableColumnFlags__ImGuiTableColumnFlags_NoReorder |  cimgui_sys::ImGuiTableColumnFlags__ImGuiTableColumnFlags_WidthFixed) as _, INPUT_TABLE_RNG_WIDTH);
             info.frame.table_setup_scroll_freeze(0, 1); // freeze header row
             info.frame.table_headers_row();
 
@@ -460,6 +463,37 @@ impl InputEditWindow {
                             self.selection_end_indicies = (i, j);
                         }
                     }
+                }
+            }
+
+            // RNG Changer
+            let current_frame = replay.get_frame_mut(i).unwrap();
+            frame.table_set_column_index(self.keys.len() as i32 + 1);
+            let text = match current_frame.new_seed {
+                None => String::from("-"),
+                Some(FrameRng::Override(new_seed)) => format!("{}", new_seed),
+                Some(FrameRng::Increment(count)) => format!("+{}", count),
+            };
+            
+            frame.button(&text, imgui::Vec2(INPUT_TABLE_RNG_WIDTH, INPUT_TABLE_HEIGHT), None);
+            let hovered = frame.item_hovered();
+            // If this is a rng change we haven't reached yet and is hovered
+            if i >= config.current_frame && hovered {
+                if frame.left_clicked() {
+                    current_frame.new_seed = Some(FrameRng::Increment(
+                        match current_frame.new_seed {
+                            None | Some(FrameRng::Override(_)) => 1,
+                            Some(FrameRng::Increment(count)) => count + 1,
+                        }
+                    ));
+                } else if frame.right_clicked() {
+                    current_frame.new_seed = match current_frame.new_seed {
+                        None => None,
+                        Some(FrameRng::Override(new_seed)) => Some(FrameRng::Override(new_seed)),
+                        Some(FrameRng::Increment(count)) => if count == 1 { None } else { Some(FrameRng::Increment(count - 1)) },
+                    };
+                } else if frame.middle_clicked() {
+                    current_frame.new_seed = None;
                 }
             }
         }

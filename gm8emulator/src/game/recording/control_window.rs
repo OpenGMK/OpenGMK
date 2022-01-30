@@ -10,7 +10,7 @@ use crate::{
             keybinds::Binding,
             window::{Window, DisplayInformation},
         },
-        replay::{self, Frame},
+        replay::{self, Frame, FrameRng},
     },
     types::Colour
 };
@@ -204,7 +204,7 @@ impl ControlWindow {
             }
 
             if let Some(rand) = &*info.new_rand {
-                new_frame.new_seed = Some(rand.seed());
+                new_frame.new_seed = Some(FrameRng::Override(rand.seed()));
             }
 
             frame = new_frame;

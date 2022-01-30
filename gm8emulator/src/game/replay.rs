@@ -25,6 +25,12 @@ pub struct Replay {
     frames: Vec<Frame>,
 }
 
+#[derive(Eq, PartialEq, Clone, Debug, Serialize, Deserialize)]
+pub enum FrameRng {
+    Override(i32),
+    Increment(i32),
+}
+
 // Associated data for a single frame of playback
 #[derive(Eq, PartialEq, Clone, Debug, Serialize, Deserialize)]
 pub struct Frame {
@@ -32,7 +38,7 @@ pub struct Frame {
     pub mouse_y: i32,
     pub inputs: Vec<Input>,
     pub events: Vec<Event>,
-    pub new_seed: Option<i32>,
+    pub new_seed: Option<FrameRng>,
     pub new_time: Option<u128>,
 }
 

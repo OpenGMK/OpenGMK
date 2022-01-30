@@ -33,6 +33,7 @@ use crate::{
         Object, Script, Sound, Timeline,
     },
     game::gm_save::GMSave,
+    game::replay::FrameRng,
     gml::{self, ds, ev, file, rand::Random, runtime::Instruction, Compiler, Context},
     handleman::{HandleArray, HandleList},
     input::{self, Input},
@@ -2105,8 +2106,11 @@ impl Game {
             self.stored_events.push_back(ev.clone());
         }
 
-        if let Some(seed) = frame.new_seed {
-            self.rand.set_seed(seed);
+        if let Some(seed) = &frame.new_seed {
+            match seed {
+                FrameRng::Override(new_seed) => self.rand.set_seed(*new_seed),
+                FrameRng::Increment(count) => for _ in 0..*count { self.rand.cycle(); },
+            }
         }
 
         if let Some(time) = frame.new_time {
