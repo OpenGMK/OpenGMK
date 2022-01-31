@@ -153,14 +153,14 @@ impl Extension {
             .collect::<io::Result<_>>()?;
 
         let contents_len = reader.read_u32::<LE>()? - 4;
-        let seed1_raw = reader.read_u32::<LE>()?;
+        let mut seed1 = reader.read_i32::<LE>()?;
+        let mut seed2 = (seed1 % 0xFA) + 6;
 
         // Don't do decryption if there are no contents
         if contents_len != 0 {
             // decryption setup
-            let mut char_table = [0u8; 0x200];
-            let mut seed1: i32 = seed1_raw as _;
-            let mut seed2: i32 = (seed1 % 0xFA) + 6;
+            let mut char_table = [0u8; 0x100];
+            let mut reverse_table = [0u8; 0x100];
             seed1 /= 0xFA;
             if seed1 < 0 {
                 seed1 += 100;
@@ -169,58 +169,49 @@ impl Extension {
                 seed2 += 100;
             }
             for (i, val) in char_table.iter_mut().enumerate() {
-                *val = (i % 256) as u8; // 0-255 repeating (twice)
+                *val = i as u8; // 0-255
             }
 
             // calculating char table - pass 1: pseudorandom byteswap
             for i in 1..0x2711 {
-                let idx: usize = ((((i * seed2 as u32) + seed1 as u32) % 0xFE) + 1) as _;
+                let idx = ((((i * seed2 as u32) + seed1 as u32) % 0xFE) + 1) as usize;
                 char_table.swap(idx, idx + 1);
             }
 
-            // .. pass 2: use low half to scramble top half
-            for i in 0..=u8::MAX {
+            // calculating reverse table - pass 2: use char table to generate reverse table
+            for (i, b) in char_table.iter().copied().enumerate().skip(1) {
                 unsafe {
-                    // SAFETY: highest possible index is u8::MAX + 0x100 = 511
-                    let lo = *char_table.get_unchecked(usize::from(i) + 1);
-                    *char_table.get_unchecked_mut(usize::from(lo) + 0x100) = i.wrapping_add(1);
+                    // SAFETY: reverse_table is an array of 256 elements; the highest possible index here is u8::MAX
+                    *reverse_table.get_unchecked_mut(usize::from(b)) = i as u8;
                 }
             }
-
-            // decrypt data chunk
-            // First byte is not encrypted:
-            /*
-            let _ = reader.read_u8()?;
-            // The rest needs to be swapped like this:
-            for _ in 0..(contents_len - 1) {
-                unsafe {
-                    // SAFETY: char_table is an array of 512 elements; the highest possible index here is u8::MAX + 0x100 = 511
-                    let _ = char_table.get_unchecked(usize::from(reader.read_u8()?) + 0x100);
-                }
+            unsafe {
+                // SAFETY: as above
+                let b = usize::from(reverse_table[0]);
+                *reverse_table.get_unchecked_mut(b) = 0;
             }
-            */
 
             // Decrypt, decompress and write file chunks
             let mut data_consumed = 0u32;
             let mut first_byte = Some(reader.read_u8()?); // First byte is not encrypted
             for file in &mut files {
                 if file.kind != FileKind::ActionLibrary {
-                    // SAFETY: char_table is an array of 512 elements; the highest possible index here is u8::MAX + 0x100 = 511
+                    // SAFETY: reverse_table is an array of 256 elements; the highest possible index here is u8::MAX = 255
                     let len = match first_byte.take() {
                         Some(b) => unsafe {
                             u32::from_le_bytes([
                                 b,
-                                *char_table.get_unchecked(usize::from(reader.read_u8()?) + 0x100),
-                                *char_table.get_unchecked(usize::from(reader.read_u8()?) + 0x100),
-                                *char_table.get_unchecked(usize::from(reader.read_u8()?) + 0x100),
+                                *reverse_table.get_unchecked(usize::from(reader.read_u8()?)),
+                                *reverse_table.get_unchecked(usize::from(reader.read_u8()?)),
+                                *reverse_table.get_unchecked(usize::from(reader.read_u8()?)),
                             ])
                         },
                         None => unsafe {
                             u32::from_le_bytes([
-                                *char_table.get_unchecked(usize::from(reader.read_u8()?) + 0x100),
-                                *char_table.get_unchecked(usize::from(reader.read_u8()?) + 0x100),
-                                *char_table.get_unchecked(usize::from(reader.read_u8()?) + 0x100),
-                                *char_table.get_unchecked(usize::from(reader.read_u8()?) + 0x100),
+                                *reverse_table.get_unchecked(usize::from(reader.read_u8()?)),
+                                *reverse_table.get_unchecked(usize::from(reader.read_u8()?)),
+                                *reverse_table.get_unchecked(usize::from(reader.read_u8()?)),
+                                *reverse_table.get_unchecked(usize::from(reader.read_u8()?)),
                             ])
                         },
                     };
@@ -230,7 +221,9 @@ impl Extension {
                         return Err(io::Error::from(io::ErrorKind::InvalidData));
                     }
 
-                    flate2::read::ZlibDecoder::new(SwapReader::new(reader, len as _, &char_table));
+                    let mut contents = Vec::new();
+                    flate2::read::ZlibDecoder::new(SwapReader::new(reader, len as _, &reverse_table)).read_to_end(&mut contents)?;
+                    file.contents = contents.into();
                 }
             }
         }
@@ -242,20 +235,20 @@ impl Extension {
 struct SwapReader<'a> {
     reader: &'a mut dyn Read,
     len: usize,
-    swap: &'a [u8; 512],
+    swap: &'a [u8; 0x100],
 }
 
 impl<'a> SwapReader<'a> {
-    fn new(reader: &'a mut dyn Read, len: usize, swap: &'a [u8; 512]) -> Self {
+    fn new(reader: &'a mut dyn Read, len: usize, swap: &'a [u8; 0x100]) -> Self {
         Self { reader, len, swap }
     }
 }
 
 impl<'a> Read for SwapReader<'a> {
     fn read(&mut self, t: &mut [u8]) -> io::Result<usize> {
-        // SAFETY: `swap` is an array of 512 elements; the highest possible index here is u8::MAX + 0x100 = 511
+        // SAFETY: `swap` is an array of 256 elements; the highest possible index here is u8::MAX
         let count = if let Some(t) = t.get_mut(..self.len) { self.reader.read(t)? } else { self.reader.read(t)? };
-        t.iter_mut().take(count).for_each(|b| *b = unsafe { *self.swap.get_unchecked(usize::from(*b) + 0x100) });
+        t.iter_mut().take(count).for_each(|b| *b = unsafe { *self.swap.get_unchecked(usize::from(*b)) });
         self.len -= count;
         Ok(count)
     }
