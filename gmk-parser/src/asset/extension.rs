@@ -185,11 +185,14 @@ impl Extension {
                     *reverse_table.get_unchecked_mut(usize::from(b)) = i as u8;
                 }
             }
-            unsafe {
-                // SAFETY: as above
-                let b = usize::from(reverse_table[0]);
-                *reverse_table.get_unchecked_mut(b) = 0;
-            }
+
+            // NOTE: GameMaker has a memory-trampling bug here where the above loop would continue for one extra
+            // iteration, using the first byte of reverse_table to generate reverse_table. This would look something like:
+            // `reverse_table[reverse_table[0]] = 256 as u8;`
+            // Due to the way this table is generated (swap idx having range 1..255), 0 always maps to 0. This means
+            // `reverse_table[0]` will never be written to by any of the above and will always remain at its default value,
+            // which is 0. So, this code will set `reverse_table[0]` to `256 as u8` - which is 0 - which is what it already is.
+            // So by sheer dumb luck, this bug doesn't actually do anything and we can ignore it.
 
             // Decrypt, decompress and write file chunks
             let mut data_consumed = 0u32;
