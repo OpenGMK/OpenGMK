@@ -156,7 +156,7 @@ impl Gmk {
         }
 
         // Triggers
-        let (trigger_count, trigger_offset) = skip_asset_block(&mut exe)?;
+        let triggers = skip_asset_block(&mut exe)?;
 
         Ok(Self {
             data,
@@ -172,7 +172,7 @@ impl Gmk {
             game_id,
             game_extra_id,
             extensions,
-            triggers: AssetInfo { count: trigger_count, position: trigger_offset },
+            triggers,
         })
     }
 
@@ -342,15 +342,15 @@ impl Gmk {
 
 /// Using a Read object, skips over an asset block, returning the asset count and position of first asset.
 /// Thisx will also parse the block's version header. An error will be returned if the version is not 800.
-fn skip_asset_block(reader: &mut io::Cursor<&mut [u8]>) -> io::Result<(u32, usize)> {
+fn skip_asset_block(reader: &mut io::Cursor<&mut [u8]>) -> io::Result<AssetInfo> {
     if reader.read_u32::<LE>()? == 800 {
         let count = reader.read_u32::<LE>()?;
-        let pos = reader.position() as usize;
+        let position = reader.position() as usize;
         for _ in 0..count {
             let len = reader.read_u32::<LE>()?;
             reader.seek(io::SeekFrom::Current(len.into()))?;
         }
-        Ok((count, pos))
+        Ok(AssetInfo { count, position })
     } else {
         Err(io::Error::from(io::ErrorKind::InvalidData))
     }
