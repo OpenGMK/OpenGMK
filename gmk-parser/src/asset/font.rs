@@ -42,7 +42,7 @@ impl Asset for Font {
         self.version
     }
 
-    fn from_gmk<R: io::Read>(&self, mut reader: R) -> io::Result<Self> {
+    fn from_gmk<R: io::Read>(mut reader: R) -> io::Result<Self> {
         Self::read(&mut reader, true)
     }
 
@@ -50,7 +50,7 @@ impl Asset for Font {
         self.write(&mut writer, true)
     }
 
-    fn from_exe<R: io::Read>(&self, mut reader: R) -> io::Result<Self> {
+    fn from_exe<R: io::Read>(mut reader: R) -> io::Result<Self> {
         Self::read(&mut reader, false)
     }
 

@@ -74,9 +74,9 @@ pub trait Asset: Sized {
     fn timestamp(&self) -> Timestamp;
     fn version(&self) -> Version;
 
-    fn from_gmk<R: io::Read>(&self, r: R) -> io::Result<Self>;
+    fn from_gmk<R: io::Read>(r: R) -> io::Result<Self>;
     fn to_gmk<W: io::Write>(&self, w: W) -> io::Result<()>;
-    fn from_exe<R: io::Read>(&self, r: R) -> io::Result<Self>;
+    fn from_exe<R: io::Read>(r: R) -> io::Result<Self>;
     fn to_exe<W: io::Write>(&self, w: W) -> io::Result<()>;
 }
 
