@@ -1,5 +1,5 @@
 use byteorder::{LE, ReadBytesExt};
-use crate::{asset::Extension, format, GameVersion, rsrc, Settings};
+use crate::{asset::{Asset, Extension, Trigger}, format, GameVersion, rsrc, Settings};
 use log::{error, info};
 use std::{borrow::Cow, io::{self, Read, Seek}};
 
@@ -20,6 +20,8 @@ pub struct Gmk {
     game_extra_id: [u32; 4], // DPlay Game GUID
 
     extensions: Vec<Extension>,
+
+    triggers: AssetInfo,
 }
 
 impl Gmk {
@@ -143,16 +145,18 @@ impl Gmk {
         let game_extra_id = [exe.read_u32::<LE>()?, exe.read_u32::<LE>()?, exe.read_u32::<LE>()?, exe.read_u32::<LE>()?];
 
         // Extensions
-        // We can't skip over these easily because they aren't compressed, so we decrypt and parse these in advance
         if exe.read_u32::<LE>()? != 700 {
             return Err(io::Error::from(io::ErrorKind::InvalidData));
         }
-
+        // We can't skip over these easily because they aren't compressed, so we decrypt and parse these in advance
         let extension_count = exe.read_u32::<LE>()? as usize;
         let mut extensions = Vec::with_capacity(extension_count);
         for _ in 0..extension_count {
             extensions.push(Extension::read(&mut exe, false)?);
         }
+
+        // Triggers
+        let (trigger_count, trigger_offset) = skip_asset_block(&mut exe)?;
 
         Ok(Self {
             data,
@@ -168,6 +172,7 @@ impl Gmk {
             game_id,
             game_extra_id,
             extensions,
+            triggers: AssetInfo { count: trigger_count, position: trigger_offset },
         })
     }
 
@@ -329,4 +334,82 @@ impl Gmk {
     pub fn extensions(&self) -> impl Iterator<Item = &Extension> {
         self.extensions.iter()
     }
+
+    pub fn triggers(&self) -> impl Iterator<Item = io::Result<Option<Trigger>>> + '_ {
+        Parser::new(&self.data, self.triggers)
+    }
+}
+
+/// Using a Read object, skips over an asset block, returning the asset count and position of first asset.
+/// Thisx will also parse the block's version header. An error will be returned if the version is not 800.
+fn skip_asset_block(reader: &mut io::Cursor<&mut [u8]>) -> io::Result<(u32, usize)> {
+    if reader.read_u32::<LE>()? == 800 {
+        let count = reader.read_u32::<LE>()?;
+        let pos = reader.position() as usize;
+        for _ in 0..count {
+            let len = reader.read_u32::<LE>()?;
+            reader.seek(io::SeekFrom::Current(len.into()))?;
+        }
+        Ok((count, pos))
+    } else {
+        Err(io::Error::from(io::ErrorKind::InvalidData))
+    }
+}
+
+/// Iterator over a given type of asset.
+pub struct Parser<'a, A: Asset> {
+    data: &'a [u8],
+    count: u32,
+    _type: std::marker::PhantomData<A>,
+}
+
+impl<'a, A: Asset> Parser<'a, A> {
+    fn new(data: &'a [u8], assets: AssetInfo) -> Self {
+        unsafe {
+            Self {
+                data: data.get_unchecked(assets.position..),
+                count: assets.count,
+                _type: std::marker::PhantomData,
+            }
+        }
+    }
+}
+
+impl<A: Asset> Iterator for Parser<'_, A> {
+    type Item = io::Result<Option<A>>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.count > 0 {
+            unsafe {
+                use std::convert::TryFrom;
+                // TODO: this can't be Err, as the data has already been parsed successfully by `from_exe()`,
+                // but there's no unchecked option for read_u32?
+                let len = match self.data.read_u32::<LE>() {
+                    Ok(l) => l,
+                    Err(e) => return Some(Err(e)),
+                };
+                let cutoff = match usize::try_from(len) {
+                    Ok(l) => l,
+                    Err(_) => return Some(Err(io::Error::from(io::ErrorKind::InvalidInput))),
+                };
+                let mut t = flate2::bufread::ZlibDecoder::new(io::BufReader::new(self.data.get_unchecked(..cutoff)));
+                let result = match t.read_u32::<LE>() {
+                    Ok(0) => Ok(None),
+                    Ok(_) => Some(A::from_exe(t)).transpose(),
+                    Err(e) => Err(e),
+                };
+                self.count -= 1;
+                self.data = self.data.get_unchecked(cutoff..);
+                Some(result)
+            }
+        } else {
+            None
+        }
+    }
+}
+
+#[derive(Clone, Copy)]
+struct AssetInfo {
+    count: u32,
+    position: usize,
 }
