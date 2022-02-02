@@ -17,7 +17,9 @@ pub struct Gmk {
 
     pro_flag: bool,
     game_id: u32,
-    game_extra_id: [u32; 4],
+    game_extra_id: [u32; 4], // DPlay Game GUID
+
+    extensions: Vec<Extension>,
 }
 
 impl Gmk {
@@ -147,8 +149,9 @@ impl Gmk {
         }
 
         let extension_count = exe.read_u32::<LE>()? as usize;
+        let mut extensions = Vec::with_capacity(extension_count);
         for _ in 0..extension_count {
-            let _ext = Extension::read(&mut exe, false)?;
+            extensions.push(Extension::read(&mut exe, false)?);
         }
 
         Ok(Self {
@@ -164,6 +167,7 @@ impl Gmk {
             pro_flag,
             game_id,
             game_extra_id,
+            extensions,
         })
     }
 
@@ -314,9 +318,15 @@ impl Gmk {
         self.game_id
     }
 
-    /// Returns the hidden game ID for this file.
+    /// Returns the hidden game ID (aka. DPlay Game GUID) for this file.
     #[inline(always)]
     pub fn extra_id(&self) -> [u32; 4] {
         self.game_extra_id
+    }
+
+    /// Returns an iterator over the Extensions found in this file.
+    #[inline(always)]
+    pub fn extensions(&self) -> impl Iterator<Item = &Extension> {
+        self.extensions.iter()
     }
 }
