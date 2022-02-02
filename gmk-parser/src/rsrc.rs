@@ -4,7 +4,7 @@ use std::io::{self, Seek, SeekFrom};
 pub(crate) struct PESection {
     pub virtual_size: u32,
     pub virtual_address: u32,
-    pub disk_size: u32,
+    pub _disk_size: u32,
     pub disk_address: u32,
 }
 

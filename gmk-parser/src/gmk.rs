@@ -96,7 +96,7 @@ impl Gmk {
                 },
                 _ => {},
             }
-            sections.push(rsrc::PESection { virtual_size, virtual_address, disk_size, disk_address })
+            sections.push(rsrc::PESection { virtual_size, virtual_address, _disk_size: disk_size, disk_address })
         }
 
         let ico_file_raw = rsrc_location.map(|x| {
