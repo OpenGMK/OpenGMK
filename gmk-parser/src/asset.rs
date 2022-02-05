@@ -121,9 +121,12 @@ pub struct Timestamp(pub f64);
 
 impl fmt::Debug for Timestamp {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let days = time::Duration::days(self.0.trunc() as i64);
+        let ms = time::Duration::milliseconds((self.0.fract() * 86_400_000.0) as i64);
+        let datetime = time::macros::date!(1899 - 12 - 30).midnight() + days + ms;
         formatter
             .debug_tuple("Timestamp")
-            .field(&"FUCK")
+            .field(&format!("{:04}-{:02}-{:02}T{:02}:{:02}:{:02}Z", datetime.year(), datetime.month() as u8, datetime.day(), datetime.hour(), datetime.minute(), datetime.second()))
             .finish()
     }
 }
