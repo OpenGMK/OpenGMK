@@ -380,6 +380,7 @@ impl Gmk {
     }
 
     /// Returns an iterator over the Triggers found in this file.
+    #[inline(always)]
     pub fn triggers(&self) -> impl Iterator<Item = io::Result<Option<Trigger>>> + '_ {
         Parser::new(&self.data, self.triggers)
     }
@@ -391,51 +392,61 @@ impl Gmk {
     }
 
     /// Returns an iterator over the Sounds found in this file.
+    #[inline(always)]
     pub fn sounds(&self) -> impl Iterator<Item = io::Result<Option<Sound>>> + '_ {
         Parser::new(&self.data, self.sounds)
     }
 
     /// Returns an iterator over the Sprites found in this file.
+    #[inline(always)]
     pub fn sprites(&self) -> impl Iterator<Item = io::Result<Option<Sprite>>> + '_ {
         Parser::new(&self.data, self.sprites)
     }
 
     /// Returns an iterator over the Backgrounds found in this file.
+    #[inline(always)]
     pub fn backgrounds(&self) -> impl Iterator<Item = io::Result<Option<Background>>> + '_ {
         Parser::new(&self.data, self.backgrounds)
     }
 
     /// Returns an iterator over the Paths found in this file.
+    #[inline(always)]
     pub fn paths(&self) -> impl Iterator<Item = io::Result<Option<Path>>> + '_ {
         Parser::new(&self.data, self.paths)
     }
 
     /// Returns an iterator over the Scripts found in this file.
+    #[inline(always)]
     pub fn scripts(&self) -> impl Iterator<Item = io::Result<Option<Script>>> + '_ {
         Parser::new(&self.data, self.scripts)
     }
 
     /// Returns an iterator over the Fonts found in this file.
+    #[inline(always)]
     pub fn fonts(&self) -> impl Iterator<Item = io::Result<Option<Font>>> + '_ {
         Parser::new(&self.data, self.fonts)
     }
 
     /// Returns an iterator over the Timelines found in this file.
+    #[inline(always)]
     pub fn timelines(&self) -> impl Iterator<Item = io::Result<Option<Timeline>>> + '_ {
         Parser::new(&self.data, self.timelines)
     }
 
     /// Returns an iterator over the Objects found in this file.
+    #[inline(always)]
     pub fn objects(&self) -> impl Iterator<Item = io::Result<Option<Object>>> + '_ {
         Parser::new(&self.data, self.objects)
     }
 
     /// Returns an iterator over the Rooms found in this file.
+    #[inline(always)]
     pub fn rooms(&self) -> impl Iterator<Item = io::Result<Option<Room>>> + '_ {
         Parser::new(&self.data, self.rooms)
     }
 
     /// Returns an iterator over the Included Files found in this file.
+    #[inline(always)]
     pub fn included_files(&self) -> impl Iterator<Item = io::Result<Option<IncludedFile>>> + '_ {
         Parser::new(&self.data, self.included_files)
     }
