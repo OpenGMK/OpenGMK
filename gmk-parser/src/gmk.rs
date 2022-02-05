@@ -1,5 +1,5 @@
 use byteorder::{LE, ReadBytesExt};
-use crate::{asset::{Asset, Extension, Trigger}, format, GameVersion, rsrc, Settings};
+use crate::{asset::{Asset, Constant, Extension, Trigger}, format, GameVersion, rsrc, Settings};
 use log::{error, info};
 use std::{borrow::Cow, io::{self, Read, Seek}};
 
@@ -20,8 +20,8 @@ pub struct Gmk {
     game_extra_id: [u32; 4], // DPlay Game GUID
 
     extensions: Vec<Extension>,
-
     triggers: AssetInfo,
+    constants: Vec<Constant>,
 }
 
 impl Gmk {
@@ -158,6 +158,17 @@ impl Gmk {
         // Triggers
         let triggers = skip_asset_block(&mut exe)?;
 
+        // Constants
+        if exe.read_u32::<LE>()? != 800 {
+            return Err(io::Error::from(io::ErrorKind::InvalidData));
+        }
+        // Like Extensions, these aren't compressed, so it's easier to just do them in advance
+        let constant_count = exe.read_u32::<LE>()? as usize;
+        let mut constants = Vec::with_capacity(constant_count);
+        for _ in 0..constant_count {
+            constants.push(Constant::read(&mut exe)?);
+        }
+
         Ok(Self {
             data,
             ico_file_raw,
@@ -173,6 +184,7 @@ impl Gmk {
             game_extra_id,
             extensions,
             triggers,
+            constants,
         })
     }
 
@@ -335,8 +347,15 @@ impl Gmk {
         self.extensions.iter()
     }
 
+    /// Returns an iterator over the Triggers found in this file.
     pub fn triggers(&self) -> impl Iterator<Item = io::Result<Option<Trigger>>> + '_ {
         Parser::new(&self.data, self.triggers)
+    }
+
+    /// Returns an iterator over the Constants found in this file.
+    #[inline(always)]
+    pub fn constants(&self) -> impl Iterator<Item = &Constant> {
+        self.constants.iter()
     }
 }
 
