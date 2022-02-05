@@ -7,6 +7,7 @@ pub struct Gmk {
     data: Box<[u8]>,
     ico_file_raw: Option<Vec<u8>>,
     game_version: GameVersion,
+    is_gmk: bool,
 
     settings_offset: usize,
     settings_len: usize,
@@ -195,6 +196,7 @@ impl Gmk {
             data,
             ico_file_raw,
             game_version,
+            is_gmk: false,
             settings_offset,
             settings_len,
             dll_name_offset,
@@ -382,7 +384,7 @@ impl Gmk {
     /// Returns an iterator over the Triggers found in this file.
     #[inline(always)]
     pub fn triggers(&self) -> impl Iterator<Item = io::Result<Option<Trigger>>> + '_ {
-        Parser::new(&self.data, self.triggers)
+        Parser::new(&self.data, self.triggers, self.is_gmk)
     }
 
     /// Returns an iterator over the Constants found in this file.
@@ -394,61 +396,61 @@ impl Gmk {
     /// Returns an iterator over the Sounds found in this file.
     #[inline(always)]
     pub fn sounds(&self) -> impl Iterator<Item = io::Result<Option<Sound>>> + '_ {
-        Parser::new(&self.data, self.sounds)
+        Parser::new(&self.data, self.sounds, self.is_gmk)
     }
 
     /// Returns an iterator over the Sprites found in this file.
     #[inline(always)]
     pub fn sprites(&self) -> impl Iterator<Item = io::Result<Option<Sprite>>> + '_ {
-        Parser::new(&self.data, self.sprites)
+        Parser::new(&self.data, self.sprites, self.is_gmk)
     }
 
     /// Returns an iterator over the Backgrounds found in this file.
     #[inline(always)]
     pub fn backgrounds(&self) -> impl Iterator<Item = io::Result<Option<Background>>> + '_ {
-        Parser::new(&self.data, self.backgrounds)
+        Parser::new(&self.data, self.backgrounds, self.is_gmk)
     }
 
     /// Returns an iterator over the Paths found in this file.
     #[inline(always)]
     pub fn paths(&self) -> impl Iterator<Item = io::Result<Option<Path>>> + '_ {
-        Parser::new(&self.data, self.paths)
+        Parser::new(&self.data, self.paths, self.is_gmk)
     }
 
     /// Returns an iterator over the Scripts found in this file.
     #[inline(always)]
     pub fn scripts(&self) -> impl Iterator<Item = io::Result<Option<Script>>> + '_ {
-        Parser::new(&self.data, self.scripts)
+        Parser::new(&self.data, self.scripts, self.is_gmk)
     }
 
     /// Returns an iterator over the Fonts found in this file.
     #[inline(always)]
     pub fn fonts(&self) -> impl Iterator<Item = io::Result<Option<Font>>> + '_ {
-        Parser::new(&self.data, self.fonts)
+        Parser::new(&self.data, self.fonts, self.is_gmk)
     }
 
     /// Returns an iterator over the Timelines found in this file.
     #[inline(always)]
     pub fn timelines(&self) -> impl Iterator<Item = io::Result<Option<Timeline>>> + '_ {
-        Parser::new(&self.data, self.timelines)
+        Parser::new(&self.data, self.timelines, self.is_gmk)
     }
 
     /// Returns an iterator over the Objects found in this file.
     #[inline(always)]
     pub fn objects(&self) -> impl Iterator<Item = io::Result<Option<Object>>> + '_ {
-        Parser::new(&self.data, self.objects)
+        Parser::new(&self.data, self.objects, self.is_gmk)
     }
 
     /// Returns an iterator over the Rooms found in this file.
     #[inline(always)]
     pub fn rooms(&self) -> impl Iterator<Item = io::Result<Option<Room>>> + '_ {
-        Parser::new(&self.data, self.rooms)
+        Parser::new(&self.data, self.rooms, self.is_gmk)
     }
 
     /// Returns an iterator over the Included Files found in this file.
     #[inline(always)]
     pub fn included_files(&self) -> impl Iterator<Item = io::Result<Option<IncludedFile>>> + '_ {
-        Parser::new(&self.data, self.included_files)
+        Parser::new(&self.data, self.included_files, self.is_gmk)
     }
 }
 
@@ -472,15 +474,17 @@ fn skip_asset_block(reader: &mut io::Cursor<&mut [u8]>) -> io::Result<AssetInfo>
 pub struct Parser<'a, A: Asset> {
     data: &'a [u8],
     count: u32,
+    is_gmk: bool,
     _type: std::marker::PhantomData<A>,
 }
 
 impl<'a, A: Asset> Parser<'a, A> {
-    fn new(data: &'a [u8], assets: AssetInfo) -> Self {
+    fn new(data: &'a [u8], assets: AssetInfo, is_gmk: bool) -> Self {
         unsafe {
             Self {
                 data: data.get_unchecked(assets.position..),
                 count: assets.count,
+                is_gmk,
                 _type: std::marker::PhantomData,
             }
         }
@@ -505,9 +509,10 @@ impl<A: Asset> Iterator for Parser<'_, A> {
                     Err(_) => return Some(Err(io::Error::from(io::ErrorKind::InvalidInput))),
                 };
                 let mut t = flate2::bufread::ZlibDecoder::new(io::BufReader::new(self.data.get_unchecked(..cutoff)));
+                let deserialize = if self.is_gmk { A::from_gmk } else { A::from_exe };
                 let result = match t.read_u32::<LE>() {
                     Ok(0) => Ok(None),
-                    Ok(_) => Some(A::from_exe(t)).transpose(),
+                    Ok(_) => Some(deserialize(t)).transpose(),
                     Err(e) => Err(e),
                 };
                 self.count -= 1;
