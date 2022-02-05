@@ -31,6 +31,7 @@ pub struct Gmk {
     timelines: AssetInfo,
     objects: AssetInfo,
     rooms: AssetInfo,
+    included_files: AssetInfo,
 }
 
 impl Gmk {
@@ -188,6 +189,7 @@ impl Gmk {
         let timelines = skip_asset_block(&mut exe)?;
         let objects = skip_asset_block(&mut exe)?;
         let rooms = skip_asset_block(&mut exe)?;
+        let included_files = skip_asset_block(&mut exe)?;
 
         Ok(Self {
             data,
@@ -214,6 +216,7 @@ impl Gmk {
             timelines,
             objects,
             rooms,
+            included_files,
         })
     }
 
@@ -423,6 +426,9 @@ impl Gmk {
         Parser::new(&self.data, self.rooms)
     }
 
+    pub fn included_files(&self) -> impl Iterator<Item = io::Result<Option<IncludedFile>>> + '_ {
+        Parser::new(&self.data, self.rooms)
+    }
 }
 
 /// Using a Read object, skips over an asset block, returning the asset count and position of first asset.
