@@ -1,5 +1,5 @@
 use byteorder::{LE, ReadBytesExt};
-use crate::{asset::{Asset, Constant, Extension, Trigger}, format, GameVersion, rsrc, Settings};
+use crate::{asset::*, format, GameVersion, rsrc, Settings};
 use log::{error, info};
 use std::{borrow::Cow, io::{self, Read, Seek}};
 
@@ -22,6 +22,15 @@ pub struct Gmk {
     extensions: Vec<Extension>,
     triggers: AssetInfo,
     constants: Vec<Constant>,
+    sounds: AssetInfo,
+    sprites: AssetInfo,
+    backgrounds: AssetInfo,
+    paths: AssetInfo,
+    scripts: AssetInfo,
+    fonts: AssetInfo,
+    timelines: AssetInfo,
+    objects: AssetInfo,
+    rooms: AssetInfo,
 }
 
 impl Gmk {
@@ -169,6 +178,17 @@ impl Gmk {
             constants.push(Constant::read(&mut exe)?);
         }
 
+        // All main asset types..
+        let sounds = skip_asset_block(&mut exe)?;
+        let sprites = skip_asset_block(&mut exe)?;
+        let backgrounds = skip_asset_block(&mut exe)?;
+        let paths = skip_asset_block(&mut exe)?;
+        let scripts = skip_asset_block(&mut exe)?;
+        let fonts = skip_asset_block(&mut exe)?;
+        let timelines = skip_asset_block(&mut exe)?;
+        let objects = skip_asset_block(&mut exe)?;
+        let rooms = skip_asset_block(&mut exe)?;
+
         Ok(Self {
             data,
             ico_file_raw,
@@ -185,6 +205,15 @@ impl Gmk {
             extensions,
             triggers,
             constants,
+            sounds,
+            sprites,
+            backgrounds,
+            paths,
+            scripts,
+            fonts,
+            timelines,
+            objects,
+            rooms,
         })
     }
 
@@ -357,6 +386,43 @@ impl Gmk {
     pub fn constants(&self) -> impl Iterator<Item = &Constant> {
         self.constants.iter()
     }
+
+    pub fn sounds(&self) -> impl Iterator<Item = io::Result<Option<Sound>>> + '_ {
+        Parser::new(&self.data, self.sounds)
+    }
+
+    pub fn sprites(&self) -> impl Iterator<Item = io::Result<Option<Sprite>>> + '_ {
+        Parser::new(&self.data, self.sprites)
+    }
+
+    pub fn backgrounds(&self) -> impl Iterator<Item = io::Result<Option<Background>>> + '_ {
+        Parser::new(&self.data, self.backgrounds)
+    }
+
+    pub fn paths(&self) -> impl Iterator<Item = io::Result<Option<Path>>> + '_ {
+        Parser::new(&self.data, self.paths)
+    }
+
+    pub fn scripts(&self) -> impl Iterator<Item = io::Result<Option<Script>>> + '_ {
+        Parser::new(&self.data, self.scripts)
+    }
+
+    pub fn fonts(&self) -> impl Iterator<Item = io::Result<Option<Font>>> + '_ {
+        Parser::new(&self.data, self.fonts)
+    }
+
+    pub fn timelines(&self) -> impl Iterator<Item = io::Result<Option<Timeline>>> + '_ {
+        Parser::new(&self.data, self.timelines)
+    }
+
+    pub fn objects(&self) -> impl Iterator<Item = io::Result<Option<Object>>> + '_ {
+        Parser::new(&self.data, self.objects)
+    }
+
+    pub fn rooms(&self) -> impl Iterator<Item = io::Result<Option<Room>>> + '_ {
+        Parser::new(&self.data, self.rooms)
+    }
+
 }
 
 /// Using a Read object, skips over an asset block, returning the asset count and position of first asset.
