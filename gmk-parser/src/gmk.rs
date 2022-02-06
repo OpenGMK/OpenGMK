@@ -1,5 +1,5 @@
 use byteorder::{LE, ReadBytesExt};
-use crate::{asset::*, format, GameVersion, rsrc, Settings};
+use crate::{asset::*, format, GameVersion, HelpDialog, rsrc, Settings};
 use log::{error, info};
 use std::{borrow::Cow, io::{self, Read, Seek}};
 
@@ -33,6 +33,12 @@ pub struct Gmk {
     objects: AssetInfo,
     rooms: AssetInfo,
     included_files: AssetInfo,
+
+    last_instance_id: i32,
+    last_tile_id: i32,
+
+    help_offset: usize,
+    help_len: usize,
 }
 
 impl Gmk {
@@ -190,7 +196,19 @@ impl Gmk {
         let timelines = skip_asset_block(&mut exe)?;
         let objects = skip_asset_block(&mut exe)?;
         let rooms = skip_asset_block(&mut exe)?;
+
+        let last_instance_id = exe.read_i32::<LE>()?;
+        let last_tile_id = exe.read_i32::<LE>()?;
+
         let included_files = skip_asset_block(&mut exe)?;
+
+        // Help dialog
+        if exe.read_u32::<LE>()? != 800 {
+            return Err(io::Error::from(io::ErrorKind::InvalidData));
+        }
+        let help_len = exe.read_u32::<LE>()? as usize;
+        let help_offset = exe.position() as usize;
+        exe.seek(io::SeekFrom::Current(help_len as i64))?;
 
         Ok(Self {
             data,
@@ -219,6 +237,10 @@ impl Gmk {
             objects,
             rooms,
             included_files,
+            last_instance_id,
+            last_tile_id,
+            help_len,
+            help_offset,
         })
     }
 
@@ -451,6 +473,52 @@ impl Gmk {
     #[inline(always)]
     pub fn included_files(&self) -> impl Iterator<Item = io::Result<Option<IncludedFile>>> + '_ {
         Parser::new(&self.data, self.included_files, self.is_gmk)
+    }
+
+    /// Returns the last instance ID indicated by this file.
+    ///
+    /// In the editor, new instances placed in rooms will increment this number to generate their ID.
+    /// In a game, this number will be incremented for a new ID when calling functions like instance_create().
+    /// In a new GMK file this number defaults to 100000.
+    #[inline(always)]
+    pub fn last_instance_id(&self) -> i32 {
+        self.last_instance_id
+    }
+
+    /// Returns the last tile ID indicated by this file.
+    ///
+    /// In the editor, new tiles placed in rooms will increment this number to generate their ID.
+    /// In a game, this number will be incremented for a new ID when calling functions like tile_add().
+    /// In a new GMK file this number defaults to 10000000.
+    #[inline(always)]
+    pub fn last_tile_id(&self) -> i32 {
+        self.last_tile_id
+    }
+
+    /// Returns the Game Help Dialog belonging to this file.
+    ///
+    /// Note that this data is compressed in the game file, and decompression is not done in advance, nor is it cached.
+    /// As such, it would be ideal to store the result of this function rather than calling it more than once.
+    #[inline(always)]
+    pub fn help_dialog(&self) -> io::Result<HelpDialog> {
+        unsafe {
+            let slice = self.data.get_unchecked(self.help_offset..(self.help_offset + self.help_len));
+            let mut data = flate2::bufread::ZlibDecoder::new(slice);
+            Ok(HelpDialog {
+                bg_colour: data.read_u32::<LE>()?.into(),
+                new_window: data.read_u32::<LE>()? != 0,
+                caption: ByteString::read(&mut data)?,
+                left: data.read_i32::<LE>()?,
+                top: data.read_i32::<LE>()?,
+                width: data.read_u32::<LE>()?,
+                height: data.read_u32::<LE>()?,
+                border: data.read_u32::<LE>()? != 0,
+                resizable: data.read_u32::<LE>()? != 0,
+                window_on_top: data.read_u32::<LE>()? != 0,
+                freeze_game: data.read_u32::<LE>()? != 0,
+                info: ByteString::read(&mut data)?,
+            })
+        }
     }
 }
 
