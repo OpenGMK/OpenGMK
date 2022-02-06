@@ -635,12 +635,12 @@ impl<'a> LibInitStringParser<'a> {
 }
 
 impl<'a> Iterator for LibInitStringParser<'a> {
-    type Item = io::Result<ByteString>;
+    type Item = ByteString;
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.count > 0 {
             self.count -= 1;
-            Some(ByteString::read(&mut self.data))
+            Some(ByteString::read(&mut self.data).unwrap_or_else(|_| unsafe { std::hint::unreachable_unchecked() }))
         } else {
             None
         }
