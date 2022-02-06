@@ -41,6 +41,8 @@ pub struct Gmk {
     help_len: usize,
     lib_init_offset: usize,
     lib_init_count: u32,
+    room_order_offset: usize,
+    room_order_count: u32,
 }
 
 impl Gmk {
@@ -223,6 +225,14 @@ impl Gmk {
             exe.seek(io::SeekFrom::Current(len.into()))?;
         }
 
+        // Room order
+        if exe.read_u32::<LE>()? != 700 {
+            return Err(io::Error::from(io::ErrorKind::InvalidData));
+        }
+        let room_order_count = exe.read_u32::<LE>()?;
+        let room_order_offset = exe.position() as usize;
+        exe.seek(io::SeekFrom::Current(i64::from(room_order_count * 4)))?; // verify amount of data left in file
+
         Ok(Self {
             data,
             ico_file_raw,
@@ -256,6 +266,8 @@ impl Gmk {
             help_offset,
             lib_init_offset,
             lib_init_count,
+            room_order_offset,
+            room_order_count,
         })
     }
 
@@ -543,6 +555,14 @@ impl Gmk {
             LibInitStringParser::new(slice, self.lib_init_count)
         }
     }
+
+    /// Returns an iterator over the Room IDs found in the Room Order in this file.
+    pub fn room_order(&self) -> RoomOrderParser {
+        unsafe {
+            let slice = self.data.get_unchecked(self.room_order_offset..);
+            RoomOrderParser::new(slice, self.room_order_count)
+        }
+    }
 }
 
 /// Using a Read object, skips over an asset block, returning the asset count and position of first asset.
@@ -641,6 +661,31 @@ impl<'a> Iterator for LibInitStringParser<'a> {
         if self.count > 0 {
             self.count -= 1;
             Some(ByteString::read(&mut self.data).unwrap_or_else(|_| unsafe { std::hint::unreachable_unchecked() }))
+        } else {
+            None
+        }
+    }
+}
+
+/// An iterator over the room IDs in the Room Order in a GMK. Created by `Gmk::room_order()`.
+pub struct RoomOrderParser<'a> {
+    data: &'a [u8],
+    count: u32,
+}
+
+impl<'a> RoomOrderParser<'a> {
+    fn new(data: &'a [u8], count: u32) -> Self {
+        Self { data, count }
+    }
+}
+
+impl<'a> Iterator for RoomOrderParser<'a> {
+    type Item = i32;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.count > 0 {
+            self.count -= 1;
+            Some(self.data.read_i32::<LE>().unwrap_or_else(|_| unsafe { std::hint::unreachable_unchecked() }))
         } else {
             None
         }
