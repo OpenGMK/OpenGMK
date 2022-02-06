@@ -39,6 +39,8 @@ pub struct Gmk {
 
     help_offset: usize,
     help_len: usize,
+    lib_init_offset: usize,
+    lib_init_count: u32,
 }
 
 impl Gmk {
@@ -210,6 +212,17 @@ impl Gmk {
         let help_offset = exe.position() as usize;
         exe.seek(io::SeekFrom::Current(help_len as i64))?;
 
+        // Library initialization code
+        if exe.read_u32::<LE>()? != 500 {
+            return Err(io::Error::from(io::ErrorKind::InvalidData));
+        }
+        let lib_init_count = exe.read_u32::<LE>()?;
+        let lib_init_offset = exe.position() as usize;
+        for _ in 0..lib_init_count {
+            let len = exe.read_u32::<LE>()?;
+            exe.seek(io::SeekFrom::Current(len.into()))?;
+        }
+
         Ok(Self {
             data,
             ico_file_raw,
@@ -241,6 +254,8 @@ impl Gmk {
             last_tile_id,
             help_len,
             help_offset,
+            lib_init_offset,
+            lib_init_count,
         })
     }
 
@@ -520,6 +535,14 @@ impl Gmk {
             })
         }
     }
+
+    /// Returns an iterator over the Library Initialization Strings found in this file.
+    pub fn lib_init_strings(&self) -> LibInitStringParser {
+        unsafe {
+            let slice = self.data.get_unchecked(self.lib_init_offset..);
+            LibInitStringParser::new(slice, self.lib_init_count)
+        }
+    }
 }
 
 /// Using a Read object, skips over an asset block, returning the asset count and position of first asset.
@@ -597,4 +620,29 @@ impl<A: Asset> Iterator for Parser<'_, A> {
 struct AssetInfo {
     count: u32,
     position: usize,
+}
+
+/// An iterator over Library Initialization Strings in a GMK. Created by `Gmk::lib_init_strings()`.
+pub struct LibInitStringParser<'a> {
+    data: &'a [u8],
+    count: u32,
+}
+
+impl<'a> LibInitStringParser<'a> {
+    fn new(data: &'a [u8], count: u32) -> Self {
+        Self { data, count }
+    }
+}
+
+impl<'a> Iterator for LibInitStringParser<'a> {
+    type Item = io::Result<ByteString>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.count > 0 {
+            self.count -= 1;
+            Some(ByteString::read(&mut self.data))
+        } else {
+            None
+        }
+    }
 }
