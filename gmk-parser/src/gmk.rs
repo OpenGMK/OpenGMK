@@ -1,5 +1,5 @@
 use byteorder::{LE, ReadBytesExt};
-use crate::{asset::*, format, GameVersion, HelpDialog, rsrc, Settings};
+use crate::{asset::*, format, GameVersion, HelpDialog, rayon::{iter::plumbing::*, prelude::*}, rsrc, Settings};
 use log::{error, info};
 use std::{borrow::Cow, io::{self, Read, Seek}};
 
@@ -430,10 +430,28 @@ impl Gmk {
         self.extensions.iter()
     }
 
+    /// Returns a parallel iterator over the Extensions found in this file.
+    ///
+    /// This method is provided for the sake of consistency with this struct's other methods. However,
+    /// Extensions are collected in advance due to their gmk format making them difficult to ignore without parsing.
+    /// Therefore, `par_extensions()` is essentially no different from `extensions().into_par_iter()`.
+    #[inline(always)]
+    #[cfg(feature = "rayon")]
+    pub fn par_extensions(&self) -> impl ParallelIterator<Item = &Extension> {
+        self.extensions.par_iter()
+    }
+
     /// Returns an iterator over the Triggers found in this file.
     #[inline(always)]
     pub fn triggers(&self) -> impl Iterator<Item = io::Result<Option<Trigger>>> + '_ {
         Parser::new(&self.data, self.triggers, self.is_gmk)
+    }
+
+    /// Returns a parallel iterator over the Triggers found in this file.
+    #[inline(always)]
+    #[cfg(feature = "rayon")]
+    pub fn par_triggers(&self) -> impl ParallelIterator<Item = io::Result<Option<Trigger>>> + '_ {
+        ParallelParser::new(&self.data, self.triggers, self.is_gmk)
     }
 
     /// Returns an iterator over the Constants found in this file.
@@ -442,10 +460,28 @@ impl Gmk {
         self.constants.iter()
     }
 
+    /// Returns a parallel iterator over the Constants found in this file.
+    ///
+    /// This method is provided for the sake of consistency with this struct's other methods. However,
+    /// Constants are collected in advance due to their gmk format making them difficult to ignore without parsing.
+    /// Therefore, `par_constants()` is essentially no different from `constants().into_par_iter()`.
+    #[inline(always)]
+    #[cfg(feature = "rayon")]
+    pub fn par_constants(&self) -> impl ParallelIterator<Item = &Constant> {
+        self.constants.par_iter()
+    }
+
     /// Returns an iterator over the Sounds found in this file.
     #[inline(always)]
     pub fn sounds(&self) -> impl Iterator<Item = io::Result<Option<Sound>>> + '_ {
         Parser::new(&self.data, self.sounds, self.is_gmk)
+    }
+
+    /// Returns a parallel iterator over the Sounds found in this file.
+    #[inline(always)]
+    #[cfg(feature = "rayon")]
+    pub fn par_sounds(&self) -> impl ParallelIterator<Item = io::Result<Option<Sound>>> + '_ {
+        ParallelParser::new(&self.data, self.sounds, self.is_gmk)
     }
 
     /// Returns an iterator over the Sprites found in this file.
@@ -454,10 +490,24 @@ impl Gmk {
         Parser::new(&self.data, self.sprites, self.is_gmk)
     }
 
+    /// Returns a parallel iterator over the Sprites found in this file.
+    #[inline(always)]
+    #[cfg(feature = "rayon")]
+    pub fn par_sprites(&self) -> impl ParallelIterator<Item = io::Result<Option<Sprite>>> + '_ {
+        ParallelParser::new(&self.data, self.sprites, self.is_gmk)
+    }
+
     /// Returns an iterator over the Backgrounds found in this file.
     #[inline(always)]
     pub fn backgrounds(&self) -> impl Iterator<Item = io::Result<Option<Background>>> + '_ {
         Parser::new(&self.data, self.backgrounds, self.is_gmk)
+    }
+
+    /// Returns a parallel iterator over the Backgrounds found in this file.
+    #[inline(always)]
+    #[cfg(feature = "rayon")]
+    pub fn par_backgrounds(&self) -> impl ParallelIterator<Item = io::Result<Option<Background>>> + '_ {
+        ParallelParser::new(&self.data, self.backgrounds, self.is_gmk)
     }
 
     /// Returns an iterator over the Paths found in this file.
@@ -466,10 +516,24 @@ impl Gmk {
         Parser::new(&self.data, self.paths, self.is_gmk)
     }
 
+    /// Returns a parallel iterator over the Paths found in this file.
+    #[inline(always)]
+    #[cfg(feature = "rayon")]
+    pub fn par_paths(&self) -> impl ParallelIterator<Item = io::Result<Option<Path>>> + '_ {
+        ParallelParser::new(&self.data, self.paths, self.is_gmk)
+    }
+
     /// Returns an iterator over the Scripts found in this file.
     #[inline(always)]
     pub fn scripts(&self) -> impl Iterator<Item = io::Result<Option<Script>>> + '_ {
         Parser::new(&self.data, self.scripts, self.is_gmk)
+    }
+
+    /// Returns a parallel iterator over the Scripts found in this file.
+    #[inline(always)]
+    #[cfg(feature = "rayon")]
+    pub fn par_scripts(&self) -> impl ParallelIterator<Item = io::Result<Option<Script>>> + '_ {
+        ParallelParser::new(&self.data, self.scripts, self.is_gmk)
     }
 
     /// Returns an iterator over the Fonts found in this file.
@@ -478,10 +542,24 @@ impl Gmk {
         Parser::new(&self.data, self.fonts, self.is_gmk)
     }
 
+    /// Returns a parallel iterator over the Fonts found in this file.
+    #[inline(always)]
+    #[cfg(feature = "rayon")]
+    pub fn par_fonts(&self) -> impl ParallelIterator<Item = io::Result<Option<Font>>> + '_ {
+        ParallelParser::new(&self.data, self.fonts, self.is_gmk)
+    }
+
     /// Returns an iterator over the Timelines found in this file.
     #[inline(always)]
     pub fn timelines(&self) -> impl Iterator<Item = io::Result<Option<Timeline>>> + '_ {
         Parser::new(&self.data, self.timelines, self.is_gmk)
+    }
+
+    /// Returns a parallel iterator over the Timelines found in this file.
+    #[inline(always)]
+    #[cfg(feature = "rayon")]
+    pub fn par_timelines(&self) -> impl ParallelIterator<Item = io::Result<Option<Timeline>>> + '_ {
+        ParallelParser::new(&self.data, self.timelines, self.is_gmk)
     }
 
     /// Returns an iterator over the Objects found in this file.
@@ -490,16 +568,37 @@ impl Gmk {
         Parser::new(&self.data, self.objects, self.is_gmk)
     }
 
+    /// Returns a parallel iterator over the Objects found in this file.
+    #[inline(always)]
+    #[cfg(feature = "rayon")]
+    pub fn par_objects(&self) -> impl ParallelIterator<Item = io::Result<Option<Object>>> + '_ {
+        ParallelParser::new(&self.data, self.objects, self.is_gmk)
+    }
+
     /// Returns an iterator over the Rooms found in this file.
     #[inline(always)]
     pub fn rooms(&self) -> impl Iterator<Item = io::Result<Option<Room>>> + '_ {
         Parser::new(&self.data, self.rooms, self.is_gmk)
     }
 
+    /// Returns a parallel iterator over the Rooms found in this file.
+    #[inline(always)]
+    #[cfg(feature = "rayon")]
+    pub fn par_rooms(&self) -> impl ParallelIterator<Item = io::Result<Option<Room>>> + '_ {
+        ParallelParser::new(&self.data, self.rooms, self.is_gmk)
+    }
+
     /// Returns an iterator over the Included Files found in this file.
     #[inline(always)]
     pub fn included_files(&self) -> impl Iterator<Item = io::Result<Option<IncludedFile>>> + '_ {
         Parser::new(&self.data, self.included_files, self.is_gmk)
+    }
+
+    /// Returns a parallel iterator over the Included Files found in this file.
+    #[inline(always)]
+    #[cfg(feature = "rayon")]
+    pub fn par_included_files(&self) -> impl ParallelIterator<Item = io::Result<Option<IncludedFile>>> + '_ {
+        ParallelParser::new(&self.data, self.included_files, self.is_gmk)
     }
 
     /// Returns the last instance ID indicated by this file.
@@ -636,6 +735,52 @@ impl<A: Asset> Iterator for Parser<'_, A> {
     }
 }
 
+/// Parallel iterator over a given type of asset.
+#[cfg(feature = "rayon")]
+pub struct ParallelParser<'a, A: Asset> {
+    slices: Vec<&'a [u8]>,
+    is_gmk: bool,
+    _type: std::marker::PhantomData<A>,
+}
+
+#[cfg(feature = "rayon")]
+impl<'a, A: Asset> ParallelParser<'a, A> {
+    fn new(mut data: &'a [u8], assets: AssetInfo, is_gmk: bool) -> Self {
+        unsafe {
+            data = data.get_unchecked(assets.position..);
+            let mut slices = Vec::with_capacity(assets.count as usize);
+            for _ in 0..assets.count {
+                let len = data.read_u32::<LE>().unwrap_unchecked();
+                let (d1, d2) = data.split_at(len as usize);
+                slices.push(d1);
+                data = d2;
+            }
+            Self {
+                slices,
+                is_gmk,
+                _type: std::marker::PhantomData,
+            }
+        }
+    }
+}
+
+#[cfg(feature = "rayon")]
+impl<'a, A: Asset + Send + Sync> ParallelIterator for ParallelParser<'a, A> {
+    type Item = io::Result<Option<A>>;
+
+    fn drive_unindexed<C: UnindexedConsumer<Self::Item>>(self, consumer: C) -> C::Result {
+        self.slices.par_iter().map(|x| {
+            let mut t = flate2::bufread::ZlibDecoder::new(io::BufReader::new(*x));
+            let deserialize = if self.is_gmk { A::from_gmk } else { A::from_exe };
+            match t.read_u32::<LE>() {
+                Ok(0) => Ok(None),
+                Ok(_) => Some(deserialize(t)).transpose(),
+                Err(e) => Err(e),
+            }
+        }).drive_unindexed(consumer)
+    }
+}
+
 #[derive(Clone, Copy)]
 struct AssetInfo {
     count: u32,
@@ -685,7 +830,7 @@ impl<'a> Iterator for RoomOrderParser<'a> {
     fn next(&mut self) -> Option<Self::Item> {
         if self.count > 0 {
             self.count -= 1;
-            Some(self.data.read_i32::<LE>().unwrap_or_else(|_| unsafe { std::hint::unreachable_unchecked() }))
+            unsafe { Some(self.data.read_i32::<LE>().unwrap_unchecked()) }
         } else {
             None
         }
