@@ -5,8 +5,12 @@ authors = ["The OpenGMK Project Developers"]
 license = "GPL-2.0-only"
 edition = "2018"
 
+[features]
+rayon = ["rayon-rs"]
+
 [dependencies]
 byteorder = "1"
 flate2 = "1.0"
 log = "0.4"
+rayon-rs = { package = "rayon", version = "1.5", optional = true }
 time = "0.3"

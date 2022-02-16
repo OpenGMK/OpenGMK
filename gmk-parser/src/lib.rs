@@ -5,6 +5,7 @@ pub use gmk::Gmk;
 mod help_dialog;
 pub use help_dialog::HelpDialog;
 pub mod rsrc;
+pub use rayon_rs as rayon;
 mod settings;
 pub use settings::Settings;
 

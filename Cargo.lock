@@ -335,6 +335,7 @@ dependencies = [
  "byteorder",
  "flate2",
  "log",
+ "rayon",
  "time",
 ]
 
