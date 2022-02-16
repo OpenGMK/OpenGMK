@@ -82,30 +82,36 @@ impl Sprite {
             reader.read_i32::<LE>()?,
         );
 
-        let frames = (0..reader.read_u32::<LE>()? as usize)
-            .map(|_| Frame::read_for(&mut reader, is_gmk, &name, "frame in sprite"))
-            .collect::<io::Result<Vec<Frame>>>()?;
-
-        let (colliders, per_frame_colliders) = if is_gmk {
-            todo!()
+        let frame_count = reader.read_u32::<LE>()? as usize;
+        if frame_count == 0 {
+            // If there are 0 frames there is no more data to read so we need to short-circuit here
+            Ok(Self { name, timestamp, version, origin, frames: Vec::new(), colliders: Vec::new(), per_frame_colliders: false })
         } else {
-            let per_frame_colliders = reader.read_u32::<LE>()? != 0;
-            let colliders = (0..if per_frame_colliders { frames.len() } else { 1 }).map(|_| {
-                let version = read_version!(reader, name, is_gmk, "collider in sprite", Gm800)?;
-                let size = (
-                    reader.read_u32::<LE>()?,
-                    reader.read_u32::<LE>()?,
-                );
-                let bbox = BoundingBox::read(&mut reader)?;
-                let data = (0..reader.read_u32::<LE>()? as usize)
-                    .map(|_| reader.read_u32::<LE>().map(|x| x != 0))
-                    .collect::<io::Result<Vec<bool>>>()?;
-                Ok(Collider::Baked(BakedCollider { version, size, bbox, data }))
-            }).collect::<io::Result<Vec<Collider>>>()?;
-            (colliders, per_frame_colliders)
-        };
+            let frames = (0..frame_count)
+                .map(|_| Frame::read_for(&mut reader, is_gmk, &name, "frame in sprite"))
+                .collect::<io::Result<Vec<Frame>>>()?;
 
-        Ok(Self { name, timestamp, version, origin, frames, colliders, per_frame_colliders })
+            let (colliders, per_frame_colliders) = if is_gmk {
+                todo!()
+            } else {
+                let per_frame_colliders = reader.read_u32::<LE>()? != 0;
+                let colliders = (0..if per_frame_colliders { frames.len() } else { 1 }).map(|_| {
+                    let version = read_version!(reader, name, is_gmk, "collider in sprite", Gm800)?;
+                    let size = (
+                        reader.read_u32::<LE>()?,
+                        reader.read_u32::<LE>()?,
+                    );
+                    let bbox = BoundingBox::read(&mut reader)?;
+                    let data = (0..(size.0 as usize * size.1 as usize))
+                        .map(|_| reader.read_u32::<LE>().map(|x| x != 0))
+                        .collect::<io::Result<Vec<bool>>>()?;
+                    Ok(Collider::Baked(BakedCollider { version, size, bbox, data }))
+                }).collect::<io::Result<Vec<Collider>>>()?;
+                (colliders, per_frame_colliders)
+            };
+
+            Ok(Self { name, timestamp, version, origin, frames, colliders, per_frame_colliders })
+        }
     }
 
     fn write(&self, mut writer: &mut dyn io::Write, is_gmk: bool) -> io::Result<()> {
