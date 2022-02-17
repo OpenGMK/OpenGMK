@@ -21,7 +21,7 @@ pub struct Gmk {
 
     pro_flag: bool,
     game_id: u32,
-    game_extra_id: [u32; 4], // DPlay Game GUID
+    directplay_guid: [u32; 4],
 
     extensions: Vec<Extension>,
     triggers: AssetInfo,
@@ -166,7 +166,7 @@ impl Gmk {
         // GM8 Pro flag, game ID
         let pro_flag: bool = exe.read_u32::<LE>()? != 0;
         let game_id = exe.read_u32::<LE>()?;
-        let game_extra_id = [exe.read_u32::<LE>()?, exe.read_u32::<LE>()?, exe.read_u32::<LE>()?, exe.read_u32::<LE>()?];
+        let directplay_guid = [exe.read_u32::<LE>()?, exe.read_u32::<LE>()?, exe.read_u32::<LE>()?, exe.read_u32::<LE>()?];
 
         // Extensions
         if exe.read_u32::<LE>()? != 700 {
@@ -249,7 +249,7 @@ impl Gmk {
             dll_len,
             pro_flag,
             game_id,
-            game_extra_id,
+            directplay_guid,
             extensions,
             triggers,
             constants,
@@ -421,10 +421,10 @@ impl Gmk {
         self.game_id
     }
 
-    /// Returns the hidden game ID (aka. DPlay Game GUID) for this file.
+    /// Returns the DirectPlay Game GUID for this file.
     #[inline(always)]
-    pub fn extra_id(&self) -> [u32; 4] {
-        self.game_extra_id
+    pub fn directplay_guid(&self) -> [u32; 4] {
+        self.directplay_guid
     }
 
     /// Returns an iterator over the Extensions found in this file.
