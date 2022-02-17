@@ -1,3 +1,5 @@
+#![cfg_attr(feature = "nightly-docs", feature(doc_cfg))]
+
 pub mod asset;
 pub(crate) mod format;
 pub mod gmk;
@@ -8,7 +10,9 @@ pub mod rsrc;
 mod settings;
 pub use settings::Settings;
 
-#[cfg(feature = "rayon")]
+#[cfg_attr(feature = "nightly-docs", doc(cfg(feature = "rayon")))]
+#[cfg_attr(not(feature = "nightly-docs"), cfg(feature = "rayon"))]
+#[doc(inline)]
 pub use rayon_rs as rayon;
 
 #[derive(Copy, Clone, Debug)]

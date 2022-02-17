@@ -7,6 +7,7 @@ edition = "2018"
 rust-version = "1.58"
 
 [features]
+nightly-docs = []
 rayon = ["rayon-rs"]
 
 [dependencies]
@@ -15,3 +16,7 @@ flate2 = "1.0"
 log = "0.4"
 rayon-rs = { package = "rayon", version = "1.5", optional = true }
 time = { version = "0.3", features = ["macros"] }
+
+[package.metadata.docs.rs]
+features = ["nightly-docs"]
+targets = ["x86_64-unknown-linux-gnu"] # don't build like 6 targets

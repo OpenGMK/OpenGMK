@@ -439,7 +439,8 @@ impl Gmk {
     /// Extensions are collected in advance due to their gmk format making them difficult to ignore without parsing.
     /// Therefore, `par_extensions()` is essentially no different from `extensions().into_par_iter()`.
     #[inline(always)]
-    #[cfg(feature = "rayon")]
+    #[cfg_attr(feature = "nightly-docs", doc(cfg(feature = "rayon")))]
+    #[cfg_attr(not(feature = "nightly-docs"), cfg(feature = "rayon"))]
     pub fn par_extensions(&self) -> impl ParallelIterator<Item = &Extension> {
         self.extensions.par_iter()
     }
@@ -452,7 +453,8 @@ impl Gmk {
 
     /// Returns a parallel iterator over the Triggers found in this file.
     #[inline(always)]
-    #[cfg(feature = "rayon")]
+    #[cfg_attr(feature = "nightly-docs", doc(cfg(feature = "rayon")))]
+    #[cfg_attr(not(feature = "nightly-docs"), cfg(feature = "rayon"))]
     pub fn par_triggers(&self) -> impl ParallelIterator<Item = io::Result<Option<Trigger>>> + '_ {
         ParallelParser::new(&self.data, self.triggers, self.is_gmk)
     }
@@ -469,7 +471,8 @@ impl Gmk {
     /// Constants are collected in advance due to their gmk format making them difficult to ignore without parsing.
     /// Therefore, `par_constants()` is essentially no different from `constants().into_par_iter()`.
     #[inline(always)]
-    #[cfg(feature = "rayon")]
+    #[cfg_attr(feature = "nightly-docs", doc(cfg(feature = "rayon")))]
+    #[cfg_attr(not(feature = "nightly-docs"), cfg(feature = "rayon"))]
     pub fn par_constants(&self) -> impl ParallelIterator<Item = &Constant> {
         self.constants.par_iter()
     }
@@ -482,7 +485,8 @@ impl Gmk {
 
     /// Returns a parallel iterator over the Sounds found in this file.
     #[inline(always)]
-    #[cfg(feature = "rayon")]
+    #[cfg_attr(feature = "nightly-docs", doc(cfg(feature = "rayon")))]
+    #[cfg_attr(not(feature = "nightly-docs"), cfg(feature = "rayon"))]
     pub fn par_sounds(&self) -> impl ParallelIterator<Item = io::Result<Option<Sound>>> + '_ {
         ParallelParser::new(&self.data, self.sounds, self.is_gmk)
     }
@@ -495,7 +499,8 @@ impl Gmk {
 
     /// Returns a parallel iterator over the Sprites found in this file.
     #[inline(always)]
-    #[cfg(feature = "rayon")]
+    #[cfg_attr(feature = "nightly-docs", doc(cfg(feature = "rayon")))]
+    #[cfg_attr(not(feature = "nightly-docs"), cfg(feature = "rayon"))]
     pub fn par_sprites(&self) -> impl ParallelIterator<Item = io::Result<Option<Sprite>>> + '_ {
         ParallelParser::new(&self.data, self.sprites, self.is_gmk)
     }
@@ -508,7 +513,8 @@ impl Gmk {
 
     /// Returns a parallel iterator over the Backgrounds found in this file.
     #[inline(always)]
-    #[cfg(feature = "rayon")]
+    #[cfg_attr(feature = "nightly-docs", doc(cfg(feature = "rayon")))]
+    #[cfg_attr(not(feature = "nightly-docs"), cfg(feature = "rayon"))]
     pub fn par_backgrounds(&self) -> impl ParallelIterator<Item = io::Result<Option<Background>>> + '_ {
         ParallelParser::new(&self.data, self.backgrounds, self.is_gmk)
     }
@@ -521,7 +527,8 @@ impl Gmk {
 
     /// Returns a parallel iterator over the Paths found in this file.
     #[inline(always)]
-    #[cfg(feature = "rayon")]
+    #[cfg_attr(feature = "nightly-docs", doc(cfg(feature = "rayon")))]
+    #[cfg_attr(not(feature = "nightly-docs"), cfg(feature = "rayon"))]
     pub fn par_paths(&self) -> impl ParallelIterator<Item = io::Result<Option<Path>>> + '_ {
         ParallelParser::new(&self.data, self.paths, self.is_gmk)
     }
@@ -534,7 +541,8 @@ impl Gmk {
 
     /// Returns a parallel iterator over the Scripts found in this file.
     #[inline(always)]
-    #[cfg(feature = "rayon")]
+    #[cfg_attr(feature = "nightly-docs", doc(cfg(feature = "rayon")))]
+    #[cfg_attr(not(feature = "nightly-docs"), cfg(feature = "rayon"))]
     pub fn par_scripts(&self) -> impl ParallelIterator<Item = io::Result<Option<Script>>> + '_ {
         ParallelParser::new(&self.data, self.scripts, self.is_gmk)
     }
@@ -547,7 +555,8 @@ impl Gmk {
 
     /// Returns a parallel iterator over the Fonts found in this file.
     #[inline(always)]
-    #[cfg(feature = "rayon")]
+    #[cfg_attr(feature = "nightly-docs", doc(cfg(feature = "rayon")))]
+    #[cfg_attr(not(feature = "nightly-docs"), cfg(feature = "rayon"))]
     pub fn par_fonts(&self) -> impl ParallelIterator<Item = io::Result<Option<Font>>> + '_ {
         ParallelParser::new(&self.data, self.fonts, self.is_gmk)
     }
@@ -560,7 +569,8 @@ impl Gmk {
 
     /// Returns a parallel iterator over the Timelines found in this file.
     #[inline(always)]
-    #[cfg(feature = "rayon")]
+    #[cfg_attr(feature = "nightly-docs", doc(cfg(feature = "rayon")))]
+    #[cfg_attr(not(feature = "nightly-docs"), cfg(feature = "rayon"))]
     pub fn par_timelines(&self) -> impl ParallelIterator<Item = io::Result<Option<Timeline>>> + '_ {
         ParallelParser::new(&self.data, self.timelines, self.is_gmk)
     }
@@ -573,7 +583,8 @@ impl Gmk {
 
     /// Returns a parallel iterator over the Objects found in this file.
     #[inline(always)]
-    #[cfg(feature = "rayon")]
+    #[cfg_attr(feature = "nightly-docs", doc(cfg(feature = "rayon")))]
+    #[cfg_attr(not(feature = "nightly-docs"), cfg(feature = "rayon"))]
     pub fn par_objects(&self) -> impl ParallelIterator<Item = io::Result<Option<Object>>> + '_ {
         ParallelParser::new(&self.data, self.objects, self.is_gmk)
     }
@@ -586,7 +597,8 @@ impl Gmk {
 
     /// Returns a parallel iterator over the Rooms found in this file.
     #[inline(always)]
-    #[cfg(feature = "rayon")]
+    #[cfg_attr(feature = "nightly-docs", doc(cfg(feature = "rayon")))]
+    #[cfg_attr(not(feature = "nightly-docs"), cfg(feature = "rayon"))]
     pub fn par_rooms(&self) -> impl ParallelIterator<Item = io::Result<Option<Room>>> + '_ {
         ParallelParser::new(&self.data, self.rooms, self.is_gmk)
     }
@@ -599,7 +611,8 @@ impl Gmk {
 
     /// Returns a parallel iterator over the Included Files found in this file.
     #[inline(always)]
-    #[cfg(feature = "rayon")]
+    #[cfg_attr(feature = "nightly-docs", doc(cfg(feature = "rayon")))]
+    #[cfg_attr(not(feature = "nightly-docs"), cfg(feature = "rayon"))]
     pub fn par_included_files(&self) -> impl ParallelIterator<Item = io::Result<Option<IncludedFile>>> + '_ {
         ParallelParser::new(&self.data, self.included_files, self.is_gmk)
     }
@@ -739,7 +752,8 @@ impl<A: Asset> Iterator for Parser<'_, A> {
 }
 
 /// Parallel iterator over a given type of asset.
-#[cfg(feature = "rayon")]
+#[cfg_attr(feature = "nightly-docs", doc(cfg(feature = "rayon")))]
+#[cfg_attr(not(feature = "nightly-docs"), cfg(feature = "rayon"))]
 pub struct ParallelParser<'a, A: Asset> {
     slices: Vec<&'a [u8]>,
     is_gmk: bool,
