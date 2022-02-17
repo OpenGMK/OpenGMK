@@ -288,7 +288,7 @@ impl Gmk {
 
     /// Returns the name and contents of this file's embedded DirectX DLL.
     /// The file is usually called D3DX8.dll and the contents do not usually change between games.
-        pub fn directx_dll(&self) -> io::Result<(Cow<'_, str>, Vec<u8>)> {
+    pub fn directx_dll(&self) -> io::Result<(Cow<'_, str>, Vec<u8>)> {
         unsafe {
             let name_slice = self.data.get_unchecked(self.dll_name_offset..(self.dll_name_offset + self.dll_name_len));
             let name = String::from_utf8_lossy(name_slice);
