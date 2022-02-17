@@ -718,7 +718,7 @@ impl<A: Asset> Iterator for Parser<'_, A> {
                     Ok(l) => l,
                     Err(_) => return Some(Err(io::Error::from(io::ErrorKind::InvalidInput))),
                 };
-                let mut t = flate2::bufread::ZlibDecoder::new(io::BufReader::new(self.data.get_unchecked(..cutoff)));
+                let mut t = io::BufReader::new(flate2::bufread::ZlibDecoder::new(self.data.get_unchecked(..cutoff)));
                 let deserialize = if self.is_gmk { A::from_gmk } else { A::from_exe };
                 let result = match t.read_u32::<LE>() {
                     Ok(0) => Ok(None),
@@ -770,7 +770,7 @@ impl<'a, A: Asset + Send + Sync> ParallelIterator for ParallelParser<'a, A> {
 
     fn drive_unindexed<C: UnindexedConsumer<Self::Item>>(self, consumer: C) -> C::Result {
         self.slices.par_iter().map(|x| {
-            let mut t = flate2::bufread::ZlibDecoder::new(io::BufReader::new(*x));
+            let mut t = io::BufReader::new(flate2::bufread::ZlibDecoder::new(*x));
             let deserialize = if self.is_gmk { A::from_gmk } else { A::from_exe };
             match t.read_u32::<LE>() {
                 Ok(0) => Ok(None),
@@ -836,3 +836,9 @@ impl<'a> Iterator for RoomOrderParser<'a> {
         }
     }
 }
+
+impl<'a, A: Asset> ExactSizeIterator for Parser<'a, A> { }
+impl<'a, A: Asset> std::iter::FusedIterator for Parser<'a, A> { }
+
+impl<'a> ExactSizeIterator for RoomOrderParser<'a> { }
+impl<'a> std::iter::FusedIterator for RoomOrderParser<'a> { }
