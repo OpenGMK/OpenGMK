@@ -156,8 +156,6 @@ impl SubEventList {
         rv_name: &ByteString,
         rv_reason: &'static str,
     ) -> io::Result<Self> {
-        use std::convert::TryFrom;
-
         let mut sub_events = Vec::new();
         loop {
             let index = reader.read_i32::<LE>()?;

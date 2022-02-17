@@ -207,8 +207,6 @@ impl Room {
     }
 
     fn write(&self, mut writer: &mut dyn io::Write, is_gmk: bool) -> io::Result<()> {
-        use std::convert::TryFrom;
-
         assert_eq!(self.version, Version::Gm541);
         self.name.write(&mut writer)?;
         if is_gmk {

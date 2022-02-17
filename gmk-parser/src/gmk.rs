@@ -723,7 +723,6 @@ impl<A: Asset> Iterator for Parser<'_, A> {
     fn next(&mut self) -> Option<Self::Item> {
         if self.count > 0 {
             unsafe {
-                use std::convert::TryFrom;
                 // TODO: this can't be Err, as the data has already been parsed successfully by `from_exe()`,
                 // but there's no unchecked option for read_u32?
                 let len = match self.data.read_u32::<LE>() {

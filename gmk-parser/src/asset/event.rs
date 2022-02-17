@@ -26,8 +26,6 @@ impl Event {
     }
 
     pub(crate) fn write(&self, mut writer: &mut dyn io::Write) -> io::Result<()> {
-        use std::convert::TryFrom;
-
         assert_eq!(self.version, Version::Gm400);
         writer.write_u32::<LE>(self.version as u32)?;
         writer.write_u32::<LE>(self.index)?;
