@@ -1,5 +1,3 @@
-#![feature(seek_stream_len)]
-
 mod action;
 mod asset;
 mod game;
