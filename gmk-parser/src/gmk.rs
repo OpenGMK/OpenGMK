@@ -1,7 +1,10 @@
 use byteorder::{LE, ReadBytesExt};
-use crate::{asset::*, format, GameVersion, HelpDialog, rayon::{iter::plumbing::*, prelude::*}, rsrc, Settings};
+use crate::{asset::*, format, GameVersion, HelpDialog, rsrc, Settings};
 use log::{error, info};
 use std::{borrow::Cow, io::{self, Read, Seek}};
+
+#[cfg(feature = "rayon")]
+use crate::rayon::{iter::plumbing::*, prelude::*};
 
 pub struct Gmk {
     data: Box<[u8]>,

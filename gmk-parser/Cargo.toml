@@ -14,4 +14,4 @@ byteorder = "1"
 flate2 = "1.0"
 log = "0.4"
 rayon-rs = { package = "rayon", version = "1.5", optional = true }
-time = "0.3"
+time = { version = "0.3", features = ["macros"] }
