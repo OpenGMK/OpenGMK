@@ -1,8 +1,5 @@
-cargo-features = ["per-package-target"]
-
 [package]
 name = "gm8emulator-wow64"
-forced-target = "i686-pc-windows-msvc"
 version = "0.2.0"
 authors = ["The OpenGMK Project Developers"]
 edition = "2021"
