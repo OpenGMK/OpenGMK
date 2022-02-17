@@ -1,7 +1,7 @@
 use crate::asset::{frame::Frame, Asset, ByteString, Timestamp, Version};
 
 use byteorder::{LE, ReadBytesExt, WriteBytesExt};
-use std::io;
+use std::{io, slice};
 
 pub struct Sprite {
     pub name: ByteString,
@@ -102,9 +102,15 @@ impl Sprite {
                         reader.read_u32::<LE>()?,
                     );
                     let bbox = BoundingBox::read(&mut reader)?;
-                    let data = (0..(size.0 as usize * size.1 as usize))
-                        .map(|_| reader.read_u32::<LE>().map(|x| x != 0))
-                        .collect::<io::Result<Vec<bool>>>()?;
+                    let mut coll = Vec::<u32>::with_capacity(size.0 as usize * size.1 as usize);
+                    unsafe {
+                        coll.set_len(size.0 as usize * size.1 as usize);
+                        reader.read_exact(slice::from_raw_parts_mut(
+                            coll.as_mut_ptr().cast::<u8>(),
+                            coll.len() * std::mem::size_of::<u32>(),
+                        ))?;
+                    }
+                    let data = coll.into_iter().map(|x| x != 0).collect::<Vec<bool>>();
                     Ok(Collider::Baked(BakedCollider { version, size, bbox, data }))
                 }).collect::<io::Result<Vec<Collider>>>()?;
                 (colliders, per_frame_colliders)
