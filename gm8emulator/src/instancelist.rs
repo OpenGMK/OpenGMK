@@ -117,9 +117,9 @@ impl<T> ChunkList<T> {
             for slot in chunk.slots.iter_mut() {
                 if let Some(t) = slot {
                     if f(&*t) {
-                        let instance = slot.take();
-                        // SAFETY: we already checked that this instance is Some before taking it
-                        output.push(instance.unwrap_or_else(|| unsafe { std::hint::unreachable_unchecked() }));
+                        // SAFETY: We already checked that this instance is `Some` before taking it
+                        let instance = unsafe { slot.take().unwrap_unchecked() };
+                        output.push(instance);
                         chunk.vacant += 1;
                     }
                 }
