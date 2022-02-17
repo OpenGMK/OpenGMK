@@ -794,7 +794,7 @@ impl<'a> Iterator for LibInitStringParser<'a> {
     fn next(&mut self) -> Option<Self::Item> {
         if self.count > 0 {
             self.count -= 1;
-            Some(ByteString::read(&mut self.data).unwrap_or_else(|_| unsafe { std::hint::unreachable_unchecked() }))
+            Some(unsafe { ByteString::read(&mut self.data).unwrap_unchecked() })
         } else {
             None
         }
