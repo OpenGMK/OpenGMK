@@ -128,7 +128,7 @@ impl fmt::Debug for Timestamp {
         let datetime = time::macros::date!(1899 - 12 - 30).midnight() + days + ms;
         formatter
             .debug_tuple("Timestamp")
-            .field(&format!("{:04}-{:02}-{:02}T{:02}:{:02}:{:02}Z", datetime.year(), datetime.month() as u8, datetime.day(), datetime.hour(), datetime.minute(), datetime.second()))
+            .field(&format_args!("{:04}-{:02}-{:02}T{:02}:{:02}:{:02}Z", datetime.year(), datetime.month() as u8, datetime.day(), datetime.hour(), datetime.minute(), datetime.second()))
             .finish()
     }
 }
