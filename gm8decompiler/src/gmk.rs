@@ -7,7 +7,7 @@ use gm8exe::{
     GameAssets, GameVersion,
 };
 use rayon::prelude::*;
-use std::{convert::TryInto, io, u32};
+use std::{io, u32};
 
 pub trait WriteBuffer: io::Write {
     fn write_buffer(&mut self, buf: &[u8]) -> io::Result<usize> {

@@ -298,7 +298,13 @@ impl BinaryHandle {
     }
 
     pub fn size(&mut self) -> Result<u64> {
-        Ok(self.get_seeker().stream_len()?)
+        // TODO seek_stream_len feature
+        let seeker = self.get_seeker();
+        let pos = seeker.stream_position()?;
+        seeker.seek(SeekFrom::End(0))?;
+        let size = seeker.stream_position()?;
+        seeker.seek(SeekFrom::Start(pos))?;
+        Ok(size)
     }
 
     pub fn flush(&mut self) -> Result<()> {

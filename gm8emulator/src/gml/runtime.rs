@@ -13,7 +13,6 @@ use crate::{
 use gml_parser::token::Operator;
 use serde::{Deserialize, Serialize};
 use std::{
-    convert::TryFrom,
     fmt::{self, Display},
     time,
 };
@@ -163,6 +162,7 @@ pub enum Error {
     ReplayError(String),
     BadDirectoryError(String),
     ExternalFunction(String, String),
+    InvalidExternal(i32),
 }
 
 impl std::error::Error for Error {}
@@ -209,6 +209,7 @@ impl Display for Error {
             Self::ReplayError(s) => write!(f, "{}", s),
             Self::BadDirectoryError(s) => write!(f, "cannot encode working directory {} with current encoding", s),
             Self::ExternalFunction(s, e) => write!(f, "failed to call external function \"{}\": {}", s, e),
+            Self::InvalidExternal(i) => write!(f, "tried to call nonexistent external function with id {}", i),
         }
     }
 }
@@ -344,7 +345,7 @@ impl Game {
                         }
                     },
                     Target::All => {
-                        let mut iter = self.room.instance_list.iter_by_insertion();
+                        let mut iter = self.room.instance_list.iter_by_drawing();
                         while let Some(instance) = iter.next(&self.room.instance_list) {
                             self.set_instance_field(instance, accessor.index, array_index, value.clone());
                         }
@@ -382,7 +383,7 @@ impl Game {
                         }
                     },
                     Target::All => {
-                        let mut iter = self.room.instance_list.iter_by_insertion();
+                        let mut iter = self.room.instance_list.iter_by_drawing();
                         while let Some(instance) = iter.next(&self.room.instance_list) {
                             self.set_instance_var(instance, &accessor.var, array_index, value.clone(), context)?;
                         }
@@ -508,7 +509,7 @@ impl Game {
                         }
                     },
                     gml::ALL => {
-                        let mut iter = self.room.instance_list.iter_by_insertion();
+                        let mut iter = self.room.instance_list.iter_by_drawing();
                         while let Some(instance) = iter.next(&self.room.instance_list) {
                             context.this = instance;
                             match self.execute(body, context)? {
@@ -609,7 +610,7 @@ impl Game {
                     *dest = self.eval(src, context)?;
                 }
 
-                self.run_extension_function(*id, Context::copy_with_args(context, arg_values, args.len()))
+                self.run_extension_function(*id, context, arg_values, args.len())
             },
             Node::Field { accessor } => {
                 let target = self.get_target(context, &accessor.owner, self.globalvars.contains(&accessor.index))?;
@@ -638,8 +639,7 @@ impl Game {
                         }
                     },
                     Target::All => {
-                        if let Some(instance) =
-                            self.room.instance_list.iter_by_insertion().next(&self.room.instance_list)
+                        if let Some(instance) = self.room.instance_list.iter_by_drawing().next(&self.room.instance_list)
                         {
                             self.get_instance_field(instance, accessor.index, array_index)
                         } else {
@@ -718,8 +718,7 @@ impl Game {
                         }
                     },
                     Target::All => {
-                        if let Some(instance) =
-                            self.room.instance_list.iter_by_insertion().next(&self.room.instance_list)
+                        if let Some(instance) = self.room.instance_list.iter_by_drawing().next(&self.room.instance_list)
                         {
                             self.get_instance_var(instance, &accessor.var, array_index, context)
                         } else {

@@ -9,6 +9,7 @@ pub mod model;
 pub mod movement;
 pub mod particle;
 pub mod pathfinding;
+pub mod platform;
 pub mod recording;
 pub mod replay;
 pub mod savestate;
@@ -61,7 +62,6 @@ use std::{
     borrow::Cow,
     cell::{Cell, RefCell},
     collections::{BTreeMap, HashMap, HashSet, VecDeque},
-    convert::TryFrom,
     fs::File,
     io::Write,
     path::PathBuf,
@@ -584,7 +584,7 @@ impl Game {
 
         let default_font = asset::font::load_default_font(&mut atlases)?;
 
-        let mut externals = external::ExternalManager::new(false).unwrap();
+        let mut externals = external::ExternalManager::new(play_type == PlayType::Record);
 
         // Code compiling starts here. The order in which things are compiled is important for
         // keeping savestates compatible. This isn't 100% accurate right now, but it's mostly right.
@@ -615,49 +615,35 @@ impl Game {
                                 Version::GameMaker8_0 => encoding,
                                 Version::GameMaker8_1 => encoding_rs::UTF_8,
                             });
-                            if let Some(dummy) = external::should_dummy(dll, &*sym, play_type) {
-                                match externals.define_dummy(dll, sym, dummy, function.arg_count as _) {
-                                    Ok(id) => extension_functions.push(Some(ExtensionFunction::Dll(sym.into(), id))),
-                                    Err(e) => {
-                                        println!(
-                                            "WARNING: failed to create dummy extension function {} (from {}): {}",
-                                            function.name, dll_name, e,
-                                        );
-                                        extension_functions.push(None);
-                                    },
-                                }
-                            } else {
-                                match externals.define(
-                                    dll,
-                                    sym,
-                                    match function.convention {
-                                        CallingConvention::Cdecl => external::dll::CallConv::Cdecl,
-                                        _ => external::dll::CallConv::Stdcall,
-                                    },
-                                    function
-                                        .arg_types
-                                        .iter()
-                                        .take(function.arg_count as usize)
-                                        .map(|x| match x {
-                                            FunctionValueKind::GMReal => external::dll::ValueType::Real,
-                                            FunctionValueKind::GMString => external::dll::ValueType::Str,
-                                        })
-                                        .collect::<Vec<_>>()
-                                        .as_slice(),
-                                    match function.return_type {
+                            match externals.define(external::dll::ExternalSignature {
+                                dll: dll.to_string(),
+                                symbol: sym.to_string(),
+                                call_conv: match function.convention {
+                                    CallingConvention::Cdecl => external::dll::CallConv::Cdecl,
+                                    _ => external::dll::CallConv::Stdcall,
+                                },
+                                type_args: function
+                                    .arg_types
+                                    .iter()
+                                    .take(function.arg_count as usize)
+                                    .map(|x| match x {
                                         FunctionValueKind::GMReal => external::dll::ValueType::Real,
                                         FunctionValueKind::GMString => external::dll::ValueType::Str,
-                                    },
-                                ) {
-                                    Ok(id) => extension_functions.push(Some(ExtensionFunction::Dll(sym.into(), id))),
-                                    Err(e) => {
-                                        println!(
-                                            "WARNING: failed to load extension function {} (from {}): {}",
-                                            function.name, dll_name, e
-                                        );
-                                        extension_functions.push(None);
-                                    },
-                                }
+                                    })
+                                    .collect::<Vec<_>>(),
+                                type_return: match function.return_type {
+                                    FunctionValueKind::GMReal => external::dll::ValueType::Real,
+                                    FunctionValueKind::GMString => external::dll::ValueType::Str,
+                                },
+                            }) {
+                                Ok(id) => extension_functions.push(Some(ExtensionFunction::Dll(sym.into(), id))),
+                                Err(e) => {
+                                    println!(
+                                        "WARNING: failed to load extension function {} (from {}): {}",
+                                        function.name, dll_name, e
+                                    );
+                                    extension_functions.push(None);
+                                },
                             }
                         }
                         temp_directory.pop();
@@ -1507,9 +1493,9 @@ impl Game {
                 height: height as _,
                 atlas_ref: self.renderer.create_surface(width as _, height as _, make_zbuf)?,
             };
-            self.renderer.set_target(&old_surf.atlas_ref);
+            self.renderer.set_target(old_surf.atlas_ref);
             self.draw()?;
-            self.renderer.set_target(&new_surf.atlas_ref);
+            self.renderer.set_target(new_surf.atlas_ref);
             let old_surf_id = self.surfaces.len() as i32;
             self.surfaces.push(Some(old_surf));
             self.surfaces.push(Some(new_surf));
@@ -1557,10 +1543,11 @@ impl Game {
         self.resize_window(view_width as u32, view_height as u32);
 
         // Update some stored vars
+        let mut room_state = room_state;
+        std::mem::swap(&mut self.room, &mut room_state);
         if self.room.persistent && !self.game_start {
-            self.stored_rooms.push(self.room.clone());
+            self.stored_rooms.push(room_state);
         }
-        self.room = room_state;
         // clearing input here breaks direct keyboard checks, so just step instead
         // self.input.keyboard_clear_all();
         // self.input.mouse_clear_all();
@@ -1775,7 +1762,7 @@ impl Game {
         }
 
         // Update xprevious and yprevious for all instances
-        let mut iter = self.room.instance_list.iter_by_insertion();
+        let mut iter = self.room.instance_list.iter_by_drawing();
         while let Some(instance) = iter.next(&self.room.instance_list).map(|x| self.room.instance_list.get(x)) {
             instance.xprevious.set(instance.x.get());
             instance.yprevious.set(instance.y.get());
@@ -1795,7 +1782,7 @@ impl Game {
         }
 
         // Advance timelines for all instances
-        let mut iter = self.room.instance_list.iter_by_insertion();
+        let mut iter = self.room.instance_list.iter_by_drawing();
         while let Some(handle) = iter.next(&self.room.instance_list) {
             let instance = self.room.instance_list.get(handle);
             let object_index = instance.object_index.get();
@@ -1890,7 +1877,7 @@ impl Game {
 
         // Movement: apply friction, gravity, and hspeed/vspeed
         self.process_speeds();
-        let mut iter = self.room.instance_list.iter_by_insertion();
+        let mut iter = self.room.instance_list.iter_by_drawing();
         while let Some(handle) = iter.next(&self.room.instance_list) {
             if self.apply_speeds(handle) {
                 self.run_instance_event(ev::OTHER, 8, handle, handle, None)?;
@@ -1938,20 +1925,28 @@ impl Game {
         }
 
         // Advance sprite animations
-        let mut iter = self.room.instance_list.iter_by_insertion();
+        let mut iter = self.room.instance_list.iter_by_drawing();
         while let Some(handle) = iter.next(&self.room.instance_list) {
             let instance = self.room.instance_list.get(handle);
             let new_index = instance.image_index.get() + instance.image_speed.get();
             instance.image_index.set(new_index);
-            if let Some(sprite) = self.assets.sprites.get_asset(instance.sprite_index.get()) {
-                let frame_count = sprite.frames.len() as f64;
-                if new_index.into_inner() >= frame_count {
-                    instance.image_index.set(new_index - Real::from(frame_count));
-                    self.run_instance_event(ev::OTHER, 7, handle, handle, None)?; // animation end event
-                }
+            let frame_count = self
+                .assets
+                .sprites
+                .get_asset(instance.sprite_index.get())
+                .map(|s| s.frames.len() as f64)
+                .unwrap_or(0.0);
+            if new_index.into_inner() >= frame_count {
+                instance.image_index.set(new_index - Real::from(frame_count));
+                self.run_instance_event(ev::OTHER, 7, handle, handle, None)?; // animation end event
             }
         }
         self.cursor_sprite_frame += 1;
+
+        // Tell renderer to finish the frame
+        if self.auto_draw && self.scene_change.is_none() && self.play_type != PlayType::Record {
+            self.renderer.present(self.window_inner_size.0, self.window_inner_size.1, self.scaling);
+        }
 
         // Clear inputs for this frame
         self.input.step();
@@ -1987,28 +1982,65 @@ impl Game {
         }
     }
 
+    pub fn call_external(&mut self, id: i32, context: &mut Context, args: &[gml::Value]) -> gml::Result<gml::Value> {
+        use external::dll;
+        if let Some(external) = self.externals.get_external(id) {
+            if args.len() != external.signature.type_args.len() {
+                return Ok(Default::default()) // unfortunately required
+            }
+            let convert_args = || {
+                args.iter()
+                    .zip(&external.signature.type_args)
+                    .map(|(a, t)| match (a, t) {
+                        (gml::Value::Real(x), dll::ValueType::Real) => dll::Value::Real((*x).into()),
+                        (gml::Value::Str(_), dll::ValueType::Real) => dll::Value::Real(0.0),
+                        (gml::Value::Str(s), dll::ValueType::Str) => {
+                            dll::Value::Str(dll::PascalString::new(s.as_ref()))
+                        },
+                        (gml::Value::Real(_), dll::ValueType::Str) => dll::Value::Str(dll::PascalString::empty()),
+                    })
+                    .collect::<Vec<_>>()
+            };
+            match &external.call {
+                external::Call::Dummy(x) => Ok(x.clone()),
+                &external::Call::Emulated(func) => func.invoke(self, context, args),
+                external::Call::Native(_) => {
+                    let args = convert_args();
+                    Ok(self.externals.call_native(id as _, &args).into())
+                },
+                external::Call::Ipc(_) => {
+                    let args = convert_args();
+                    Ok(self.externals.call_ipc(id as _, &args).into())
+                },
+            }
+        } else {
+            Ok(Default::default()) // unfortunately required
+        }
+    }
+
     /// Runs an ExtensionFunction by its ID
-    pub fn run_extension_function(&mut self, id: usize, mut context: Context) -> gml::Result<gml::Value> {
+    pub fn run_extension_function(
+        &mut self,
+        id: usize,
+        context: &mut Context,
+        args: [gml::Value; 16],
+        arg_count: usize,
+    ) -> gml::Result<gml::Value> {
         match &self.extension_functions[id] {
-            Some(ExtensionFunction::Dll(sym, id)) => self
-                .externals
-                .call(
-                    *id,
-                    (&context.arguments[..context.argument_count])
-                        .iter()
-                        .cloned()
-                        .map(external::dll::Value::from)
-                        .collect::<Vec<_>>()
-                        .as_slice(),
-                )
-                .map(gml::Value::from)
-                .map_err(|err| gml::Error::ExternalFunction(sym.clone(), err)),
+            Some(ExtensionFunction::Dll(sym, id)) => {
+                let sym = sym.clone();
+                let id = *id;
+                self.call_external(id, context, &args[..arg_count])
+                    .map(gml::Value::from)
+                    .map_err(|err| gml::Error::ExternalFunction(sym, err.to_string()))
+            },
             Some(ExtensionFunction::Gml(gml)) => {
                 let instructions = gml.clone();
+                let mut context = Context::copy_with_args(context, args, arg_count);
                 self.execute(&instructions, &mut context)?;
                 Ok(context.return_value)
             },
-            None => Err(gml::Error::ExtensionFunctionNotLoaded(id)),
+            None => Ok(Default::default()), // unfortunately required
         }
     }
 
@@ -2031,7 +2063,12 @@ impl Game {
                 .room
                 .instance_list
                 .insert_dummy(Instance::new_dummy(self.assets.objects.get_asset(0).map(|x| x.as_ref())));
-            self.run_extension_function(self.extension_initializers[i], Context::with_single_instance(dummy_instance))?;
+            self.run_extension_function(
+                self.extension_initializers[i],
+                &mut Context::with_single_instance(dummy_instance),
+                Default::default(),
+                0,
+            )?;
             self.room.instance_list.remove_dummy(dummy_instance);
         }
 
@@ -2107,6 +2144,12 @@ impl Game {
         let mut frame_count: usize = 0;
         self.rand.set_seed(replay.start_seed);
         self.spoofed_time_nanos = Some(replay.start_time);
+
+        // the tas ui creates some sprites, so as a hotfix we need to generate them here too
+        // TODO don't
+        for _ in 0..2 {
+            self.renderer.upload_sprite(Box::new([0, 0, 0, 0]), 1, 1, 0, 0).expect("Failed to upload blank sprite");
+        }
 
         for ev in replay.startup_events.iter() {
             self.stored_events.push_back(ev.clone());
@@ -2693,9 +2736,9 @@ impl Game {
 
             // Set up the iterator
             let iter_vert = (x2 - x1).abs() < (y2 - y1).abs();
-            let point_count = (if iter_vert { y2 - y1 } else { x2 - x1 }) + 1;
             // If iterating vertically, make sure we're going top to bottom
             let (x1, y1, x2, y2) = if iter_vert && y2 < y1 { (x2, y2, x1, y1) } else { (x1, y1, x2, y2) };
+            let point_count = (if iter_vert { y2 - y1 } else { x2 - x1 }) + 1;
             // Helper function for getting points on the line
             let get_point = |i: i32| {
                 // Avoid dividing by zero
@@ -2739,7 +2782,7 @@ impl Game {
 
     // Checks if an instance is colliding with any solid, returning the solid if it is, otherwise None
     pub fn check_collision_solid(&self, inst: usize) -> Option<usize> {
-        let mut iter = self.room.instance_list.iter_by_insertion();
+        let mut iter = self.room.instance_list.iter_by_drawing();
         while let Some(target) = iter.next(&self.room.instance_list) {
             if self.room.instance_list.get(target).solid.get() {
                 if self.check_collision(inst, target) {
@@ -2752,7 +2795,7 @@ impl Game {
 
     // Checks if an instance is colliding with any instance, returning the target if it is, otherwise None
     pub fn check_collision_any(&self, inst: usize) -> Option<usize> {
-        let mut iter = self.room.instance_list.iter_by_insertion();
+        let mut iter = self.room.instance_list.iter_by_drawing();
         while let Some(target) = iter.next(&self.room.instance_list) {
             if inst != target {
                 if self.check_collision(inst, target) {
@@ -2769,7 +2812,7 @@ impl Game {
     pub fn find_instance_with(&self, object_id: i32, pred: impl Fn(usize) -> bool) -> Option<usize> {
         match object_id {
             gml::ALL => {
-                let mut iter = self.room.instance_list.iter_by_insertion();
+                let mut iter = self.room.instance_list.iter_by_drawing();
                 loop {
                     match iter.next(&self.room.instance_list) {
                         Some(handle) => {

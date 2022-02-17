@@ -3,7 +3,8 @@ name = "gm8decompiler"
 version = "2.1.1"
 authors = ["The OpenGMK Project Developers"]
 license = "GPL-2.0-only"
-edition = "2018"
+edition = "2021"
+rust-version = "1.58"
 
 [build-dependencies]
 time = { version = "0.3", features = ["std"], default-features = false }

@@ -203,11 +203,6 @@ impl Game {
             self.draw_view(0, 0, self.room.width, self.room.height, 0, 0, self.room.width, self.room.height, 0.0)?;
         }
 
-        // Tell renderer to finish the frame
-        if self.play_type != PlayType::Record {
-            self.renderer.present(self.window_inner_size.0, self.window_inner_size.1, self.scaling);
-        }
-
         // Reset viewport
         self.renderer.set_view(
             0,
@@ -293,7 +288,7 @@ impl Game {
             let tile = game.room.tile_list.get(idx);
             if tile.visible.get() {
                 if let Some(Some(background)) = game.assets.backgrounds.get(tile.background_index.get() as usize) {
-                    if let Some(atlas) = &background.atlas_ref {
+                    if let Some(atlas) = background.atlas_ref {
                         game.renderer.set_depth(tile.depth.get().into_inner() as f32);
                         game.renderer.draw_sprite_partial(
                             atlas,
@@ -322,7 +317,7 @@ impl Game {
         self.renderer.set_depth(12000.0);
         for background in self.room.backgrounds.iter().filter(|x| x.visible && !x.is_foreground) {
             if let Some(bg_asset) = self.assets.backgrounds.get_asset(background.background_id) {
-                if let Some(atlas_ref) = bg_asset.atlas_ref.as_ref() {
+                if let Some(atlas_ref) = bg_asset.atlas_ref {
                     self.renderer.draw_sprite_tiled(
                         atlas_ref,
                         background.x_offset.into(),
@@ -395,7 +390,7 @@ impl Game {
         self.renderer.set_depth(-12000.0);
         for background in self.room.backgrounds.clone().iter().filter(|x| x.visible && x.is_foreground) {
             if let Some(bg_asset) = self.assets.backgrounds.get_asset(background.background_id) {
-                if let Some(atlas_ref) = bg_asset.atlas_ref.as_ref() {
+                if let Some(atlas_ref) = bg_asset.atlas_ref {
                     self.renderer.draw_sprite_tiled(
                         atlas_ref,
                         background.x_offset.into(),
@@ -548,7 +543,7 @@ impl Game {
 
                 match colours {
                     Some((c1, c2, c3, c4)) => self.renderer.draw_sprite_colour(
-                        &character.atlas_ref,
+                        character.atlas_ref,
                         (x + xdiff).into(),
                         (y + ydiff).into(),
                         xscale.into(),
@@ -561,7 +556,7 @@ impl Game {
                         alpha.into(),
                     ),
                     None => self.renderer.draw_sprite(
-                        &character.atlas_ref,
+                        character.atlas_ref,
                         (x + xdiff).into(),
                         (y + ydiff).into(),
                         xscale.into(),

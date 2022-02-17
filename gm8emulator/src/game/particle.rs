@@ -8,7 +8,6 @@ use crate::{
     },
 };
 use serde::{Deserialize, Serialize};
-use std::convert::TryFrom;
 
 pub struct PSIterDrawOrder(usize);
 impl PSIterDrawOrder {
@@ -145,10 +144,9 @@ impl Manager {
     }
 
     pub fn draw_sort(&mut self) {
-        let systems = &self.systems; // borrowck :)
         self.draw_order.sort_by(|id1, id2| {
-            let left = systems.get_asset(*id1).unwrap();
-            let right = systems.get_asset(*id2).unwrap();
+            let left = self.systems.get_asset(*id1).unwrap();
+            let right = self.systems.get_asset(*id2).unwrap();
 
             right.depth.cmp_nan_first(&left.depth)
         });
@@ -1437,7 +1435,7 @@ impl Particle {
                     None
                 }
             },
-            ParticleGraphic::Shape(s) => usize::try_from(s).ok().and_then(|s| shapes.get(s)),
+            ParticleGraphic::Shape(s) => usize::try_from(s).ok().and_then(|s| shapes.get(s).copied()),
         };
         let mut angle_wiggle_factor = ((self.timer + self.random_start * 2) % 16) as f64 / 4.0;
         if 2.0 < angle_wiggle_factor {

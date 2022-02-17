@@ -1,6 +1,6 @@
 use crate::{
     render::{
-        atlas::{AtlasBuilder, AtlasRef},
+        atlas::{AtlasBuilder, AtlasRect, AtlasRef},
         mat4mult, BlendType, Fog, Light, PrimitiveBuilder, PrimitiveShape, PrimitiveType, RendererOptions,
         RendererTrait, SavedTexture, Scaling, Vertex, VertexBuffer,
     },
@@ -9,7 +9,7 @@ use crate::{
 use memoffset::offset_of;
 use ramen::window::Window;
 use rect_packer::DensePacker;
-use std::{any::Any, collections::HashMap, f64::consts::PI, ffi::CStr, mem::size_of, ptr};
+use std::{any::Any, f64::consts::PI, ffi::CStr, mem::size_of, ptr};
 
 /// Auto-generated OpenGL bindings from gl_generator
 pub mod gl {
@@ -166,15 +166,15 @@ pub struct RendererImpl {
     texture_ids: Vec<Option<GLuint>>,
     zbuf_ids: Vec<Option<GLuint>>,
     fbo_ids: Vec<Option<GLuint>>,
-    sprites: HashMap<i32, AtlasRef>,
-    sprite_count: i32,
+    texture_rects: Vec<Option<AtlasRect>>,
+    stock_texture_count: usize,
     stock_atlas_count: u32,
     current_atlas: u32,
     framebuffer: Framebuffer,
     stored_framebuffer: Option<Framebuffer>,
     zbuf_format: GLint,
     zbuf_trashed: bool,
-    white_pixel: AtlasRef,
+    white_pixel: AtlasRect,
     vertex_queue: Vec<Vertex>,
     queue_type: PrimitiveShape,
     queue_render_state: RenderState,
@@ -270,8 +270,8 @@ impl VertexBuffer {
     }
 }
 
-impl From<AtlasRef> for [f32; 4] {
-    fn from(ar: AtlasRef) -> Self {
+impl From<AtlasRect> for [f32; 4] {
+    fn from(ar: AtlasRect) -> Self {
         [ar.x as f32, ar.y as f32, ar.w as f32, ar.h as f32]
     }
 }
@@ -341,7 +341,7 @@ struct ShapeBuilder {
 }
 
 impl ShapeBuilder {
-    fn new(outline: bool, atlas_ref: AtlasRef, alpha: f64, depth: f32) -> Self {
+    fn new(outline: bool, atlas_ref: AtlasRect, alpha: f64, depth: f32) -> Self {
         Self {
             primitive: PrimitiveBuilder::new(
                 atlas_ref,
@@ -545,8 +545,8 @@ impl RendererImpl {
                 texture_ids: vec![],
                 zbuf_ids: vec![],
                 fbo_ids: vec![],
-                sprites: HashMap::new(),
-                sprite_count: 0,
+                texture_rects: vec![],
+                stock_texture_count: 0,
                 stock_atlas_count: 0,
                 current_atlas: 0,
                 framebuffer: Framebuffer { texture: framebuffer_texture, zbuf: framebuffer_zbuf, fbo: framebuffer_fbo },
@@ -615,6 +615,13 @@ impl RendererImpl {
             // clear screen
             self.clear_view(clear_colour, 1.0);
         }
+    }
+
+    fn get_rect_mut(&mut self, id: AtlasRef) -> Option<&mut AtlasRect> {
+        id.0.try_into()
+            .ok()
+            .and_then(move |id: usize| self.texture_rects.get_mut(id))
+            .and_then(|o: &mut Option<AtlasRect>| o.as_mut())
     }
 
     /// Updates the renderer state.
@@ -801,13 +808,15 @@ impl RendererTrait for RendererImpl {
 
     fn push_atlases(&mut self, mut atl: AtlasBuilder) -> Result<(), String> {
         assert!(self.atlas_packers.is_empty(), "atlases should be initialized only once");
-        self.white_pixel =
+        let white_pixel_ref =
             atl.texture(1, 1, 0, 0, Box::new([0xFF, 0xFF, 0xFF, 0xFF])).ok_or("Couldn't pack white_pixel")?;
         // update primitive buffers with white pixel
         self.reset_primitive_2d(PrimitiveType::PointList, None);
         self.reset_primitive_3d(PrimitiveType::PointList, None);
 
-        let (packers, sprites) = atl.into_inner();
+        let (packers, mut sprites) = atl.into_inner();
+
+        self.white_pixel = sprites[white_pixel_ref.0 as usize].0;
 
         unsafe {
             let textures: Vec<GLuint> = {
@@ -862,8 +871,6 @@ impl RendererTrait for RendererImpl {
                     gl::UNSIGNED_BYTE,    // type
                     pixels.as_ptr() as _, // pixels
                 );
-
-                self.sprite_count += 1;
             }
 
             // verify it actually worked
@@ -893,11 +900,13 @@ impl RendererTrait for RendererImpl {
             self.texture_ids = textures.iter().map(|t| Some(*t)).collect();
             self.zbuf_ids.resize(self.texture_ids.len(), None);
             self.fbo_ids = fbo_ids;
-            self.stock_atlas_count = textures.len() as u32;
+            self.stock_atlas_count = textures.len() as u32 + 2; // TODO remove +2 when -o works
         }
 
         // store packers, discard pixeldata
         self.atlas_packers = packers;
+        self.texture_rects = sprites.drain(..).map(|(ar, _)| Some(ar)).collect();
+        self.stock_texture_count = self.texture_rects.len();
 
         Ok(())
     }
@@ -910,100 +919,103 @@ impl RendererTrait for RendererImpl {
         origin_x: i32,
         origin_y: i32,
     ) -> Result<AtlasRef, String> {
-        let atlas_ref = AtlasRef {
-            origin_x: origin_x as f32 / width as f32,
-            origin_y: origin_y as f32 / height as f32,
-            ..self.create_surface(width, height, false)?
-        };
-        unsafe {
-            // store previous
-            let mut prev_tex2d = 0;
-            self.gl.GetIntegerv(gl::TEXTURE_BINDING_2D, &mut prev_tex2d);
+        let atlas_ref = self.create_surface(width, height, false)?;
+        if let Some(rect) = self.get_rect_mut(atlas_ref) {
+            rect.origin_x = origin_x as f32 / width as f32;
+            rect.origin_y = origin_y as f32 / height as f32;
+            let rect = self.get_rect(atlas_ref).unwrap();
+            unsafe {
+                // store previous
+                let mut prev_tex2d = 0;
+                self.gl.GetIntegerv(gl::TEXTURE_BINDING_2D, &mut prev_tex2d);
 
-            // upload texture
-            self.gl.BindTexture(gl::TEXTURE_2D, self.texture_ids[atlas_ref.atlas_id as usize].unwrap());
-            self.gl.TexSubImage2D(
-                gl::TEXTURE_2D,     // target
-                0,                  // level
-                atlas_ref.x as _,   // xoffset
-                atlas_ref.y as _,   // yoffset
-                atlas_ref.w as _,   // width
-                atlas_ref.h as _,   // height
-                gl::RGBA,           // format
-                gl::UNSIGNED_BYTE,  // type
-                data.as_ptr() as _, // pixels
-            );
+                // upload texture
+                self.gl.BindTexture(gl::TEXTURE_2D, self.texture_ids[rect.atlas_id as usize].unwrap());
+                self.gl.TexSubImage2D(
+                    gl::TEXTURE_2D,     // target
+                    0,                  // level
+                    rect.x as _,        // xoffset
+                    rect.y as _,        // yoffset
+                    rect.w as _,        // width
+                    rect.h as _,        // height
+                    gl::RGBA,           // format
+                    gl::UNSIGNED_BYTE,  // type
+                    data.as_ptr() as _, // pixels
+                );
 
-            // verify it actually worked
-            match self.gl.GetError() {
-                0 => (),
-                err => return Err(format!("Failed to upload texture to GPU! (OpenGL code {})", err)),
+                // verify it actually worked
+                match self.gl.GetError() {
+                    0 => (),
+                    err => return Err(format!("Failed to upload texture to GPU! (OpenGL code {})", err)),
+                }
+
+                // cleanup
+                self.gl.BindTexture(gl::TEXTURE_2D, prev_tex2d as _);
+                assert_eq!(self.gl.GetError(), 0);
             }
-
-            // cleanup
-            self.gl.BindTexture(gl::TEXTURE_2D, prev_tex2d as _);
-            assert_eq!(self.gl.GetError(), 0);
         }
         Ok(atlas_ref)
     }
 
-    fn duplicate_sprite(&mut self, atlas_ref: &AtlasRef) -> Result<AtlasRef, String> {
-        let new_sprite = AtlasRef {
-            origin_x: atlas_ref.origin_x,
-            origin_y: atlas_ref.origin_y,
-            ..self.create_surface(atlas_ref.w, atlas_ref.h, false)?
-        };
-        unsafe {
-            // store previous
-            let mut prev_read_fbo = 0;
-            self.gl.GetIntegerv(gl::READ_FRAMEBUFFER_BINDING, &mut prev_read_fbo);
-            let mut prev_tex2d = 0;
-            self.gl.GetIntegerv(gl::TEXTURE_BINDING_2D, &mut prev_tex2d);
+    fn duplicate_sprite(&mut self, atlas_ref: AtlasRef) -> Result<AtlasRef, String> {
+        if let Some(rect) = self.get_rect(atlas_ref).cloned() {
+            let sprite = self.create_surface(rect.w, rect.h, false)?;
+            let new_rect = self.get_rect_mut(sprite).unwrap();
+            new_rect.origin_x = rect.origin_x;
+            new_rect.origin_y = rect.origin_y;
+            let new_rect = self.get_rect(sprite).unwrap();
+            unsafe {
+                // store previous
+                let mut prev_read_fbo = 0;
+                self.gl.GetIntegerv(gl::READ_FRAMEBUFFER_BINDING, &mut prev_read_fbo);
+                let mut prev_tex2d = 0;
+                self.gl.GetIntegerv(gl::TEXTURE_BINDING_2D, &mut prev_tex2d);
 
-            self.gl.BindFramebuffer(gl::READ_FRAMEBUFFER, self.fbo_ids[atlas_ref.atlas_id as usize].unwrap());
-            self.gl.BindTexture(gl::TEXTURE_2D, self.texture_ids[new_sprite.atlas_id as usize].unwrap());
+                self.gl.BindFramebuffer(gl::READ_FRAMEBUFFER, self.fbo_ids[rect.atlas_id as usize].unwrap());
+                self.gl.BindTexture(gl::TEXTURE_2D, self.texture_ids[new_rect.atlas_id as usize].unwrap());
 
-            self.gl.CopyTexImage2D(
-                gl::TEXTURE_2D,
-                0,
-                gl::RGBA,
-                atlas_ref.x,
-                atlas_ref.y,
-                atlas_ref.w as _,
-                atlas_ref.h as _,
-                0,
-            );
+                self.gl.CopyTexImage2D(gl::TEXTURE_2D, 0, gl::RGBA, rect.x, rect.y, rect.w as _, rect.h as _, 0);
 
-            self.gl.BindFramebuffer(gl::READ_FRAMEBUFFER, prev_read_fbo as _);
-            self.gl.BindTexture(gl::TEXTURE_2D, prev_tex2d as _);
+                self.gl.BindFramebuffer(gl::READ_FRAMEBUFFER, prev_read_fbo as _);
+                self.gl.BindTexture(gl::TEXTURE_2D, prev_tex2d as _);
 
-            // verify it actually worked
-            match self.gl.GetError() {
-                0 => (),
-                err => return Err(format!("Failed to duplicate texture! (OpenGL code {})", err)),
+                // verify it actually worked
+                match self.gl.GetError() {
+                    0 => (),
+                    err => return Err(format!("Failed to duplicate texture! (OpenGL code {})", err)),
+                }
             }
+            Ok(sprite)
+        } else {
+            Ok(AtlasRef(-1))
         }
-        Ok(new_sprite)
     }
 
     fn delete_sprite(&mut self, atlas_ref: AtlasRef) {
         // this only deletes sprites created with upload_sprite
         self.flush_queue();
-        self.sprites.remove(&atlas_ref.sprite_id);
-        if atlas_ref.atlas_id >= self.stock_atlas_count {
-            let tex_id = self.texture_ids[atlas_ref.atlas_id as usize].unwrap();
-            unsafe {
-                self.gl.DeleteTextures(1, &tex_id);
-                self.texture_ids[atlas_ref.atlas_id as usize] = None;
-                if let Some(Some(zbuf)) = self.zbuf_ids.get(atlas_ref.atlas_id as usize) {
-                    self.gl.DeleteTextures(1, zbuf);
-                    self.zbuf_ids[atlas_ref.atlas_id as usize] = None;
+        if let Some(rect) = atlas_ref
+            .0
+            .try_into()
+            .ok()
+            .and_then(|id: usize| self.texture_rects.get_mut(id))
+            .and_then(|o: &mut Option<AtlasRect>| o.take())
+        {
+            if rect.atlas_id >= self.stock_atlas_count {
+                let tex_id = self.texture_ids[rect.atlas_id as usize].unwrap();
+                unsafe {
+                    self.gl.DeleteTextures(1, &tex_id);
+                    self.texture_ids[rect.atlas_id as usize] = None;
+                    if let Some(Some(zbuf)) = self.zbuf_ids.get(rect.atlas_id as usize) {
+                        self.gl.DeleteTextures(1, zbuf);
+                        self.zbuf_ids[rect.atlas_id as usize] = None;
+                    }
+                    if let Some(Some(fbo)) = self.fbo_ids.get(rect.atlas_id as usize) {
+                        self.gl.DeleteFramebuffers(1, fbo);
+                        self.fbo_ids[rect.atlas_id as usize] = None;
+                    }
+                    assert_eq!(self.gl.GetError(), 0);
                 }
-                if let Some(Some(fbo)) = self.fbo_ids.get(atlas_ref.atlas_id as usize) {
-                    self.gl.DeleteFramebuffers(1, fbo);
-                    self.fbo_ids[atlas_ref.atlas_id as usize] = None;
-                }
-                assert_eq!(self.gl.GetError(), 0);
             }
         }
     }
@@ -1022,13 +1034,15 @@ impl RendererTrait for RendererImpl {
 
     fn create_sprite_colour(&mut self, width: i32, height: i32, col: Colour) -> Result<AtlasRef, String> {
         let atlas_ref = self.create_surface(width, height, false)?;
-        unsafe {
-            let mut prev_read_fbo = 0;
-            self.gl.GetIntegerv(gl::READ_FRAMEBUFFER_BINDING, &mut prev_read_fbo);
-            self.gl.BindFramebuffer(gl::READ_FRAMEBUFFER, self.fbo_ids[atlas_ref.atlas_id as usize].unwrap());
-            self.gl.ClearColor(col.r as f32, col.g as f32, col.b as f32, 1.0);
-            self.gl.Clear(gl::COLOR_BUFFER_BIT);
-            self.gl.BindFramebuffer(gl::READ_FRAMEBUFFER, prev_read_fbo as _);
+        if let Some(rect) = self.get_rect(atlas_ref) {
+            unsafe {
+                let mut prev_read_fbo = 0;
+                self.gl.GetIntegerv(gl::READ_FRAMEBUFFER_BINDING, &mut prev_read_fbo);
+                self.gl.BindFramebuffer(gl::READ_FRAMEBUFFER, self.fbo_ids[rect.atlas_id as usize].unwrap());
+                self.gl.ClearColor(col.r as f32, col.g as f32, col.b as f32, 1.0);
+                self.gl.Clear(gl::COLOR_BUFFER_BIT);
+                self.gl.BindFramebuffer(gl::READ_FRAMEBUFFER, prev_read_fbo as _);
+            }
         }
         Ok(atlas_ref)
     }
@@ -1121,32 +1135,33 @@ impl RendererTrait for RendererImpl {
             self.gl.BindFramebuffer(gl::READ_FRAMEBUFFER, prev_fbo as _);
             assert_eq!(self.gl.GetError(), 0);
         }
-        let sprite_id = self.sprite_count;
-        self.sprite_count += 1;
-        Ok(AtlasRef { atlas_id, sprite_id, x: 0, y: 0, w: width, h: height, origin_x: 0.0, origin_y: 0.0 })
+        let id = self.texture_rects.len() as i32;
+        self.texture_rects.push(Some(AtlasRect {
+            atlas_id,
+            x: 0,
+            y: 0,
+            w: width,
+            h: height,
+            origin_x: 0.0,
+            origin_y: 0.0,
+        }));
+        Ok(AtlasRef(id))
     }
 
-    fn set_target(&mut self, atlas_ref: &AtlasRef) {
+    fn set_target(&mut self, atlas_ref: AtlasRef) {
         self.flush_queue();
-        if let Some(Some(fbo_id)) = self.fbo_ids.get(atlas_ref.atlas_id as usize) {
+        if let Some((rect, Some(Some(fbo_id)))) =
+            self.get_rect(atlas_ref).map(|rect| (rect, self.fbo_ids.get(rect.atlas_id as usize)))
+        {
+            let AtlasRect { x, y, w, h, .. } = *rect;
             unsafe {
                 self.gl.BindFramebuffer(gl::DRAW_FRAMEBUFFER, *fbo_id);
                 // set viewport here since set_view doesn't
-                self.gl.Viewport(atlas_ref.x, atlas_ref.y, atlas_ref.w, atlas_ref.h);
-                self.gl.Scissor(atlas_ref.x, atlas_ref.y, atlas_ref.w, atlas_ref.h);
+                self.gl.Viewport(x, y, w, h);
+                self.gl.Scissor(x, y, w, h);
                 assert_eq!(self.gl.GetError(), 0);
             }
-            self.set_view(
-                atlas_ref.x,
-                atlas_ref.y,
-                atlas_ref.w,
-                atlas_ref.h,
-                0.0,
-                atlas_ref.x,
-                atlas_ref.y,
-                atlas_ref.w,
-                atlas_ref.h,
-            );
+            self.set_view(x, y, w, h, 0.0, x, y, w, h);
         }
     }
 
@@ -1167,15 +1182,19 @@ impl RendererTrait for RendererImpl {
 
     fn copy_surface(
         &mut self,
-        dest: &AtlasRef,
+        dest: AtlasRef,
         mut dest_x: i32,
         mut dest_y: i32,
-        src: &AtlasRef,
+        src: AtlasRef,
         mut src_x: i32,
         mut src_y: i32,
         mut width: i32,
         mut height: i32,
     ) {
+        let (src_rect, dest_rect) = match (self.get_rect(src), self.get_rect(dest)) {
+            (Some(src), Some(dest)) => (src, dest),
+            _ => return,
+        };
         // correct coordinates
         if src_x < 0 {
             dest_x -= src_x;
@@ -1187,11 +1206,11 @@ impl RendererTrait for RendererImpl {
             height += src_y;
             src_y = 0;
         }
-        if src_x + width > src.w {
-            width = src.w - src_x;
+        if src_x + width > src_rect.w {
+            width = src_rect.w - src_x;
         }
-        if src_y + height > src.h {
-            height = dest.h - src_y;
+        if src_y + height > src_rect.h {
+            height = dest_rect.h - src_y;
         }
         if dest_x < 0 {
             src_x -= dest_x;
@@ -1203,16 +1222,16 @@ impl RendererTrait for RendererImpl {
             height += dest_y;
             dest_y = 0;
         }
-        if dest_x + width > dest.w {
-            width = dest.w - dest_x;
+        if dest_x + width > dest_rect.w {
+            width = dest_rect.w - dest_x;
         }
-        if dest_y + height > dest.h {
-            height = dest.h - dest_y;
+        if dest_y + height > dest_rect.h {
+            height = dest_rect.h - dest_y;
         }
         if width > 0 && height > 0 {
             // actual copy
             if let (Some(Some(src_id)), Some(Some(dst_id))) =
-                (self.fbo_ids.get(src.atlas_id as usize), self.fbo_ids.get(dest.atlas_id as usize))
+                (self.fbo_ids.get(src_rect.atlas_id as usize), self.fbo_ids.get(dest_rect.atlas_id as usize))
             {
                 unsafe {
                     // On Intel, glBlitFrameBuffer just does nothing if the scissor box is too big, which it
@@ -1369,24 +1388,30 @@ impl RendererTrait for RendererImpl {
         }
     }
 
-    fn get_texture_id(&mut self, atl_ref: &AtlasRef) -> i32 {
-        self.sprites.entry(atl_ref.sprite_id).or_insert(*atl_ref);
-        atl_ref.sprite_id
+    fn get_texture_id(&mut self, atl_ref: AtlasRef) -> i32 {
+        atl_ref.0
     }
 
-    fn get_texture_from_id(&self, id: i32) -> Option<&AtlasRef> {
-        if id >= 0 { self.sprites.get(&id) } else { None }
+    fn get_texture_from_id(&self, id: i32) -> Option<AtlasRef> {
+        Some(AtlasRef(id))
     }
 
-    fn get_sprite_count(&self) -> i32 {
-        self.sprite_count
+    fn get_texture_rects(&self) -> Vec<Option<AtlasRect>> {
+        self.texture_rects[self.stock_texture_count..].to_vec()
     }
 
-    fn set_sprite_count(&mut self, sprite_count: i32) {
-        self.sprite_count = sprite_count;
+    fn set_texture_rects(&mut self, rects: &[Option<AtlasRect>]) {
+        self.texture_rects.truncate(self.stock_texture_count);
+        self.texture_rects.extend_from_slice(rects);
     }
 
-    fn dump_sprite(&self, atlas_ref: &AtlasRef) -> Box<[u8]> {
+    fn dump_sprite_part(&self, atlas_ref: AtlasRef, part_x: i32, part_y: i32, part_w: i32, part_h: i32) -> Box<[u8]> {
+        let rect = match self.get_rect(atlas_ref) {
+            Some(rect) => {
+                AtlasRect { x: rect.x + part_x, y: rect.y + part_y, w: rect.w + part_w, h: rect.h + part_h, ..*rect }
+            },
+            None => return Box::new([]),
+        };
         unsafe {
             // store read fbo
             let mut prev_read_fbo: GLint = 0;
@@ -1395,22 +1420,14 @@ impl RendererTrait for RendererImpl {
             // bind texture fbo
             self.gl.BindFramebuffer(
                 gl::READ_FRAMEBUFFER,
-                self.fbo_ids[atlas_ref.atlas_id as usize].expect("Trying to dump nonexistent sprite"),
+                self.fbo_ids[rect.atlas_id as usize].expect("Trying to dump nonexistent sprite"),
             );
 
             // read data
-            let len = (atlas_ref.w * atlas_ref.h * 4) as usize;
+            let len = (rect.w * rect.h * 4) as usize;
             let mut data: Vec<u8> = Vec::with_capacity(len);
             data.set_len(len);
-            self.gl.ReadPixels(
-                atlas_ref.x,
-                atlas_ref.y,
-                atlas_ref.w,
-                atlas_ref.h,
-                gl::RGBA,
-                gl::UNSIGNED_BYTE,
-                data.as_mut_ptr().cast(),
-            );
+            self.gl.ReadPixels(rect.x, rect.y, rect.w, rect.h, gl::RGBA, gl::UNSIGNED_BYTE, data.as_mut_ptr().cast());
 
             assert_eq!(self.gl.GetError(), 0);
 
@@ -1435,46 +1452,32 @@ impl RendererTrait for RendererImpl {
     }
 
     fn stored_pixels(&self) -> Box<[u8]> {
-        if let Some(fb) = self.stored_framebuffer {
-            unsafe {
-                let (width, height) = self.stored_size();
-                let len = (width * height * 4) as usize;
-                let mut data: Vec<u8> = Vec::with_capacity(len);
-                data.set_len(len);
-                self.gl.BindFramebuffer(gl::READ_FRAMEBUFFER, fb.fbo);
-                self.gl.ReadPixels(
-                    0,
-                    0,
-                    width as _,
-                    height as _,
-                    gl::RGBA,
-                    gl::UNSIGNED_BYTE,
-                    data.as_mut_ptr().cast(),
-                );
-                assert_eq!(self.gl.GetError(), 0);
-                data.into_boxed_slice()
-            }
-        } else {
-            Box::new([])
+        let fb = self.stored_framebuffer.unwrap_or(self.framebuffer);
+        unsafe {
+            let (width, height) = self.stored_size();
+            let len = (width * height * 4) as usize;
+            let mut data: Vec<u8> = Vec::with_capacity(len);
+            data.set_len(len);
+            self.gl.BindFramebuffer(gl::READ_FRAMEBUFFER, fb.fbo);
+            self.gl.ReadPixels(0, 0, width as _, height as _, gl::RGBA, gl::UNSIGNED_BYTE, data.as_mut_ptr().cast());
+            assert_eq!(self.gl.GetError(), 0);
+            data.into_boxed_slice()
         }
     }
 
     fn stored_zbuffer(&self) -> Box<[f32]> {
-        if let Some(fb) = self.stored_framebuffer {
-            unsafe {
-                self.gl.BindTexture(gl::TEXTURE_2D, fb.zbuf);
-                let mut width = 0;
-                let mut height = 0;
-                self.gl.GetTexLevelParameteriv(gl::TEXTURE_2D, 0, gl::TEXTURE_WIDTH, &mut width);
-                self.gl.GetTexLevelParameteriv(gl::TEXTURE_2D, 0, gl::TEXTURE_HEIGHT, &mut height);
-                let len = (width * height) as usize;
-                let mut data: Vec<f32> = Vec::with_capacity(len);
-                data.set_len(len);
-                self.gl.GetTexImage(gl::TEXTURE_2D, 0, gl::DEPTH_COMPONENT, gl::FLOAT, data.as_mut_ptr().cast());
-                data.into_boxed_slice()
-            }
-        } else {
-            Box::new([])
+        let fb = self.stored_framebuffer.unwrap_or(self.framebuffer);
+        unsafe {
+            self.gl.BindTexture(gl::TEXTURE_2D, fb.zbuf);
+            let mut width = 0;
+            let mut height = 0;
+            self.gl.GetTexLevelParameteriv(gl::TEXTURE_2D, 0, gl::TEXTURE_WIDTH, &mut width);
+            self.gl.GetTexLevelParameteriv(gl::TEXTURE_2D, 0, gl::TEXTURE_HEIGHT, &mut height);
+            let len = (width * height) as usize;
+            let mut data: Vec<f32> = Vec::with_capacity(len);
+            data.set_len(len);
+            self.gl.GetTexImage(gl::TEXTURE_2D, 0, gl::DEPTH_COMPONENT, gl::FLOAT, data.as_mut_ptr().cast());
+            data.into_boxed_slice()
         }
     }
 
@@ -1683,9 +1686,16 @@ impl RendererTrait for RendererImpl {
         }
     }
 
+    fn get_rect(&self, id: AtlasRef) -> Option<&AtlasRect> {
+        id.0.try_into()
+            .ok()
+            .and_then(|id: usize| self.texture_rects.get(id))
+            .and_then(|o: &Option<AtlasRect>| o.as_ref())
+    }
+
     fn draw_sprite_general(
         &mut self,
-        texture: &AtlasRef,
+        texture: AtlasRef,
         part_x: f64,
         part_y: f64,
         part_w: f64,
@@ -1702,11 +1712,11 @@ impl RendererTrait for RendererImpl {
         alpha: f64,
         use_origin: bool,
     ) {
-        let atlas_ref = texture.clone();
+        let atlas_ref = match self.get_rect(texture) {
+            Some(rect) => *rect,
+            None => return,
+        };
 
-        if self.texture_ids[atlas_ref.atlas_id as usize].is_none() {
-            return // fail silently when drawing deleted sprite fonts
-        }
         self.set_texture_repeat(false);
 
         // get angle
@@ -1921,7 +1931,10 @@ impl RendererTrait for RendererImpl {
     }
 
     fn reset_primitive_2d(&mut self, ptype: PrimitiveType, atlas_ref: Option<AtlasRef>) {
-        self.primitive_2d = PrimitiveBuilder::new(atlas_ref.unwrap_or(self.white_pixel), ptype);
+        self.primitive_2d = PrimitiveBuilder::new(
+            atlas_ref.and_then(|ar| self.get_rect(ar).copied()).unwrap_or(self.white_pixel),
+            ptype,
+        );
     }
 
     fn vertex_2d(&mut self, x: f64, y: f64, xtex: f64, ytex: f64, col: i32, alpha: f64) {
@@ -1948,7 +1961,10 @@ impl RendererTrait for RendererImpl {
     }
 
     fn reset_primitive_3d(&mut self, ptype: PrimitiveType, atlas_ref: Option<AtlasRef>) {
-        self.primitive_3d = PrimitiveBuilder::new(atlas_ref.unwrap_or(self.white_pixel), ptype);
+        self.primitive_3d = PrimitiveBuilder::new(
+            atlas_ref.and_then(|ar| self.get_rect(ar).copied()).unwrap_or(self.white_pixel),
+            ptype,
+        );
     }
 
     fn vertex_3d(
@@ -1999,9 +2015,21 @@ impl RendererTrait for RendererImpl {
         // TODO: bench this method vs copying the buffer onto the draw queue
         self.flush_queue();
         self.update_render_state();
-        self.draw_buffer(atlas_ref.unwrap_or(self.white_pixel).atlas_id, PrimitiveShape::Point, &buf.points);
-        self.draw_buffer(atlas_ref.unwrap_or(self.white_pixel).atlas_id, PrimitiveShape::Line, &buf.lines);
-        self.draw_buffer(atlas_ref.unwrap_or(self.white_pixel).atlas_id, PrimitiveShape::Triangle, &buf.tris);
+        self.draw_buffer(
+            atlas_ref.and_then(|ar| self.get_rect(ar).copied()).unwrap_or(self.white_pixel).atlas_id,
+            PrimitiveShape::Point,
+            &buf.points,
+        );
+        self.draw_buffer(
+            atlas_ref.and_then(|ar| self.get_rect(ar).copied()).unwrap_or(self.white_pixel).atlas_id,
+            PrimitiveShape::Line,
+            &buf.lines,
+        );
+        self.draw_buffer(
+            atlas_ref.and_then(|ar| self.get_rect(ar).copied()).unwrap_or(self.white_pixel).atlas_id,
+            PrimitiveShape::Triangle,
+            &buf.tris,
+        );
     }
 
     fn get_alpha_blending(&self) -> bool {
@@ -2461,19 +2489,17 @@ impl RendererTrait for RendererImpl {
     }
 
     fn stored_size(&self) -> (u32, u32) {
-        use std::convert::TryFrom;
-        self.stored_framebuffer
-            .map(|framebuffer| unsafe {
-                let (mut width, mut height) = (0, 0);
-                self.gl.BindTexture(gl::TEXTURE_2D, framebuffer.texture);
-                self.gl.GetTexLevelParameteriv(gl::TEXTURE_2D, 0, gl::TEXTURE_WIDTH, &mut width);
-                self.gl.GetTexLevelParameteriv(gl::TEXTURE_2D, 0, gl::TEXTURE_HEIGHT, &mut height);
-                (
-                    u32::try_from(width).expect("Negative width reported by OpenGL"),
-                    u32::try_from(height).expect("Negative height reported by OpenGL"),
-                )
-            })
-            .unwrap_or((0, 0))
+        let framebuffer = self.stored_framebuffer.unwrap_or(self.framebuffer);
+        unsafe {
+            let (mut width, mut height) = (0, 0);
+            self.gl.BindTexture(gl::TEXTURE_2D, framebuffer.texture);
+            self.gl.GetTexLevelParameteriv(gl::TEXTURE_2D, 0, gl::TEXTURE_WIDTH, &mut width);
+            self.gl.GetTexLevelParameteriv(gl::TEXTURE_2D, 0, gl::TEXTURE_HEIGHT, &mut height);
+            (
+                u32::try_from(width).expect("Negative width reported by OpenGL"),
+                u32::try_from(height).expect("Negative height reported by OpenGL"),
+            )
+        }
     }
 
     fn finish(&mut self, window_width: u32, window_height: u32, clear_colour: Colour) {

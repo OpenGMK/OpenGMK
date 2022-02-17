@@ -16,7 +16,6 @@ use ramen::{
 };
 use serde::{Deserialize, Serialize};
 use std::{
-    convert::TryFrom,
     fs::File,
     path::PathBuf,
     time::{Duration, Instant},
@@ -221,6 +220,7 @@ impl Game {
         }
         io.set_display_size(imgui::Vec2(f32::from(config.ui_width), f32::from(config.ui_height)));
 
+        // TODO probably don't store these textures in the same places as the game textures
         let imgui::FontData { data: fdata, size: (fwidth, fheight) } = io.font_data();
         let mut font = self
             .renderer
@@ -276,7 +276,7 @@ impl Game {
             blend_mode: self.renderer.get_blend_mode(),
             pixel_interpolation: true,
             texture_repeat: false,
-            sprite_count: self.renderer.get_sprite_count(),
+            texture_rects: self.renderer.get_texture_rects(),
             vsync: true,
             ambient_colour: self.renderer.get_ambient_colour(),
             using_3d: false,
@@ -1516,7 +1516,7 @@ impl Game {
                         {
                             if sprite.width <= 48 && sprite.height <= 48 {
                                 let i = instance_images.len();
-                                instance_images.push(*atlas_ref);
+                                instance_images.push(atlas_ref);
                                 let imgui::Vec2(win_x, win_y) = frame.window_position();
                                 let win_w = frame.window_size().0;
                                 let center_x = win_x + win_w - 28.0;
@@ -1650,7 +1650,7 @@ impl Game {
             // draw imgui
             let start_xy = f64::from(grid_start.elapsed().as_millis().rem_euclid(2048) as i16) / -32.0;
             self.renderer.draw_sprite_tiled(
-                &grid_ref,
+                grid_ref,
                 start_xy,
                 start_xy,
                 1.0,
