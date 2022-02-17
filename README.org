@@ -1,43 +1,41 @@
 #+title: OpenGMK
 
-*OpenGMK* is a modern, open-source rewrite of the proprietary GameMaker Classic engines, providing a full sourceport of the runner, a decompiler, and the ability to record TASes. It's being worked on almost every day! We’re constantly adding new features and updating the code. Please remember that /this project is a work in progress/ and is unreleased. Until there's an official release, please note that your saves may break in future releases.
+*OpenGMK* is a modern rewrite of the proprietary GameMaker Classic engines, providing a full sourceport of the runner, a decompiler, a TASing framework, and libraries for working with gamedata yourself. It's being worked on almost every day! We’re constantly adding new features and updating the code. Please remember that /this project is a work in progress/ and is unreleased. Until there's an official stable release, please note that your savestates may break in future releases.
 
 * Building GM8Emulator / GM8Decompiler
-This project is written in the Rust programming language. Download the toolchain manager directly from [[https://rustup.rs/]] or a package manager of your choice. After installing, make sure you're up to date and then download the nightly branch:
+Start by cloning the repository. We use some git submodules at the moment (unfortunately), so make sure to clone with submodules.
 
 #+begin_src sh
-  rustup self update
-  rustup update
-  rustup install nightly
+  git clone --recurse-submodules https://github.com/OpenGMK/OpenGMK.git
 #+end_src
 
-Clone the repository. We use a few git submodules, so initialise them too:
+You can also recursively initialise the submodules after you've already cloned.
 
 #+begin_src sh
-  git clone --recurse-submodules 'https://github.com/OpenGMK/OpenGMK.git'
+  git submodule update --init --recursive
 #+end_src
 
-Once that's set up, build everything in release mode (this will take a while):
+This project is written in the [[https://www.rust-lang.org/][Rust]] programming language. You can download the toolchain manager directly from [[https://rustup.rs/]] or a package manager of your choice. Our current minimum supported rust version (MSRV) policy is version *1.58*, if you're downloading it at the time of writing then you almost definitely are up to date but you can check with =rustc -V= to be sure. Once that's set up, building everything in release mode is pretty simple (but might take a while the first time).
 
 #+begin_src sh
-  cd repo-folder
-  cargo +nightly build --release
+  cd path/to/repo-folder
+  cargo build --release
 #+end_src
 
-The build artifacts will be located in =<repo-folder>/target/release=.
-
-If you're on Windows 64-bit and would like to play games with GM8Emulator that require 32-bit DLLs to function such as /GMFMODSimple/ or /supersound/ you'll also need to build the WoW64 server, preferably in the release profile. It requires the additional installation of the =i686-pc-windows-msvc= target with rustup.
+The build artifacts will be located in =<repo-folder>/target/release= including libraries and binaries.
+** Native DLLs for 64-bit Windows
+If you're on Windows 64-bit and would like to play games with GM8Emulator that require 32-bit DLLs to function such as /GMFMODSimple/ or /supersound/ you'll also need to build the WoW64 server, preferably in the release profile. It requires the additional installation of the =i686-pc-windows-msvc= toolchain with rustup and you will need to build it separately.
 
 #+begin_src sh
-  rustup target add --toolchain=nightly i686-pc-windows-msvc
-  cd gm8emulator-wow64
-  cargo +nightly build --release
+  rustup target add i686-pc-windows-msvc
+  cd path/to/repo-folder/gm8emulator-wow64
+  cargo build --target=i686-pc-windows-msvc --release
 #+end_src
 
 The build artifacts for the WoW64 server will be located in =<repo-folder>/gm8emulator-wow64/target/i686-pc-windows-msvc/release=. The binary should either be manually copied to the same folder as =gm8emulator.exe= to work, or the =OPENGMK_WOW64_BINARY= environment variable should be set with the path to the binary.
 
 A much easier alternative to this is building the project as 32-bit on Windows, where the WoW64 server is not required and the DLL loading logic is bundled inside GM8Emulator. It should be noted that cross-platform extension emulation is planned for the long-term future.
-* Recording & Replaying TASes with GM8Emulator
+* Recording & Replaying TASes
 To play a game normally, simply pass the only argument to =gm8emulator=:
 
 #+begin_src sh
@@ -48,7 +46,7 @@ To start record mode, or continue a previous recording, also pass a project name
 A folder for the project will be created in:
 
 - Windows :: =<working-directory>/projects/=
-- Linux :: =$XDG_DATA_HOME/opengmk/projects/= or =~/.local/share/opengmk/projects/=
+- Linux (Near Future) :: =$XDG_DATA_HOME/opengmk/projects/= or =~/.local/share/opengmk/projects/=
 
 #+begin_src sh
   gm8emulator path/to/game.exe -n project-name
@@ -95,9 +93,9 @@ One of GameMaker's original strengths as a game engine was its ability to compil
 
 This project was originally started as [[https://github.com/Adamcake/Legacy-GM8Emulator][GM8Emulator]], a program that can load /GameMaker Classic/ games, and accurately play the game within. The goal was to have it mimic the original engine as closely as possible, down to the sub-frame and implementation detail (if observable). Strictly speaking, /emulator/ was not the correct term. In computing, an emulator is a piece of software on a computer system which emulates the behaviour of a different computer system. We aren't emulating any computer system, just the engine, unless you consider /Game Maker Language/ its own architecture. A more accurate term would be a /sourceport/, but it didn't sound as cool at the time. The project required us to write a decompiler as a starting point to extract the assets, and since we were already maintaining the most up-to-date fork of [[https://github.com/DatZach][Zach Reedy]]'s [[https://github.com/WastedMeerkat/gm81decompiler][gm81decompiler]] from 2013, we used that as a starting point to develop a much faster version from scratch out of the new codebase, released as [[https://github.com/OpenGMK/GM8Decompiler][GM8Decompiler]], which was originally a separate repository, but the code is now merged into the unified repository we named the *OpenGMK Project*.
 * Contributing
-This project has only been worked on by a few people so far in their little free time. Contributions are always welcome, although we'd highly prefer if you got in contact beforehand to discuss details. All contributions are licensed under the same licence as the project.
+This project has only been worked on by a few people so far in their little free time. Contributions are always welcome, although we'd prefer if you got in contact beforehand to discuss details (opening an issue, for example). All contributions are licensed under the same licence as the project.
 * Additional Credits
-- [[https://github.com/DatZach][DatZach]] for creating the original open-source decompiler.
+- [[https://github.com/DatZach][DatZach]] for creating the original free and open source decompiler.
 - [[https://github.com/Jabberwock-RU][Jabberwock-RU]] for creating the new project icon and logos.
 * Licence
-OpenGMK is free and open source software, provided under the [[https://www.gnu.org/licenses/old-licenses/gpl-2.0-standalone.html][GNU GPL v2]], and is in no way affiliated with /GameMaker™/ or /YoYo Games Ltd./
+OpenGMK is free and open source software, provided under the [[./LICENCE.md][GNU GPL v2]], and is in no way affiliated with /GameMaker™/ or /YoYo Games Ltd./
