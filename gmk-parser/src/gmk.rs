@@ -275,21 +275,20 @@ impl Gmk {
     }
 
     /// Reports the GameVersion of this GMK.
-    #[inline(always)]
+    #[inline]
     pub fn version(&self) -> GameVersion {
         self.game_version
     }
 
     /// Returns a reference to the whole .ico file associated with this GMK, if any.
-    #[inline(always)]
+    #[inline]
     pub fn ico_file(&self) -> Option<&[u8]> {
         self.ico_file_raw.as_ref().map(|x| x.as_slice())
     }
 
     /// Returns the name and contents of this file's embedded DirectX DLL.
     /// The file is usually called D3DX8.dll and the contents do not usually change between games.
-    #[inline(always)]
-    pub fn directx_dll(&self) -> io::Result<(Cow<'_, str>, Vec<u8>)> {
+        pub fn directx_dll(&self) -> io::Result<(Cow<'_, str>, Vec<u8>)> {
         unsafe {
             let name_slice = self.data.get_unchecked(self.dll_name_offset..(self.dll_name_offset + self.dll_name_len));
             let name = String::from_utf8_lossy(name_slice);
@@ -410,25 +409,24 @@ impl Gmk {
     }
 
     /// Returns whether the pro flag is set for this game, i.e. whether GameMaker Pro features would be enabled.
-    #[inline(always)]
+    #[inline]
     pub fn pro(&self) -> bool {
         self.pro_flag
     }
 
     /// Returns the game ID for this file.
-    #[inline(always)]
+    #[inline]
     pub fn id(&self) -> u32 {
         self.game_id
     }
 
     /// Returns the DirectPlay Game GUID for this file.
-    #[inline(always)]
+    #[inline]
     pub fn directplay_guid(&self) -> [u32; 4] {
         self.directplay_guid
     }
 
     /// Returns an iterator over the Extensions found in this file.
-    #[inline(always)]
     pub fn extensions(&self) -> impl Iterator<Item = &Extension> {
         self.extensions.iter()
     }
@@ -438,7 +436,6 @@ impl Gmk {
     /// This method is provided for the sake of consistency with this struct's other methods. However,
     /// Extensions are collected in advance due to their gmk format making them difficult to ignore without parsing.
     /// Therefore, `par_extensions()` is essentially no different from `extensions().into_par_iter()`.
-    #[inline(always)]
     #[cfg_attr(feature = "nightly-docs", doc(cfg(feature = "rayon")))]
     #[cfg_attr(not(feature = "nightly-docs"), cfg(feature = "rayon"))]
     pub fn par_extensions(&self) -> impl ParallelIterator<Item = &Extension> {
@@ -446,13 +443,11 @@ impl Gmk {
     }
 
     /// Returns an iterator over the Triggers found in this file.
-    #[inline(always)]
     pub fn triggers(&self) -> impl Iterator<Item = io::Result<Option<Trigger>>> + '_ {
         Parser::new(&self.data, self.triggers, self.is_gmk)
     }
 
     /// Returns a parallel iterator over the Triggers found in this file.
-    #[inline(always)]
     #[cfg_attr(feature = "nightly-docs", doc(cfg(feature = "rayon")))]
     #[cfg_attr(not(feature = "nightly-docs"), cfg(feature = "rayon"))]
     pub fn par_triggers(&self) -> impl ParallelIterator<Item = io::Result<Option<Trigger>>> + '_ {
@@ -460,7 +455,7 @@ impl Gmk {
     }
 
     /// Returns an iterator over the Constants found in this file.
-    #[inline(always)]
+    #[inline]
     pub fn constants(&self) -> impl Iterator<Item = &Constant> {
         self.constants.iter()
     }
@@ -470,7 +465,6 @@ impl Gmk {
     /// This method is provided for the sake of consistency with this struct's other methods. However,
     /// Constants are collected in advance due to their gmk format making them difficult to ignore without parsing.
     /// Therefore, `par_constants()` is essentially no different from `constants().into_par_iter()`.
-    #[inline(always)]
     #[cfg_attr(feature = "nightly-docs", doc(cfg(feature = "rayon")))]
     #[cfg_attr(not(feature = "nightly-docs"), cfg(feature = "rayon"))]
     pub fn par_constants(&self) -> impl ParallelIterator<Item = &Constant> {
@@ -478,13 +472,11 @@ impl Gmk {
     }
 
     /// Returns an iterator over the Sounds found in this file.
-    #[inline(always)]
     pub fn sounds(&self) -> impl Iterator<Item = io::Result<Option<Sound>>> + '_ {
         Parser::new(&self.data, self.sounds, self.is_gmk)
     }
 
     /// Returns a parallel iterator over the Sounds found in this file.
-    #[inline(always)]
     #[cfg_attr(feature = "nightly-docs", doc(cfg(feature = "rayon")))]
     #[cfg_attr(not(feature = "nightly-docs"), cfg(feature = "rayon"))]
     pub fn par_sounds(&self) -> impl ParallelIterator<Item = io::Result<Option<Sound>>> + '_ {
@@ -492,13 +484,11 @@ impl Gmk {
     }
 
     /// Returns an iterator over the Sprites found in this file.
-    #[inline(always)]
     pub fn sprites(&self) -> impl Iterator<Item = io::Result<Option<Sprite>>> + '_ {
         Parser::new(&self.data, self.sprites, self.is_gmk)
     }
 
     /// Returns a parallel iterator over the Sprites found in this file.
-    #[inline(always)]
     #[cfg_attr(feature = "nightly-docs", doc(cfg(feature = "rayon")))]
     #[cfg_attr(not(feature = "nightly-docs"), cfg(feature = "rayon"))]
     pub fn par_sprites(&self) -> impl ParallelIterator<Item = io::Result<Option<Sprite>>> + '_ {
@@ -506,13 +496,11 @@ impl Gmk {
     }
 
     /// Returns an iterator over the Backgrounds found in this file.
-    #[inline(always)]
     pub fn backgrounds(&self) -> impl Iterator<Item = io::Result<Option<Background>>> + '_ {
         Parser::new(&self.data, self.backgrounds, self.is_gmk)
     }
 
     /// Returns a parallel iterator over the Backgrounds found in this file.
-    #[inline(always)]
     #[cfg_attr(feature = "nightly-docs", doc(cfg(feature = "rayon")))]
     #[cfg_attr(not(feature = "nightly-docs"), cfg(feature = "rayon"))]
     pub fn par_backgrounds(&self) -> impl ParallelIterator<Item = io::Result<Option<Background>>> + '_ {
@@ -520,13 +508,11 @@ impl Gmk {
     }
 
     /// Returns an iterator over the Paths found in this file.
-    #[inline(always)]
     pub fn paths(&self) -> impl Iterator<Item = io::Result<Option<Path>>> + '_ {
         Parser::new(&self.data, self.paths, self.is_gmk)
     }
 
     /// Returns a parallel iterator over the Paths found in this file.
-    #[inline(always)]
     #[cfg_attr(feature = "nightly-docs", doc(cfg(feature = "rayon")))]
     #[cfg_attr(not(feature = "nightly-docs"), cfg(feature = "rayon"))]
     pub fn par_paths(&self) -> impl ParallelIterator<Item = io::Result<Option<Path>>> + '_ {
@@ -534,13 +520,11 @@ impl Gmk {
     }
 
     /// Returns an iterator over the Scripts found in this file.
-    #[inline(always)]
     pub fn scripts(&self) -> impl Iterator<Item = io::Result<Option<Script>>> + '_ {
         Parser::new(&self.data, self.scripts, self.is_gmk)
     }
 
     /// Returns a parallel iterator over the Scripts found in this file.
-    #[inline(always)]
     #[cfg_attr(feature = "nightly-docs", doc(cfg(feature = "rayon")))]
     #[cfg_attr(not(feature = "nightly-docs"), cfg(feature = "rayon"))]
     pub fn par_scripts(&self) -> impl ParallelIterator<Item = io::Result<Option<Script>>> + '_ {
@@ -548,13 +532,11 @@ impl Gmk {
     }
 
     /// Returns an iterator over the Fonts found in this file.
-    #[inline(always)]
     pub fn fonts(&self) -> impl Iterator<Item = io::Result<Option<Font>>> + '_ {
         Parser::new(&self.data, self.fonts, self.is_gmk)
     }
 
     /// Returns a parallel iterator over the Fonts found in this file.
-    #[inline(always)]
     #[cfg_attr(feature = "nightly-docs", doc(cfg(feature = "rayon")))]
     #[cfg_attr(not(feature = "nightly-docs"), cfg(feature = "rayon"))]
     pub fn par_fonts(&self) -> impl ParallelIterator<Item = io::Result<Option<Font>>> + '_ {
@@ -562,13 +544,11 @@ impl Gmk {
     }
 
     /// Returns an iterator over the Timelines found in this file.
-    #[inline(always)]
     pub fn timelines(&self) -> impl Iterator<Item = io::Result<Option<Timeline>>> + '_ {
         Parser::new(&self.data, self.timelines, self.is_gmk)
     }
 
     /// Returns a parallel iterator over the Timelines found in this file.
-    #[inline(always)]
     #[cfg_attr(feature = "nightly-docs", doc(cfg(feature = "rayon")))]
     #[cfg_attr(not(feature = "nightly-docs"), cfg(feature = "rayon"))]
     pub fn par_timelines(&self) -> impl ParallelIterator<Item = io::Result<Option<Timeline>>> + '_ {
@@ -576,13 +556,11 @@ impl Gmk {
     }
 
     /// Returns an iterator over the Objects found in this file.
-    #[inline(always)]
     pub fn objects(&self) -> impl Iterator<Item = io::Result<Option<Object>>> + '_ {
         Parser::new(&self.data, self.objects, self.is_gmk)
     }
 
     /// Returns a parallel iterator over the Objects found in this file.
-    #[inline(always)]
     #[cfg_attr(feature = "nightly-docs", doc(cfg(feature = "rayon")))]
     #[cfg_attr(not(feature = "nightly-docs"), cfg(feature = "rayon"))]
     pub fn par_objects(&self) -> impl ParallelIterator<Item = io::Result<Option<Object>>> + '_ {
@@ -590,13 +568,11 @@ impl Gmk {
     }
 
     /// Returns an iterator over the Rooms found in this file.
-    #[inline(always)]
     pub fn rooms(&self) -> impl Iterator<Item = io::Result<Option<Room>>> + '_ {
         Parser::new(&self.data, self.rooms, self.is_gmk)
     }
 
     /// Returns a parallel iterator over the Rooms found in this file.
-    #[inline(always)]
     #[cfg_attr(feature = "nightly-docs", doc(cfg(feature = "rayon")))]
     #[cfg_attr(not(feature = "nightly-docs"), cfg(feature = "rayon"))]
     pub fn par_rooms(&self) -> impl ParallelIterator<Item = io::Result<Option<Room>>> + '_ {
@@ -604,13 +580,11 @@ impl Gmk {
     }
 
     /// Returns an iterator over the Included Files found in this file.
-    #[inline(always)]
     pub fn included_files(&self) -> impl Iterator<Item = io::Result<Option<IncludedFile>>> + '_ {
         Parser::new(&self.data, self.included_files, self.is_gmk)
     }
 
     /// Returns a parallel iterator over the Included Files found in this file.
-    #[inline(always)]
     #[cfg_attr(feature = "nightly-docs", doc(cfg(feature = "rayon")))]
     #[cfg_attr(not(feature = "nightly-docs"), cfg(feature = "rayon"))]
     pub fn par_included_files(&self) -> impl ParallelIterator<Item = io::Result<Option<IncludedFile>>> + '_ {
@@ -622,7 +596,7 @@ impl Gmk {
     /// In the editor, new instances placed in rooms will increment this number to generate their ID.
     /// In a game, this number will be incremented for a new ID when calling functions like instance_create().
     /// In a new GMK file this number defaults to 100000.
-    #[inline(always)]
+    #[inline]
     pub fn last_instance_id(&self) -> i32 {
         self.last_instance_id
     }
@@ -632,7 +606,7 @@ impl Gmk {
     /// In the editor, new tiles placed in rooms will increment this number to generate their ID.
     /// In a game, this number will be incremented for a new ID when calling functions like tile_add().
     /// In a new GMK file this number defaults to 10000000.
-    #[inline(always)]
+    #[inline]
     pub fn last_tile_id(&self) -> i32 {
         self.last_tile_id
     }
@@ -641,7 +615,6 @@ impl Gmk {
     ///
     /// Note that this data is compressed in the game file, and decompression is not done in advance, nor is it cached.
     /// As such, it would be ideal to store the result of this function rather than calling it more than once.
-    #[inline(always)]
     pub fn help_dialog(&self) -> io::Result<HelpDialog> {
         unsafe {
             let slice = self.data.get_unchecked(self.help_offset..(self.help_offset + self.help_len));
