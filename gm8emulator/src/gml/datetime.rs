@@ -1,5 +1,4 @@
 use crate::{gml::Value, math::Real};
-use std::hint::unreachable_unchecked;
 use time::{OffsetDateTime, PrimitiveDateTime, UtcOffset};
 
 /// Sleep for T minus 1 millisecond, and busywait for the rest of the duration.
@@ -26,9 +25,9 @@ pub fn now_as_nanos() -> u128 {
     datetime.unix_timestamp_nanos().try_into().unwrap_or(0)
 }
 
-fn i32_to_month(m: i32) -> time::Month {
+fn i32_to_month(m: i32) -> Option<time::Month> {
     use time::Month::*;
-    match m {
+    Some(match m {
         1 => January,
         2 => February,
         3 => March,
@@ -41,8 +40,8 @@ fn i32_to_month(m: i32) -> time::Month {
         10 => October,
         11 => November,
         12 => December,
-        _ => unsafe { unreachable_unchecked() },
-    }
+        _ => return None,
+    })
 }
 
 pub struct DateTime(PrimitiveDateTime);
@@ -73,31 +72,19 @@ impl DateTime {
     }
 
     pub fn from_ymd(y: i32, m: i32, d: i32) -> Option<Self> {
-        // GM doesn't support BC so we won't either
-        if y > 0 && m > 0 && d > 0 && m <= 12 && d <= 31 {
-            time::Date::from_calendar_date(y, i32_to_month(m), d as _).ok().map(|d| Self(d.midnight()))
-        } else {
-            None
-        }
+        // GM doesn't support BCE so we won't either
+        time::Date::from_calendar_date(y, i32_to_month(m)?, d as _).ok().map(|d| Self(d.midnight()))
     }
 
     pub fn from_hms(h: i32, m: i32, s: i32) -> Option<Self> {
-        if h >= 0 && m >= 0 && s >= 0 && h < 24 && m < 60 && s < 60 {
-            epoch().date().with_hms(h as _, m as _, s as _).ok().map(|dt| Self(dt))
-        } else {
-            None
-        }
+        epoch().date().with_hms(h as _, m as _, s as _).ok().map(|dt| Self(dt))
     }
 
     pub fn from_ymdhms(y: i32, mo: i32, d: i32, h: i32, mi: i32, s: i32) -> Option<Self> {
-        if y >= 0 && mo >= 0 && d >= 0 && h >= 0 && mi >= 0 && s >= 0 && mo <= 12 && d <= 31 && mi < 60 && s < 60 {
-            time::Date::from_calendar_date(y, i32_to_month(mo), d as _)
+        time::Date::from_calendar_date(y, i32_to_month(mo)?, d as _)
                 .and_then(|d| d.with_hms(h as _, mi as _, s as _))
                 .ok()
                 .map(Self)
-        } else {
-            None
-        }
     }
 
     pub fn year(&self) -> i32 {
