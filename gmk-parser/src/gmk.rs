@@ -776,7 +776,7 @@ struct AssetInfo {
     position: usize,
 }
 
-/// An iterator over Library Initialization Strings in a GMK. Created by `Gmk::lib_init_strings()`.
+/// An iterator over Library Initialization Strings in a GMK. Created by [`Gmk::lib_init_strings`].
 pub struct LibInitStringParser<'a> {
     data: &'a [u8],
     count: u32,
@@ -801,7 +801,7 @@ impl<'a> Iterator for LibInitStringParser<'a> {
     }
 }
 
-/// An iterator over the room IDs in the Room Order in a GMK. Created by `Gmk::room_order()`.
+/// An iterator over the room IDs in the Room Order in a GMK. Created by [`Gmk::room_order`].
 pub struct RoomOrderParser<'a> {
     data: &'a [u8],
     count: u32,
