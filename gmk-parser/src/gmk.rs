@@ -451,7 +451,7 @@ impl Gmk {
     #[cfg_attr(feature = "nightly-docs", doc(cfg(feature = "rayon")))]
     #[cfg_attr(not(feature = "nightly-docs"), cfg(feature = "rayon"))]
     pub fn par_triggers(&self) -> impl ParallelIterator<Item = io::Result<Option<Trigger>>> + '_ {
-        ParallelParser::new(&self.data, self.triggers, self.is_gmk)
+        ParallelParser::new(&self.data, self.triggers, self.is_gmk, 2 * 1024)
     }
 
     /// Returns an iterator over the Constants found in this file.
@@ -480,7 +480,7 @@ impl Gmk {
     #[cfg_attr(feature = "nightly-docs", doc(cfg(feature = "rayon")))]
     #[cfg_attr(not(feature = "nightly-docs"), cfg(feature = "rayon"))]
     pub fn par_sounds(&self) -> impl ParallelIterator<Item = io::Result<Option<Sound>>> + '_ {
-        ParallelParser::new(&self.data, self.sounds, self.is_gmk)
+        ParallelParser::new(&self.data, self.sounds, self.is_gmk, 64 * 1024)
     }
 
     /// Returns an iterator over the Sprites found in this file.
@@ -492,7 +492,7 @@ impl Gmk {
     #[cfg_attr(feature = "nightly-docs", doc(cfg(feature = "rayon")))]
     #[cfg_attr(not(feature = "nightly-docs"), cfg(feature = "rayon"))]
     pub fn par_sprites(&self) -> impl ParallelIterator<Item = io::Result<Option<Sprite>>> + '_ {
-        ParallelParser::new(&self.data, self.sprites, self.is_gmk)
+        ParallelParser::new(&self.data, self.sprites, self.is_gmk, 256 * 1024)
     }
 
     /// Returns an iterator over the Backgrounds found in this file.
@@ -504,7 +504,7 @@ impl Gmk {
     #[cfg_attr(feature = "nightly-docs", doc(cfg(feature = "rayon")))]
     #[cfg_attr(not(feature = "nightly-docs"), cfg(feature = "rayon"))]
     pub fn par_backgrounds(&self) -> impl ParallelIterator<Item = io::Result<Option<Background>>> + '_ {
-        ParallelParser::new(&self.data, self.backgrounds, self.is_gmk)
+        ParallelParser::new(&self.data, self.backgrounds, self.is_gmk, 256 * 1024)
     }
 
     /// Returns an iterator over the Paths found in this file.
@@ -516,7 +516,7 @@ impl Gmk {
     #[cfg_attr(feature = "nightly-docs", doc(cfg(feature = "rayon")))]
     #[cfg_attr(not(feature = "nightly-docs"), cfg(feature = "rayon"))]
     pub fn par_paths(&self) -> impl ParallelIterator<Item = io::Result<Option<Path>>> + '_ {
-        ParallelParser::new(&self.data, self.paths, self.is_gmk)
+        ParallelParser::new(&self.data, self.paths, self.is_gmk, 2 * 1024)
     }
 
     /// Returns an iterator over the Scripts found in this file.
@@ -528,7 +528,7 @@ impl Gmk {
     #[cfg_attr(feature = "nightly-docs", doc(cfg(feature = "rayon")))]
     #[cfg_attr(not(feature = "nightly-docs"), cfg(feature = "rayon"))]
     pub fn par_scripts(&self) -> impl ParallelIterator<Item = io::Result<Option<Script>>> + '_ {
-        ParallelParser::new(&self.data, self.scripts, self.is_gmk)
+        ParallelParser::new(&self.data, self.scripts, self.is_gmk, 2 * 1024)
     }
 
     /// Returns an iterator over the Fonts found in this file.
@@ -540,7 +540,7 @@ impl Gmk {
     #[cfg_attr(feature = "nightly-docs", doc(cfg(feature = "rayon")))]
     #[cfg_attr(not(feature = "nightly-docs"), cfg(feature = "rayon"))]
     pub fn par_fonts(&self) -> impl ParallelIterator<Item = io::Result<Option<Font>>> + '_ {
-        ParallelParser::new(&self.data, self.fonts, self.is_gmk)
+        ParallelParser::new(&self.data, self.fonts, self.is_gmk, 32 * 1024)
     }
 
     /// Returns an iterator over the Timelines found in this file.
@@ -552,7 +552,7 @@ impl Gmk {
     #[cfg_attr(feature = "nightly-docs", doc(cfg(feature = "rayon")))]
     #[cfg_attr(not(feature = "nightly-docs"), cfg(feature = "rayon"))]
     pub fn par_timelines(&self) -> impl ParallelIterator<Item = io::Result<Option<Timeline>>> + '_ {
-        ParallelParser::new(&self.data, self.timelines, self.is_gmk)
+        ParallelParser::new(&self.data, self.timelines, self.is_gmk, 32 * 1024)
     }
 
     /// Returns an iterator over the Objects found in this file.
@@ -564,7 +564,7 @@ impl Gmk {
     #[cfg_attr(feature = "nightly-docs", doc(cfg(feature = "rayon")))]
     #[cfg_attr(not(feature = "nightly-docs"), cfg(feature = "rayon"))]
     pub fn par_objects(&self) -> impl ParallelIterator<Item = io::Result<Option<Object>>> + '_ {
-        ParallelParser::new(&self.data, self.objects, self.is_gmk)
+        ParallelParser::new(&self.data, self.objects, self.is_gmk, 8 * 1024)
     }
 
     /// Returns an iterator over the Rooms found in this file.
@@ -576,7 +576,7 @@ impl Gmk {
     #[cfg_attr(feature = "nightly-docs", doc(cfg(feature = "rayon")))]
     #[cfg_attr(not(feature = "nightly-docs"), cfg(feature = "rayon"))]
     pub fn par_rooms(&self) -> impl ParallelIterator<Item = io::Result<Option<Room>>> + '_ {
-        ParallelParser::new(&self.data, self.rooms, self.is_gmk)
+        ParallelParser::new(&self.data, self.rooms, self.is_gmk, 16 * 1024)
     }
 
     /// Returns an iterator over the Included Files found in this file.
@@ -588,7 +588,7 @@ impl Gmk {
     #[cfg_attr(feature = "nightly-docs", doc(cfg(feature = "rayon")))]
     #[cfg_attr(not(feature = "nightly-docs"), cfg(feature = "rayon"))]
     pub fn par_included_files(&self) -> impl ParallelIterator<Item = io::Result<Option<IncludedFile>>> + '_ {
-        ParallelParser::new(&self.data, self.included_files, self.is_gmk)
+        ParallelParser::new(&self.data, self.included_files, self.is_gmk, 8 * 1024)
     }
 
     /// Returns the last instance ID indicated by this file.
@@ -729,12 +729,13 @@ impl<A: Asset> Iterator for Parser<'_, A> {
 pub struct ParallelParser<'a, A: Asset> {
     slices: Vec<&'a [u8]>,
     is_gmk: bool,
+    zlib_buf_size: usize,
     _type: std::marker::PhantomData<A>,
 }
 
 #[cfg(feature = "rayon")]
 impl<'a, A: Asset> ParallelParser<'a, A> {
-    fn new(mut data: &'a [u8], assets: AssetInfo, is_gmk: bool) -> Self {
+    fn new(mut data: &'a [u8], assets: AssetInfo, is_gmk: bool, zlib_buf_size: usize) -> Self {
         unsafe {
             data = data.get_unchecked(assets.position..);
             let mut slices = Vec::with_capacity(assets.count as usize);
@@ -747,6 +748,7 @@ impl<'a, A: Asset> ParallelParser<'a, A> {
             Self {
                 slices,
                 is_gmk,
+                zlib_buf_size,
                 _type: std::marker::PhantomData,
             }
         }
@@ -759,11 +761,11 @@ impl<'a, A: Asset + Send + Sync> ParallelIterator for ParallelParser<'a, A> {
 
     fn drive_unindexed<C: UnindexedConsumer<Self::Item>>(self, consumer: C) -> C::Result {
         self.slices.par_iter().map(|x| {
-            let mut t = io::BufReader::new(flate2::bufread::ZlibDecoder::new(*x));
+            let mut t = flate2::bufread::ZlibDecoder::new(*x);
             let deserialize = if self.is_gmk { A::from_gmk } else { A::from_exe };
             match t.read_u32::<LE>() {
                 Ok(0) => Ok(None),
-                Ok(_) => Some(deserialize(t)).transpose(),
+                Ok(_) => Some(deserialize(io::BufReader::with_capacity(self.zlib_buf_size, t))).transpose(),
                 Err(e) => Err(e),
             }
         }).drive_unindexed(consumer)
