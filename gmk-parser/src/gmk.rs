@@ -580,15 +580,15 @@ impl Gmk {
     }
 
     /// Returns an iterator over the Included Files found in this file.
-    pub fn included_files(&self) -> impl Iterator<Item = io::Result<Option<IncludedFile>>> + '_ {
-        Parser::new(&self.data, self.included_files, self.is_gmk)
+    pub fn included_files(&self) -> impl Iterator<Item = io::Result<IncludedFile>> + '_ {
+        IncludedFileParser::new(&self.data, self.included_files, self.is_gmk)
     }
 
     /// Returns a parallel iterator over the Included Files found in this file.
     #[cfg_attr(feature = "nightly-docs", doc(cfg(feature = "rayon")))]
     #[cfg_attr(not(feature = "nightly-docs"), cfg(feature = "rayon"))]
-    pub fn par_included_files(&self) -> impl ParallelIterator<Item = io::Result<Option<IncludedFile>>> + '_ {
-        ParallelParser::new(&self.data, self.included_files, self.is_gmk, 8 * 1024)
+    pub fn par_included_files(&self) -> impl ParallelIterator<Item = io::Result<IncludedFile>> + '_ {
+        ParallelIncludedFileParser::new(&self.data, self.included_files, self.is_gmk)
     }
 
     /// Returns the last instance ID indicated by this file.
@@ -778,6 +778,97 @@ struct AssetInfo {
     position: usize,
 }
 
+/// Iterator over Included Files. These are different from regular assets in that they have no existence flag -
+/// that is, they can't not exist - so they need their own special parser.
+pub struct IncludedFileParser<'a> {
+    data: &'a [u8],
+    count: u32,
+    is_gmk: bool,
+}
+
+impl<'a> IncludedFileParser<'a> {
+    fn new(data: &'a [u8], assets: AssetInfo, is_gmk: bool) -> Self {
+        unsafe {
+            Self {
+                data: data.get_unchecked(assets.position..),
+                count: assets.count,
+                is_gmk,
+            }
+        }
+    }
+}
+
+impl Iterator for IncludedFileParser<'_> {
+    type Item = io::Result<IncludedFile>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.count > 0 {
+            unsafe {
+                // TODO: this can't be Err, as the data has already been parsed successfully by `from_exe()`,
+                // but there's no unchecked option for read_u32?
+                let len = match self.data.read_u32::<LE>() {
+                    Ok(l) => l,
+                    Err(e) => return Some(Err(e)),
+                };
+                let cutoff = match usize::try_from(len) {
+                    Ok(l) => l,
+                    Err(_) => return Some(Err(io::Error::from(io::ErrorKind::InvalidInput))),
+                };
+                let t = io::BufReader::new(flate2::bufread::ZlibDecoder::new(self.data.get_unchecked(..cutoff)));
+                let deserialize = if self.is_gmk { IncludedFile::from_gmk } else { IncludedFile::from_exe };
+                let result = deserialize(t);
+                self.count -= 1;
+                self.data = self.data.get_unchecked(cutoff..);
+                Some(result)
+            }
+        } else {
+            None
+        }
+    }
+}
+
+/// Parallel iterator over Included Files. These are different from regular assets in that they have no
+/// existence flag - that is, they can't not exist - so they need their own special parser.
+#[cfg_attr(feature = "nightly-docs", doc(cfg(feature = "rayon")))]
+#[cfg_attr(not(feature = "nightly-docs"), cfg(feature = "rayon"))]
+pub struct ParallelIncludedFileParser<'a> {
+    slices: Vec<&'a [u8]>,
+    is_gmk: bool,
+}
+
+#[cfg(feature = "rayon")]
+impl<'a> ParallelIncludedFileParser<'a> {
+    fn new(mut data: &'a [u8], assets: AssetInfo, is_gmk: bool) -> Self {
+        unsafe {
+            data = data.get_unchecked(assets.position..);
+            let mut slices = Vec::with_capacity(assets.count as usize);
+            for _ in 0..assets.count {
+                let len = data.read_u32::<LE>().unwrap_unchecked();
+                let (d1, d2) = data.split_at(len as usize);
+                slices.push(d1);
+                data = d2;
+            }
+            Self {
+                slices,
+                is_gmk,
+            }
+        }
+    }
+}
+
+#[cfg(feature = "rayon")]
+impl<'a> ParallelIterator for ParallelIncludedFileParser<'a> {
+    type Item = io::Result<IncludedFile>;
+
+    fn drive_unindexed<C: UnindexedConsumer<Self::Item>>(self, consumer: C) -> C::Result {
+        self.slices.par_iter().map(|x| {
+            let t = flate2::bufread::ZlibDecoder::new(*x);
+            let deserialize = if self.is_gmk { IncludedFile::from_gmk } else { IncludedFile::from_exe };
+            deserialize(io::BufReader::with_capacity(1024 * 32, t))
+        }).drive_unindexed(consumer)
+    }
+}
+
 /// An iterator over Library Initialization Strings in a GMK. Created by [`Gmk::lib_init_strings`].
 pub struct LibInitStringParser<'a> {
     data: &'a [u8],
@@ -830,6 +921,12 @@ impl<'a> Iterator for RoomOrderParser<'a> {
 
 impl<'a, A: Asset> ExactSizeIterator for Parser<'a, A> { }
 impl<'a, A: Asset> std::iter::FusedIterator for Parser<'a, A> { }
+
+impl<'a> ExactSizeIterator for IncludedFileParser<'a> { }
+impl<'a> std::iter::FusedIterator for IncludedFileParser<'a> { }
+
+impl<'a> ExactSizeIterator for LibInitStringParser<'a> { }
+impl<'a> std::iter::FusedIterator for LibInitStringParser<'a> { }
 
 impl<'a> ExactSizeIterator for RoomOrderParser<'a> { }
 impl<'a> std::iter::FusedIterator for RoomOrderParser<'a> { }
