@@ -3,7 +3,10 @@
 // Note to self: ImGui's popup API is bugged and doesn't do anything, don't use it. Make your own.
 // Current hours wasted trying to use popup API in this file: 4
 
-use crate::types::Colour;
+use crate::{
+    input,
+    types::Colour,
+};
 use cimgui_sys as c;
 use std::{
     ops,
@@ -83,7 +86,7 @@ impl Frame<'_> {
         self.0.cbuf.as_ptr().cast()
     }
 
-    fn _begin(&mut self, name: &str, is_open: Option<&mut bool>, flags: u32) {
+    fn _begin(&mut self, name: &str, is_open: Option<&mut bool>, flags: u32) -> bool {
         self.cstr_store(name);
         unsafe {
             c::igBegin(
@@ -93,7 +96,7 @@ impl Frame<'_> {
                     None => std::ptr::null_mut(),
                 },
                 flags as i32,
-            );
+            )
         }
     }
 
@@ -125,7 +128,7 @@ impl Frame<'_> {
         resizable: bool,
         menu_bar: bool,
         is_open: Option<&mut bool>,
-    ) {
+    ) -> bool {
         if let Some(size) = size {
             unsafe { c::igSetNextWindowSize(size.into(), 0) };
         }
@@ -172,6 +175,23 @@ impl Frame<'_> {
 
     pub fn end(&self) {
         unsafe { c::igEnd() };
+    }
+
+    pub fn set_scroll_here_y(&self, center_y_ratio: f32) {
+        unsafe { c::igSetScrollHereY(center_y_ratio) }
+    }
+
+    pub fn set_next_item_width(&self, width: f32) {
+        unsafe { c::igSetNextItemWidth(width) }
+    }
+
+    pub fn begin_listbox(&mut self, label: &str, size: Vec2<f32>) -> bool {
+        self.cstr_store(label);
+        unsafe { c::igBeginListBox(self.cstr(), size.into()) }
+    }
+
+    pub fn end_listbox(&self) {
+        unsafe { c::igEndListBox() }
     }
 
     pub fn begin_table(&mut self, label: &str, column: i32, flags: c::ImGuiTableFlags, outer_size: Vec2<f32>, inner_width: f32) -> bool {
@@ -290,6 +310,16 @@ impl Frame<'_> {
             }
             c::igInvisibleButton(self.cstr(), size.into(), c::ImGuiButtonFlags__ImGuiButtonFlags_None as _)
         }
+    }
+
+    pub fn input_text(&mut self, label: &str, buffer: *mut u8, length: usize, flags: c::ImGuiInputTextFlags) -> bool {
+        self.cstr_store(label);
+        unsafe { c::igInputText(self.cstr(), buffer as *mut i8, length, flags, None, std::ptr::null_mut()) }
+    }
+
+    pub fn checkbox(&mut self, label: &str, value: &mut bool) -> bool {
+        self.cstr_store(label);
+        unsafe { c::igCheckbox(self.cstr(), value as _) }
     }
 
     pub fn text(&mut self, text: &str) {
@@ -600,6 +630,40 @@ impl IO {
 
     pub fn set_texture_id(&mut self, ptr: *mut ::std::ffi::c_void) {
         unsafe { (*self.0.Fonts).TexID = ptr };
+    }
+
+    pub fn add_input_character(&mut self, code: u32) {
+        unsafe { c::ImGuiIO_AddInputCharacter(&mut self.0, code); }
+    }
+
+    pub fn setup_default_keymap(&mut self) {
+        for i in 0..c::ImGuiKey__ImGuiKey_COUNT {
+            self.0.KeyMap[i as usize] = match i {
+                c::ImGuiKey__ImGuiKey_Tab => input::Button::Tab as _,
+                c::ImGuiKey__ImGuiKey_LeftArrow => input::Button::LeftArrow as _,
+                c::ImGuiKey__ImGuiKey_RightArrow => input::Button::RightArrow as _,
+                c::ImGuiKey__ImGuiKey_UpArrow => input::Button::UpArrow as _,
+                c::ImGuiKey__ImGuiKey_DownArrow => input::Button::DownArrow as _,
+                c::ImGuiKey__ImGuiKey_PageUp => input::Button::PageUp as _,
+                c::ImGuiKey__ImGuiKey_PageDown => input::Button::PageDown as _,
+                c::ImGuiKey__ImGuiKey_Home => input::Button::Home as _,
+                c::ImGuiKey__ImGuiKey_End => input::Button::End as _,
+                c::ImGuiKey__ImGuiKey_Insert => input::Button::Insert as _,
+                c::ImGuiKey__ImGuiKey_Delete => input::Button::Delete as _,
+                c::ImGuiKey__ImGuiKey_Backspace => input::Button::Backspace as _,
+                c::ImGuiKey__ImGuiKey_Space => input::Button::Space as _,
+                c::ImGuiKey__ImGuiKey_Enter => input::Button::Return as _,
+                c::ImGuiKey__ImGuiKey_Escape => input::Button::Escape as _,
+                c::ImGuiKey__ImGuiKey_KeyPadEnter => input::Button::Return as _,
+                c::ImGuiKey__ImGuiKey_A => input::Button::A as _,
+                c::ImGuiKey__ImGuiKey_C => input::Button::C as _,
+                c::ImGuiKey__ImGuiKey_V => input::Button::V as _,
+                c::ImGuiKey__ImGuiKey_X => input::Button::X as _,
+                c::ImGuiKey__ImGuiKey_Y => input::Button::Y as _,
+                c::ImGuiKey__ImGuiKey_Z => input::Button::Z as _,
+                _ => -1,
+            }
+        }
     }
 
     pub fn framerate(&self) -> f32 {

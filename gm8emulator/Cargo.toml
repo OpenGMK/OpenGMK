@@ -39,3 +39,4 @@ udon = { git = "https://github.com/adamcake/udon", branch = "july-demo", feature
 [target.'cfg(all(target_os = "windows"))'.dependencies]
 crc32fast = "1.2"
 libffi = "1.0.0"
+user32-sys = "0.2.0"

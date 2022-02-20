@@ -5,6 +5,7 @@ mod savestate_window;
 mod input_window;
 mod instance_report;
 mod keybinds;
+mod console;
 mod menu_bar;
 mod input_edit;
 
@@ -332,6 +333,7 @@ impl Game {
         let mut context = imgui::Context::new();
         context.make_current();
         let io = context.io();
+        io.setup_default_keymap();
 
         let ini_filename = {
             let mut path = project_path.clone();
@@ -625,12 +627,34 @@ impl Game {
                     ev @ Event::KeyboardDown(key) | ev @ Event::KeyboardUp(key) => {
                         setting_mouse_pos = false;
                         let state = matches!(ev, Event::KeyboardDown(_));
-                        io.set_key(usize::from(input::ramen2vk(*key)), state);
+                        let vk = input::ramen2vk(*key);
+                        io.set_key(usize::from(vk), state);
                         match key {
                             Key::LShift | Key::RShift => io.set_shift(state),
                             Key::LControl | Key::RControl => io.set_ctrl(state),
                             Key::LAlt | Key::RAlt => io.set_alt(state),
                             _ => (),
+                        }
+
+                        if state {
+                            let mut buf = vec![0 as u16; 4];
+                            let mut keyboard_state = vec![0 as u8; 256];
+                            if io.get_shift() {
+                                keyboard_state[input::Button::Shift as usize] = 0xff;
+                            }
+                            let result = unsafe {
+                                user32::ToUnicode(
+                                    vk as u32,
+                                    0,
+                                    keyboard_state.as_ptr(),
+                                    buf.as_mut_ptr(),
+                                    buf.len() as i32,
+                                    0
+                                )
+                            };
+                            if result == 1 {
+                                io.add_input_character(buf[0] as u32);
+                            }
                         }
                     },
                     Event::MouseMove((point, scale)) => {
