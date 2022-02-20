@@ -33,7 +33,6 @@ use ramen::{
 };
 use serde::{Deserialize, Serialize};
 use std::{
-    convert::TryFrom,
     fs::File,
     path::PathBuf,
     time::Instant,

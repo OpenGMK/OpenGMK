@@ -6,7 +6,6 @@ use crate::{
     instance::Instance,
     types::ID,
 };
-use std::convert::TryFrom;
 
 impl Game {
     /// Runs an event for all objects which hold the given event.
@@ -103,7 +102,9 @@ impl Game {
                 .insert_dummy(Instance::new_dummy(self.assets.objects.get_asset(0).map(|x| x.as_ref())));
             self.run_extension_function(
                 self.extension_finalizers[i],
-                gml::Context::with_single_instance(dummy_instance),
+                &mut gml::Context::with_single_instance(dummy_instance),
+                Default::default(),
+                0,
             )?;
             self.room.instance_list.remove_dummy(dummy_instance);
         }

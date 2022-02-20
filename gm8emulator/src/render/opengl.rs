@@ -17,7 +17,6 @@ pub mod gl {
     include!(concat!(env!("OUT_DIR"), "/gl_bindings.rs"));
 }
 use gl::types::{GLchar, GLenum, GLint, GLsizei, GLuint};
-use std::convert::TryInto;
 
 #[cfg(target_os = "windows")]
 mod wgl;
@@ -2490,7 +2489,6 @@ impl RendererTrait for RendererImpl {
     }
 
     fn stored_size(&self) -> (u32, u32) {
-        use std::convert::TryFrom;
         let framebuffer = self.stored_framebuffer.unwrap_or(self.framebuffer);
         unsafe {
             let (mut width, mut height) = (0, 0);

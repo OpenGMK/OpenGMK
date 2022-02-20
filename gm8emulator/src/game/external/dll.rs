@@ -7,6 +7,9 @@ use std::{
     slice,
 };
 
+// message enum is for stuff that doesn't happen one time at startup
+pub const PROTOCOL_VERSION: u16 = 0;
+
 #[derive(Copy, Clone, Debug, Serialize, Deserialize)]
 pub enum CallConv {
     Cdecl,
@@ -122,15 +125,19 @@ pub enum ValueType {
 }
 
 #[derive(Clone, Serialize, Deserialize)]
-pub enum Wow64Message {
-    Call(super::ID, Vec<Value>),
-    Define(String, String, CallConv, Vec<ValueType>, ValueType),
-    DefineDummy(String, String, Value, usize),
-    Free(String),
+pub struct ExternalSignature {
+    pub dll: String,
+    pub symbol: String,
+    pub call_conv: CallConv,
+    pub type_args: Vec<ValueType>,
+    pub type_return: ValueType,
+}
 
-    GetNextId,
-    SetNextId(super::ID),
-    QueryDefs,
+#[derive(Clone, Serialize, Deserialize)]
+pub enum Wow64Message {
+    Call(i32, Vec<Value>),
+    Define(ExternalSignature),
+    Free(i32),
 
     Stop,
 }

@@ -1,6 +1,5 @@
 use byteorder::{ReadBytesExt, LE};
 use std::{
-    convert::TryInto,
     io::{self, Read, Seek, SeekFrom},
     iter::once,
 };

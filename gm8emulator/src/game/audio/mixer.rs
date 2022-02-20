@@ -92,7 +92,7 @@ impl Source for Mixer {
         input_buffer.resize_with(buffer.len(), Default::default);
         let global_volume = f32::from_bits(self.global_volume.load(Ordering::Acquire));
 
-        self.sources.retain_mut(|(source, params, _)| {
+        RetainMut::retain_mut(&mut self.sources, |(source, params, _)| {
             let volume = f32::from_bits(params.volume.load(Ordering::Acquire));
             let count = source.write_samples(input_buffer);
 

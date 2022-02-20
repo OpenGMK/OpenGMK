@@ -1,9 +1,8 @@
-#![allow(bad_style)]
+#![cfg(all(target_os = "windows", target_arch = "x86"))]
 
-use super::{dll, state, ID};
+use super::dll;
 use libffi::middle as ffi;
 use std::{
-    collections::HashMap,
     ffi::{c_void, CStr, CString, OsStr, OsString},
     iter::once,
     os::{
@@ -12,6 +11,7 @@ use std::{
     },
 };
 
+// ffi stuff
 const FFI_STDCALL: u32 = 2;
 const FFI_MS_CDECL: u32 = 5;
 
@@ -23,6 +23,7 @@ type CHAR = c_char;
 type DWORD = u32;
 type HANDLE = *mut c_void;
 type HMODULE = HINSTANCE;
+#[allow(non_camel_case_types)]
 type SIZE_T = usize;
 type WCHAR = u16;
 
@@ -36,6 +37,7 @@ extern "system" {
     fn LoadLibraryW(lpFileName: *const WCHAR) -> HMODULE;
     fn GetModuleFileNameW(hModule: HMODULE, lpFilename: *mut WCHAR, nSize: DWORD) -> DWORD;
     fn GetProcAddress(hModule: HMODULE, lpProcName: *const CHAR) -> *const c_void;
+    fn FreeLibrary(hModule: HMODULE) -> BOOL;
 
     fn FlushInstructionCache(hProcess: HANDLE, lpBaseAddress: *const c_void, dwSize: SIZE_T) -> BOOL;
     fn GetCurrentProcess() -> HANDLE;
@@ -55,34 +57,16 @@ fn wstrz(s: &str) -> Vec<WCHAR> {
     OsStr::new(s).encode_wide().chain(once(0x00)).collect()
 }
 
-pub struct NativeExternals {
+pub struct NativeManager {
     buf_ffi_data: Vec<FfiData>,
     buf_ffi_arg: Vec<ffi::Arg>,
-
-    defs: HashMap<ID, External>,
-    id: ID,
 }
 
-enum External {
-    Dummy(DummyExternal),
-    Dll(DllExternal),
-}
-
-struct DummyExternal {
-    dll: String,
-    symbol: String,
-    dummy: dll::Value,
-    argc: usize,
-}
-
-struct DllExternal {
-    call_conv: dll::CallConv,
+pub struct NativeExternal {
+    dll_handle: HMODULE,
     cif: ffi::Cif,
     code_ptr: ffi::CodePtr,
-    type_args: Vec<dll::ValueType>,
     type_return: dll::ValueType,
-    dll: String,
-    symbol: String,
 }
 
 enum FfiData {
@@ -90,191 +74,78 @@ enum FfiData {
     Str(*const c_char),
 }
 
-impl NativeExternals {
-    pub fn new() -> Result<Self, String> {
-        Ok(Self { buf_ffi_data: Vec::new(), buf_ffi_arg: Vec::new(), defs: Default::default(), id: 0 })
+impl NativeManager {
+    pub fn new() -> Self {
+        Self { buf_ffi_data: vec![], buf_ffi_arg: vec![] }
     }
 
-    pub fn call(&mut self, id: ID, args: &[dll::Value]) -> Result<dll::Value, String> {
-        let external = match self.defs.get(&id) {
-            Some(x) => x,
-            None => return Err(format!("undefined external with id {}", id)),
-        };
-
-        match external {
-            External::Dummy(dummy) => {
-                if args.len() != dummy.argc {
-                    Err(format!(
-                        "wrong number of arguments passed to dummy '{}' (expected {}, got {})",
-                        dummy.symbol,
-                        dummy.argc,
-                        args.len(),
-                    ))
-                } else {
-                    // most likely this is a sound dll call and we're recording so it will break
-                    match dummy.symbol.as_ref() {
-                        s
-                        @
-                        ("SS_IsSoundPlaying"
-                        | "SS_IsSoundPaused"
-                        | "SS_IsSoundLooping"
-                        | "FMODInstanceIsPlaying"
-                        | "FMODInstanceGetPaused") => {
-                            println!("WARNING: {} called while recording, stuff might break", s)
-                        },
-                        _ => (),
-                    }
-                    Ok(dummy.dummy.clone())
-                }
-            },
-            External::Dll(external) => {
-                if args.len() != external.type_args.len() {
-                    return Err(format!(
-                        "wrong number of arguments passed to '{}' (expected {}, got {})",
-                        external.symbol,
-                        external.type_args.len(),
-                        args.len(),
-                    ))
-                }
-
-                self.buf_ffi_data.clear();
-                self.buf_ffi_data.extend(args.iter().zip(external.type_args.iter()).map(|(arg, ty)| match (arg, ty) {
-                    (dll::Value::Real(x), dll::ValueType::Real) => FfiData::Real(*x),
-                    (dll::Value::Real(_), dll::ValueType::Str) => {
-                        FfiData::Str(dll::PascalString::empty().as_ptr().cast())
-                    },
-                    (dll::Value::Str(x), dll::ValueType::Str) => FfiData::Str(x.as_ptr().cast()),
-                    (dll::Value::Str(_), dll::ValueType::Real) => FfiData::Real(0.0),
-                }));
-
-                self.buf_ffi_arg.clear();
-                self.buf_ffi_arg.extend(self.buf_ffi_data.iter().map(|data| match data {
-                    FfiData::Real(x) => ffi::Arg::new(x),
-                    FfiData::Str(s) => ffi::Arg::new(s),
-                }));
-
-                unsafe {
-                    Ok(match external.type_return {
-                        dll::ValueType::Real => {
-                            dll::Value::Real(external.cif.call::<f64>(external.code_ptr, &self.buf_ffi_arg))
-                        },
-                        dll::ValueType::Str => dll::Value::Str({
-                            let char_ptr = external.cif.call::<*const c_char>(external.code_ptr, &self.buf_ffi_arg);
-                            if *char_ptr != 0 {
-                                dll::PascalString::new(CStr::from_ptr(char_ptr).to_bytes())
-                            } else {
-                                dll::PascalString::empty()
-                            }
-                        }),
-                    })
-                }
-            },
-        }
-    }
-
-    pub fn define(
-        &mut self,
-        dll: &str,
-        symbol: &str,
-        call_conv: dll::CallConv,
-        type_args: &[dll::ValueType],
-        type_return: dll::ValueType,
-    ) -> Result<ID, String> {
+    pub fn define(&self, signature: &dll::ExternalSignature) -> Result<NativeExternal, String> {
         unsafe {
             // load dll & function
-            let dll_wchar = wstrz(dll);
-            let handle = LoadLibraryW(dll_wchar.as_ptr());
-            if handle.is_null() {
-                return Err(format!("failed to load dll '{}'", dll))
+            let dll_wchar = wstrz(&signature.dll);
+            let dll_handle = LoadLibraryW(dll_wchar.as_ptr());
+            if dll_handle.is_null() {
+                return Err(format!("failed to load dll '{}'", signature.dll))
             }
-            let symbol_c = CString::new(symbol).unwrap();
-            let function = GetProcAddress(handle, symbol_c.as_ptr());
+            let symbol_c = CString::new(signature.symbol.clone()).unwrap();
+            let function = GetProcAddress(dll_handle, symbol_c.as_ptr());
             if function.is_null() {
-                return Err(format!("failed to GetProcAddress for '{}' in '{}", symbol, dll))
+                FreeLibrary(dll_handle);
+                return Err(format!("failed to GetProcAddress for '{}' in '{}", signature.symbol, signature.dll))
             }
 
             // compatibility hacks
-            if symbol == "FMODinit" {
-                apply_fmod_hack(handle)?;
+            if signature.symbol == "FMODinit" {
+                apply_fmod_hack(dll_handle)?;
             }
 
             let code_ptr = ffi::CodePtr::from_ptr(function);
             let cif = ffi::Builder::new()
-                .args(type_args.iter().copied().map(dll::ValueType::into))
-                .res(type_return.into())
-                .abi(match call_conv {
+                .args(signature.type_args.iter().copied().map(dll::ValueType::into))
+                .res(signature.type_return.into())
+                .abi(match signature.call_conv {
                     // TODO: For win64, use other constants
                     dll::CallConv::Cdecl => FFI_MS_CDECL,
                     dll::CallConv::Stdcall => FFI_STDCALL,
                 })
                 .into_cif();
 
-            let id = self.id;
-            self.defs.insert(
-                id,
-                External::Dll(DllExternal {
-                    cif,
-                    code_ptr,
-                    type_return,
-                    call_conv,
-                    type_args: type_args.to_vec(),
-                    dll: dll.into(),
-                    symbol: symbol.into(),
-                }),
-            );
-            self.id += 1;
-            Ok(id)
+            Ok(NativeExternal { dll_handle, cif, code_ptr, type_return: signature.type_return })
         }
     }
 
-    pub fn define_dummy(&mut self, dll: &str, symbol: &str, dummy: dll::Value, argc: usize) -> Result<ID, String> {
-        let id = self.id;
-        self.defs.insert(id, External::Dummy(DummyExternal { dll: dll.into(), symbol: symbol.into(), dummy, argc }));
-        self.id += 1;
-        Ok(id)
-    }
+    pub fn call(&mut self, external: &NativeExternal, args: &[dll::Value]) -> dll::Value {
+        // each libffi arg contains a pointer to the actual arg
+        // which means when passing char*, you need a pointer to a pointer to the actual text buffer :^)
+        // so store the pointers here
+        self.buf_ffi_data.clear();
+        self.buf_ffi_data.extend(args.iter().map(|arg| match arg {
+            dll::Value::Real(x) => FfiData::Real(*x),
+            dll::Value::Str(x) => FfiData::Str(x.as_ptr().cast()),
+        }));
 
-    pub fn free(&mut self, target: &str) -> Result<(), String> {
-        self.defs.retain(|_, v| match v {
-            External::Dummy(DummyExternal { dll, .. }) => !dll.eq_ignore_ascii_case(target),
-            External::Dll(DllExternal { dll, .. }) => !dll.eq_ignore_ascii_case(target),
-        });
-        Ok(())
-    }
+        // the args that actually get given to libffi
+        self.buf_ffi_arg.clear();
+        self.buf_ffi_arg.extend(self.buf_ffi_data.iter().map(|data| match data {
+            FfiData::Real(x) => ffi::Arg::new(x),
+            FfiData::Str(s) => ffi::Arg::new(s),
+        }));
 
-    pub fn ss_id(&mut self) -> Result<ID, String> {
-        Ok(self.id)
-    }
-
-    pub fn ss_set_id(&mut self, next: ID) -> Result<(), String> {
-        self.id = next;
-        Ok(())
-    }
-
-    pub fn ss_query_defs(&mut self) -> Result<(HashMap<ID, self::state::State>, ID), String> {
-        Ok((
-            self.defs
-                .iter()
-                .map(|(id, def)| match def {
-                    External::Dll(DllExternal { dll, symbol, call_conv, type_args, type_return, .. }) => {
-                        (*id, state::State::NormalExternal {
-                            dll: dll.clone(),
-                            symbol: symbol.clone(),
-                            call_conv: *call_conv,
-                            type_args: type_args.clone(),
-                            type_return: *type_return,
-                        })
-                    },
-                    External::Dummy(DummyExternal { dll, symbol, dummy, argc }) => (*id, state::State::DummyExternal {
-                        dll: dll.clone(),
-                        symbol: symbol.clone(),
-                        dummy: dummy.clone(),
-                        argc: *argc,
-                    }),
-                })
-                .collect(),
-            self.id,
-        ))
+        unsafe {
+            match external.type_return {
+                dll::ValueType::Real => {
+                    dll::Value::Real(external.cif.call::<f64>(external.code_ptr, &self.buf_ffi_arg))
+                },
+                dll::ValueType::Str => dll::Value::Str({
+                    let char_ptr = external.cif.call::<*const c_char>(external.code_ptr, &self.buf_ffi_arg);
+                    if *char_ptr != 0 {
+                        dll::PascalString::new(CStr::from_ptr(char_ptr).to_bytes())
+                    } else {
+                        dll::PascalString::empty()
+                    }
+                }),
+            }
+        }
     }
 }
 
@@ -337,4 +208,12 @@ unsafe fn apply_fmod_hack(handle: HMODULE) -> Result<(), String> {
         },
     }
     Ok(())
+}
+
+impl Drop for NativeExternal {
+    fn drop(&mut self) {
+        unsafe {
+            FreeLibrary(self.dll_handle);
+        }
+    }
 }
