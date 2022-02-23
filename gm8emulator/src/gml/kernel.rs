@@ -3985,7 +3985,8 @@ impl Game {
     }
 
     pub fn clamp(args: &[Value]) -> gml::Result<Value> {
-        expect_args!(args, [real, real, real]).map(|(n, lo, hi)| Value::Real(n.clamp(lo, hi)))
+        // NOTE: rust clamp() has an assert, GM doesn't
+        expect_args!(args, [real, real, real]).map(|(n, lo, hi)| Value::Real(n.min(lo).max(hi)))
     }
 
     pub fn lerp(args: &[Value]) -> gml::Result<Value> {
