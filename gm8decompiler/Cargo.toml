@@ -4,7 +4,7 @@ version = "2.1.1"
 authors = ["The OpenGMK Project Developers"]
 license = "GPL-2.0-only"
 edition = "2021"
-rust-version = "1.58"
+rust-version = "1.59"
 
 [build-dependencies]
 time = { version = "0.3", features = ["std"], default-features = false }
