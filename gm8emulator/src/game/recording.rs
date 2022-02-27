@@ -8,6 +8,7 @@ mod keybinds;
 mod console;
 mod menu_bar;
 mod input_edit;
+mod macro_window;
 
 use crate::{
     game::{
@@ -83,6 +84,48 @@ impl KeyState {
                 | Self::HeldDoubleEveryFrame
                 | Self::NeutralWillTriple
         )
+    }
+    pub fn starts_with_press(&self) -> bool {
+        matches!(
+            self,
+            Self::Held
+                | Self::HeldWillRelease
+                | Self::HeldWillDouble
+                | Self::HeldWillTriple
+                | Self::HeldDoubleEveryFrame
+        )
+    }
+    
+    fn reset_to_state(&mut self, target_state: KeyState) {
+        let starts_with_press = self.starts_with_press();
+        if target_state.starts_with_press() == starts_with_press {
+            *self = target_state;
+        } else if starts_with_press {
+            // target state expects button released, previous state is held
+            *self = match target_state {
+                KeyState::Neutral
+                    | KeyState::NeutralWillCactus
+                    | KeyState::NeutralWillDouble
+                    | KeyState::NeutralDoubleEveryFrame
+                    => KeyState::HeldWillRelease,
+                KeyState::NeutralWillTriple
+                    | KeyState::NeutralWillPress
+                    => KeyState::HeldWillDouble,
+                _ => unreachable!(),
+            };
+        } else {
+            // target state expects button held, previous state is released
+            *self = match target_state {
+                KeyState::Held
+                    | KeyState::HeldWillDouble
+                    | KeyState::HeldDoubleEveryFrame
+                    => KeyState::NeutralWillPress,
+                KeyState::HeldWillTriple
+                    | KeyState::HeldWillRelease
+                    => KeyState::NeutralWillDouble,
+                _ => unreachable!(),
+            };
+        }
     }
 
     fn click(&mut self) {

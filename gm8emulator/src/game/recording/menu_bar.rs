@@ -4,6 +4,7 @@ use crate::{
         keybinds::KeybindWindow,
         input_edit::InputEditWindow,
         console::ConsoleWindow,
+        macro_window::MacroWindow,
         window::{
             Window,
             Openable,
@@ -79,6 +80,7 @@ pub fn show_menu_bar(frame: &mut imgui::Frame, windows: &mut Vec<(Box<dyn Window
                     single KeybindWindow,
                     single InputEditWindow,
                     multi ConsoleWindow,
+                    multi MacroWindow,
                 }
                 
                 frame.end_menu();
