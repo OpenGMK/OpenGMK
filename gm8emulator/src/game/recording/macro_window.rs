@@ -110,7 +110,11 @@ impl MacroWindow {
         frame.text(&self.info_text);
         
         // Apply the current frame of the macro if the frame has changed
-        if self.run_macro && self.last_frame != config.current_frame && self.start_frame <= config.current_frame
+        if self.run_macro && self.last_frame != config.current_frame
+            // and the start frame is before the current frame
+            && self.start_frame <= config.current_frame
+            // and we have either "Repeat Macro" enabled or we are still on the first iteration.
+            && (self.repeat_macro || config.current_frame - self.start_frame < self.input_frames.len())
         {
             self.last_frame = config.current_frame;
             let index = (config.current_frame - self.start_frame) % self.input_frames.len();
@@ -122,11 +126,6 @@ impl MacroWindow {
                     StateChange::Click(index) => keyboard_state.get_mut(*index).unwrap().click(),
                     StateChange::ChangeTo(index, state) => keyboard_state.get_mut(*index).unwrap().reset_to_state(*state),
                 }
-            }
-            
-            // Stop macro at end if "repeat macro" isn't ticked
-            if !self.repeat_macro && index + 1 == self.input_frames.len() {
-                self.run_macro = false;
             }
         }
 
