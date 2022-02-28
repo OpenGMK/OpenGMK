@@ -36,6 +36,7 @@ rust-ini = "0.17"
 serde = { version = "1.0", features = ["derive", "rc"] }
 time = { version = "0.3", features = ["local-offset", "macros"] }
 udon = { git = "https://github.com/adamcake/udon", branch = "july-demo", features = ["serde-derives", "wav"] }
+clipboard = "0.5.0"
 
 [target.'cfg(all(target_os = "windows"))'.dependencies]
 crc32fast = "1.2"

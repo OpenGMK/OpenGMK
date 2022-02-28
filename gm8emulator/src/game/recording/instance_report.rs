@@ -1,4 +1,3 @@
-
 use crate::{
     imgui,
     instance::Field,
@@ -8,6 +7,11 @@ use crate::{
     },
     render::atlas::AtlasRef,
 };
+use clipboard::{
+    ClipboardProvider,
+    ClipboardContext
+};
+use std::ops::Index;
 
 pub struct InstanceReport {
     object_name: String,
@@ -166,41 +170,50 @@ impl InstanceReportWindow {
         }
     }
 
+    fn show_text(frame: &mut imgui::Frame, text: &String) {
+        frame.text(text);
+        if frame.middle_clicked() && frame.item_hovered() {
+            let value_str = text.index(text.find(':').unwrap_or(usize::MAX).wrapping_add(1)..);
+            let mut ctx: ClipboardContext = ClipboardProvider::new().unwrap();
+            ctx.set_contents(value_str.to_owned()).unwrap();
+        }
+    }
+
     /// Creates the window for the instance.
     /// Returns whether or not the window is open
     fn instance_window(&mut self, frame: &mut imgui::Frame, game: &mut Game, id: i32, instance_report: Option<&(i32, Option<InstanceReport>)>) -> bool {
         let mut open = true;
         frame.begin_window(&format!("Instance {}", id), None, true, false, Some(&mut open));
         if let Some((_, Some(report))) = instance_report {
-            frame.text(&report.object_name);
-            frame.text(&report.id);
+            Self::show_text(frame, &report.object_name);
+            Self::show_text(frame, &report.id);
             frame.text("");
             if frame.begin_tree_node("General Variables") {
-                report.general_vars.iter().for_each(|s| frame.text(s));
+                report.general_vars.iter().for_each(|s| Self::show_text(frame, s));
                 frame.pop_tree_node();
             }
             if frame.begin_tree_node("Physics Variables") {
-                report.physics_vars.iter().for_each(|s| frame.text(s));
+                report.physics_vars.iter().for_each(|s| Self::show_text(frame, s));
                 frame.pop_tree_node();
             }
             if frame.begin_tree_node("Image Variables") {
-                report.image_vars.iter().for_each(|s| frame.text(s));
+                report.image_vars.iter().for_each(|s| Self::show_text(frame, s));
                 frame.pop_tree_node();
             }
             if frame.begin_tree_node("Timeline Variables") {
-                report.timeline_vars.iter().for_each(|s| frame.text(s));
+                report.timeline_vars.iter().for_each(|s| Self::show_text(frame, s));
                 frame.pop_tree_node();
             }
             if frame.begin_tree_node("Alarms") {
-                report.alarms.iter().for_each(|s| frame.text(s));
+                report.alarms.iter().for_each(|s| Self::show_text(frame, s));
                 frame.pop_tree_node();
             }
             if frame.begin_tree_node("Fields") {
                 report.fields.iter().for_each(|f| match f {
-                    ReportField::Single(s) => frame.text(s),
+                    ReportField::Single(s) => Self::show_text(frame, s),
                     ReportField::Array(label, array) => {
                         if frame.begin_tree_node(label) {
-                            array.iter().for_each(|s| frame.text(s));
+                            array.iter().for_each(|s| Self::show_text(frame, s));
                             frame.pop_tree_node();
                         }
                     },
