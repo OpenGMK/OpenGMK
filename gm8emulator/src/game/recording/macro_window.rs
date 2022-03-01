@@ -3,6 +3,7 @@ use crate::{
     game::{
         recording::{
             KeyState,
+            keybinds::Binding,
             window::{Window, Openable, DisplayInformation},
         },
     },
@@ -62,7 +63,7 @@ impl MacroWindow {
             input_buffer: vec![0 as u8; 1024],
             start_frame: 0,
             last_frame: 0,
-            info_text: String::default(),
+            info_text: String::from("Not running"),
             input_frames: Vec::new(),
             is_open: true,
             run_macro: false,
@@ -72,6 +73,7 @@ impl MacroWindow {
     }
 
     fn show_macro_windows(&mut self, info: &mut DisplayInformation) {
+        let keybind_pressed = info.keybind_pressed(Binding::ToggleMacros);
         let DisplayInformation {
             keyboard_state,
             keybindings,
@@ -95,7 +97,10 @@ impl MacroWindow {
             keybindings.disable_bindings();
         }
 
-        let pressed = frame.checkbox("Run Macro", &mut self.run_macro);
+        let pressed = frame.checkbox("Run Macro", &mut self.run_macro) || keybind_pressed;
+        if keybind_pressed {
+            self.run_macro = !self.run_macro;
+        }
         frame.same_line(0.0, -1.0);
         frame.checkbox("Repeat Macro", &mut self.repeat_macro);
         if pressed {
@@ -103,7 +108,7 @@ impl MacroWindow {
                 self.start_frame = config.current_frame;
                 self.update_macro();
             } else {
-                self.info_text = String::from("No Macro running");
+                self.info_text = String::from("Not running");
             }
         }
         
@@ -129,7 +134,7 @@ impl MacroWindow {
             }
         }
 
-        info.frame.end();
+        frame.end();
     }
 
     fn update_macro(&mut self) {
