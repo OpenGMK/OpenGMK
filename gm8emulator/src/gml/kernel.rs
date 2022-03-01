@@ -9187,9 +9187,20 @@ impl Game {
         }
     }
 
-    pub fn font_delete(&mut self, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function font_delete")
+    pub fn font_delete(&mut self, args: &[Value]) -> gml::Result<Value> {
+        let font_id = expect_args!(args, [int])?;
+        if let Some(font) = self.assets.fonts.get_asset(font_id) {
+            if font.own_graphics {
+                // font_add isn't in yet but atm for ttfs all characters are on the same texture
+                if let Some(c) = font.get_char(font.first) {
+                    self.renderer.delete_sprite(c.atlas_ref);
+                }
+            }
+        } else {
+            return Err(gml::Error::FunctionError("font_delete".into(), "Trying to delete non-existing font".into()))
+        }
+        self.assets.fonts[font_id as usize] = None;
+        Ok(Default::default())
     }
 
     pub fn script_exists(&self, args: &[Value]) -> gml::Result<Value> {
