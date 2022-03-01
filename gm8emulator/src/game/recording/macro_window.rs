@@ -115,22 +115,33 @@ impl MacroWindow {
         frame.text(&self.info_text);
         
         // Apply the current frame of the macro if the frame has changed
-        if self.run_macro && self.last_frame != config.current_frame
-            // and the start frame is before the current frame
-            && self.start_frame <= config.current_frame
-            // and we have either "Repeat Macro" enabled or we are still on the first iteration.
-            && (self.repeat_macro || config.current_frame - self.start_frame < self.input_frames.len())
-        {
+        if self.run_macro && self.last_frame != config.current_frame {
             self.last_frame = config.current_frame;
-            let index = (config.current_frame - self.start_frame) % self.input_frames.len();
-            let current_frame = self.input_frames.get(index).unwrap();
-            self.info_text = format!("Macro Frame {}/{}", index, self.input_frames.len() - 1);
 
-            for entry in current_frame {
-                match entry {
-                    StateChange::Click(index) => keyboard_state.get_mut(*index).unwrap().click(),
-                    StateChange::ChangeTo(index, state) => keyboard_state.get_mut(*index).unwrap().reset_to_state(*state),
+            let current_frame = config.current_frame.checked_sub(self.start_frame).unwrap_or(0);
+            let index = if !self.repeat_macro && current_frame >= self.input_frames.len() {
+                self.input_frames.len() - 1
+            } else {
+                current_frame % self.input_frames.len()
+            };
+
+            // if the start frame is before the current frame
+            if self.start_frame <= config.current_frame {
+                self.info_text = format!("Macro Frame {}/{}", index, self.input_frames.len() - 1);
+
+                // and we repeat the macro or are still at the first iteration
+                if self.repeat_macro || config.current_frame - self.start_frame < self.input_frames.len() {
+                    let current_frame = self.input_frames.get(index).unwrap();
+                    
+                    for entry in current_frame {
+                        match entry {
+                            StateChange::Click(index) => keyboard_state.get_mut(*index).unwrap().click(),
+                            StateChange::ChangeTo(index, state) => keyboard_state.get_mut(*index).unwrap().reset_to_state(*state),
+                        }
+                    }
                 }
+            } else {
+                self.info_text = format!("Macro Frame -{}/{}", self.start_frame - config.current_frame, self.input_frames.len() - 1);
             }
         }
 
