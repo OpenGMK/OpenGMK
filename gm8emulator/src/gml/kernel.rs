@@ -9079,8 +9079,10 @@ impl Game {
         self.audio.stop_sound(sound_id);
         if self.assets.sounds.get_asset(sound_id).is_some() {
             self.assets.sounds[sound_id as usize] = None;
+            Ok(Default::default())
+        } else {
+            Err(gml::Error::FunctionError("sound_delete".into(), "Trying to delete non-existing sound".into()))
         }
-        Ok(Default::default())
     }
 
     pub fn font_exists(&self, args: &[Value]) -> gml::Result<Value> {
@@ -9439,8 +9441,10 @@ impl Game {
         let path_id = expect_args!(args, [int])?;
         if self.assets.paths.get_asset(path_id).is_some() {
             self.assets.paths[path_id as usize] = None;
+            Ok(Default::default())
+        } else {
+            Err(gml::Error::FunctionError("path_delete".into(), "Trying to delete non-existing path".into()))
         }
-        Ok(Default::default())
     }
 
     pub fn path_add_point(&mut self, args: &[Value]) -> gml::Result<Value> {
