@@ -3985,7 +3985,8 @@ impl Game {
     }
 
     pub fn clamp(args: &[Value]) -> gml::Result<Value> {
-        expect_args!(args, [real, real, real]).map(|(n, lo, hi)| Value::Real(n.clamp(lo, hi)))
+        // NOTE: rust clamp() has an assert, GM doesn't
+        expect_args!(args, [real, real, real]).map(|(n, lo, hi)| Value::Real(n.min(lo).max(hi)))
     }
 
     pub fn lerp(args: &[Value]) -> gml::Result<Value> {
@@ -9078,8 +9079,10 @@ impl Game {
         self.audio.stop_sound(sound_id);
         if self.assets.sounds.get_asset(sound_id).is_some() {
             self.assets.sounds[sound_id as usize] = None;
+            Ok(Default::default())
+        } else {
+            Err(gml::Error::FunctionError("sound_delete".into(), "Trying to delete non-existing sound".into()))
         }
-        Ok(Default::default())
     }
 
     pub fn font_exists(&self, args: &[Value]) -> gml::Result<Value> {
@@ -9186,9 +9189,20 @@ impl Game {
         }
     }
 
-    pub fn font_delete(&mut self, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function font_delete")
+    pub fn font_delete(&mut self, args: &[Value]) -> gml::Result<Value> {
+        let font_id = expect_args!(args, [int])?;
+        if let Some(font) = self.assets.fonts.get_asset(font_id) {
+            if font.own_graphics {
+                // font_add isn't in yet but atm for ttfs all characters are on the same texture
+                if let Some(c) = font.get_char(font.first) {
+                    self.renderer.delete_sprite(c.atlas_ref);
+                }
+            }
+        } else {
+            return Err(gml::Error::FunctionError("font_delete".into(), "Trying to delete non-existing font".into()))
+        }
+        self.assets.fonts[font_id as usize] = None;
+        Ok(Default::default())
     }
 
     pub fn script_exists(&self, args: &[Value]) -> gml::Result<Value> {
@@ -9427,8 +9441,10 @@ impl Game {
         let path_id = expect_args!(args, [int])?;
         if self.assets.paths.get_asset(path_id).is_some() {
             self.assets.paths[path_id as usize] = None;
+            Ok(Default::default())
+        } else {
+            Err(gml::Error::FunctionError("path_delete".into(), "Trying to delete non-existing path".into()))
         }
-        Ok(Default::default())
     }
 
     pub fn path_add_point(&mut self, args: &[Value]) -> gml::Result<Value> {
