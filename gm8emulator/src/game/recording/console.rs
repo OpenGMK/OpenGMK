@@ -62,15 +62,21 @@ impl Window for ConsoleWindow {
                 }
                 frame.end_listbox();
             }
-            let width = window_size.0 - content_position.0 * 0.2 - 100.0;
+
+            // width = window width - padding - (width of checkbox + item x spacing) - (width of run button + item x spacing)
+            let width = window_size.0 - content_position.0 * 2.0 - 58.0 - 28.0;
             if width > 0.0 {
                 // checkbox and run button are visible
                 frame.set_next_item_width(width);
-            } else if width > -50.0 {
+            } else if width > -58.0 {
                 // only checkbox is visible
-                frame.set_next_item_width(width+50.0);
+                frame.set_next_item_width(width+58.0);
+            } else if width > -58.0 - 28.0 {
+                // nothin is visible
+                frame.set_next_item_width(width+58.0+28.0)
             }
-            let pressed_enter = frame.input_text(&"###consoleinput", self.input_buffer.as_mut_ptr(), self.input_buffer.len(), cimgui_sys::ImGuiInputTextFlags__ImGuiInputTextFlags_EnterReturnsTrue as _);
+
+            let pressed_enter = frame.input_text(&"##consoleinput", self.input_buffer.as_mut_ptr(), self.input_buffer.len(), cimgui_sys::ImGuiInputTextFlags__ImGuiInputTextFlags_EnterReturnsTrue as _);
             if pressed_enter {
                 frame.set_keyboard_focus_here(0);
             }
