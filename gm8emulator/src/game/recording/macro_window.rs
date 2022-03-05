@@ -33,6 +33,10 @@ enum StateChange {
 
 // Macro window
 impl Window for MacroWindow {
+    fn window_id(&self) -> usize {
+        self.id
+    }
+
     fn name(&self) -> String {
         format!("Macro {}", self.id+1)
     }
