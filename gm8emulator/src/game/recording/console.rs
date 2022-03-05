@@ -52,15 +52,16 @@ impl Window for ConsoleWindow {
         if frame.begin_window(&self.name(), None, true, false, Some(&mut self.is_open)) {
             let window_size = frame.window_size();
             let content_position = frame.content_position();
-            frame.begin_listbox(&"GMLConsoleOutput", window_size - imgui::Vec2(content_position.0*2.0, 60.0));
-            for text in &self.output {
-                frame.text(&text);
+            if frame.begin_listbox(&"GMLConsoleOutput", window_size - imgui::Vec2(content_position.0*2.0, 60.0)) {
+                for text in &self.output {
+                    frame.text(&text);
+                }
+                if self.scroll_to_bottom {
+                    self.scroll_to_bottom = false;
+                    frame.set_scroll_here_y(1.0);
+                }
+                frame.end_listbox();
             }
-            if self.scroll_to_bottom {
-                self.scroll_to_bottom = false;
-                frame.set_scroll_here_y(1.0);
-            }
-            frame.end_listbox();
             let width = window_size.0 - content_position.0 * 0.2 - 100.0;
             if width > 0.0 {
                 // checkbox and run button are visible
