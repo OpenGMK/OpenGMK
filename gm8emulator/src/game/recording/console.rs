@@ -72,7 +72,7 @@ impl Window for ConsoleWindow {
                 // only checkbox is visible
                 frame.set_next_item_width(width+58.0);
             } else if width > -58.0 - 28.0 {
-                // nothin is visible
+                // nothing is visible
                 frame.set_next_item_width(width+58.0+28.0)
             }
 
