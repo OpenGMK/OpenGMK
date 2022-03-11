@@ -1764,6 +1764,53 @@ impl RendererTrait for RendererImpl {
         );
     }
 
+    fn draw_sprite_pos(
+        &mut self,
+        texture: AtlasRef,
+        x1: f64,
+        y1: f64,
+        x2: f64,
+        y2: f64,
+        x3: f64,
+        y3: f64,
+        x4: f64,
+        y4: f64,
+        alpha: f64,
+    ) {
+        let atlas_ref = match self.get_rect(texture) {
+            Some(rect) => *rect,
+            None => return,
+        };
+
+        self.set_texture_repeat(false);
+
+        // get texture corners
+        let tex_left = 0.0;
+        let tex_top = 0.0;
+        let tex_right = tex_left + 1.0;
+        let tex_bottom = tex_top + 1.0;
+
+        let (tex_left, tex_top, tex_right, tex_bottom) =
+            (tex_left as f32, tex_top as f32, tex_right as f32, tex_bottom as f32);
+
+        let normal = [0.0, 0.0, 0.0];
+        let depth = self.depth;
+
+        //correct for gm offset
+        let correct = |xoff, yoff| {
+            [(xoff-0.5) as f32, (yoff-0.5) as f32, depth]
+        };
+
+        // push the vertices
+        self.push_primitive(
+            PrimitiveBuilder::new(atlas_ref, PrimitiveType::TriFan)
+                .push_vertex(correct(x1, y1), [tex_left, tex_top], split_colour(0xffffff, alpha), normal)
+                .push_vertex(correct(x2, y2), [tex_right, tex_top], split_colour(0xffffff, alpha), normal)
+                .push_vertex(correct(x3, y3), [tex_right, tex_bottom], split_colour(0xffffff, alpha), normal)
+                .push_vertex(correct(x4, y4), [tex_left, tex_bottom], split_colour(0xffffff, alpha), normal),
+        );
+    }
+
     fn draw_rectangle(&mut self, x1: f64, y1: f64, x2: f64, y2: f64, colour: i32, alpha: f64) {
         let (x1, x2) = if x2 < x1 { (x2, x1) } else { (x1, x2) };
         let (y1, y2) = if y2 < y1 { (y2, y1) } else { (y1, y2) };

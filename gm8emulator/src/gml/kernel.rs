@@ -1400,9 +1400,46 @@ impl Game {
         }
     }
 
-    pub fn draw_sprite_pos(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 11
-        unimplemented!("Called unimplemented kernel function draw_sprite_pos")
+    pub fn draw_sprite_pos(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (
+            sprite_index,
+            image_index,
+            x1,
+            y1,
+            x2,
+            y2,
+            x3,
+            y3,
+            x4,
+            y4,
+            alpha,
+        ) = expect_args!(args, [
+            int, int, real, real, real, real, real, real, real, real, real
+        ])?;
+        if let Some(sprite) = self.assets.sprites.get_asset(sprite_index) {
+            let image_index = if image_index < 0 {
+                self.room.instance_list.get(context.this).image_index.get().floor().to_i32()
+            } else {
+                image_index
+            };
+            if let Some(atlas_ref) = sprite.get_atlas_ref(image_index) {
+                self.renderer.draw_sprite_pos(
+                    atlas_ref,
+                    x1.into(),
+                    y1.into(),
+                    x2.into(),
+                    y2.into(),
+                    x3.into(),
+                    y3.into(),
+                    x4.into(),
+                    y4.into(),
+                    alpha.into()
+                );
+            }
+            Ok(Default::default())
+        } else {
+            Err(gml::Error::NonexistentAsset(asset::Type::Sprite, sprite_index))
+        }
     }
 
     pub fn draw_sprite_ext(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
