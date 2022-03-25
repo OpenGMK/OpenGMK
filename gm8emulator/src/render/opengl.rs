@@ -1408,7 +1408,7 @@ impl RendererTrait for RendererImpl {
     fn dump_sprite_part(&self, atlas_ref: AtlasRef, part_x: i32, part_y: i32, part_w: i32, part_h: i32) -> Box<[u8]> {
         let rect = match self.get_rect(atlas_ref) {
             Some(rect) => {
-                AtlasRect { x: rect.x + part_x, y: rect.y + part_y, w: rect.w + part_w, h: rect.h + part_h, ..*rect }
+                AtlasRect { x: rect.x + part_x, y: rect.y + part_y, w: part_w, h: part_h, ..*rect }
             },
             None => return Box::new([]),
         };
