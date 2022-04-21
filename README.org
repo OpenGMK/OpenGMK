@@ -15,7 +15,7 @@ You can also recursively initialise the submodules after you've already cloned.
   git submodule update --init --recursive
 #+end_src
 
-This project is written in the [[https://www.rust-lang.org/][Rust]] programming language. You can download the toolchain manager directly from [[https://rustup.rs/]] or a package manager of your choice. Our current minimum supported rust version (MSRV) policy is version *1.58*, if you're downloading it at the time of writing then you almost definitely are up to date but you can check with =rustc -V= to be sure. Once that's set up, building everything in release mode is pretty simple (but might take a while the first time).
+This project is written in the [[https://www.rust-lang.org/][Rust]] programming language. You can download the toolchain manager directly from [[https://rustup.rs/]] or a package manager of your choice. Our current minimum supported rust version (MSRV) policy is version *1.59*, if you're downloading it at the time of writing then you almost definitely are up to date but you can check with =rustc -V= to be sure. Please note that currently building for glibc on windows (=...-pc-windows-gnu=) does not work. Once that's set up, building everything in release mode is pretty simple (but might take a while the first time).
 
 #+begin_src sh
   cd path/to/repo-folder
