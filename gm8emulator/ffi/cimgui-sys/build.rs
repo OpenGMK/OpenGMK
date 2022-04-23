@@ -7,10 +7,10 @@ fn main() -> Result<(), Box<dyn ::std::error::Error>> {
         let out_dir = std::env::var("OUT_DIR").unwrap();
         let a_path = out_dir.clone() + "/cimgui.a";
         if std::path::Path::new(&a_path).is_file() {
-        std::fs::copy(a_path, out_dir.clone() + "/libcimgui.a").unwrap();
+            std::fs::copy(a_path, out_dir.clone() + "/libcimgui.a").unwrap();
         }
+        println!("cargo:rustc-link-search=native={}", out_dir);
     }
-    println!("cargo:rustc-link-search=native={}", out_dir);
     println!("cargo:rustc-link-lib=static=cimgui");
     Ok(())
 }
