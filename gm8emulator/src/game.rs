@@ -1834,6 +1834,10 @@ impl Game {
             }
         }
 
+        if self.scene_change.is_some() {
+            return Ok(())
+        }
+
         // Alarm events
         self.run_alarms()?;
         if self.scene_change.is_some() {
