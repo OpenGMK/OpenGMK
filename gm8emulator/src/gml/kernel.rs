@@ -2526,9 +2526,10 @@ impl Game {
         unimplemented!("Called unimplemented kernel function action_line_color")
     }
 
-    pub fn action_highscore(&mut self, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 0
-        unimplemented!("Called unimplemented kernel function action_highscore")
+    pub fn action_highscore(args: &[Value]) -> gml::Result<Value> {
+        // In GM 8.0, 8.1.141 and 8.1.218 this does not even set the result value explicitly.
+        expect_args!(args, [])?;
+        Ok(Default::default())
     }
 
     pub fn action_move(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
