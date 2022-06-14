@@ -1850,11 +1850,6 @@ impl Game {
             return Ok(())
         }
 
-        self.run_mouse_events()?;
-        if self.scene_change.is_some() {
-            return Ok(())
-        }
-
         // Key press events
         self.run_key_press_events()?;
         if self.scene_change.is_some() {
@@ -1863,6 +1858,12 @@ impl Game {
 
         // Key release events
         self.run_key_release_events()?;
+        if self.scene_change.is_some() {
+            return Ok(())
+        }
+
+        // All mouse events
+        self.run_mouse_events()?;
         if self.scene_change.is_some() {
             return Ok(())
         }
@@ -1884,6 +1885,7 @@ impl Game {
         let mut iter = self.room.instance_list.iter_by_drawing();
         while let Some(handle) = iter.next(&self.room.instance_list) {
             if self.apply_speeds(handle) {
+                // Path end event
                 self.run_instance_event(ev::OTHER, 8, handle, handle, None)?;
             }
         }
