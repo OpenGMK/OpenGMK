@@ -1400,9 +1400,46 @@ impl Game {
         }
     }
 
-    pub fn draw_sprite_pos(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 11
-        unimplemented!("Called unimplemented kernel function draw_sprite_pos")
+    pub fn draw_sprite_pos(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (
+            sprite_index,
+            image_index,
+            x1,
+            y1,
+            x2,
+            y2,
+            x3,
+            y3,
+            x4,
+            y4,
+            alpha,
+        ) = expect_args!(args, [
+            int, int, real, real, real, real, real, real, real, real, real
+        ])?;
+        if let Some(sprite) = self.assets.sprites.get_asset(sprite_index) {
+            let image_index = if image_index < 0 {
+                self.room.instance_list.get(context.this).image_index.get().floor().to_i32()
+            } else {
+                image_index
+            };
+            if let Some(atlas_ref) = sprite.get_atlas_ref(image_index) {
+                self.renderer.draw_sprite_pos(
+                    atlas_ref,
+                    x1.into(),
+                    y1.into(),
+                    x2.into(),
+                    y2.into(),
+                    x3.into(),
+                    y3.into(),
+                    x4.into(),
+                    y4.into(),
+                    alpha.into()
+                );
+            }
+            Ok(Default::default())
+        } else {
+            Err(gml::Error::NonexistentAsset(asset::Type::Sprite, sprite_index))
+        }
     }
 
     pub fn draw_sprite_ext(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
@@ -2489,9 +2526,10 @@ impl Game {
         unimplemented!("Called unimplemented kernel function action_line_color")
     }
 
-    pub fn action_highscore(&mut self, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 0
-        unimplemented!("Called unimplemented kernel function action_highscore")
+    pub fn action_highscore(args: &[Value]) -> gml::Result<Value> {
+        // In GM 8.0, 8.1.141 and 8.1.218 this does not even set the result value explicitly.
+        expect_args!(args, [])?;
+        Ok(Default::default())
     }
 
     pub fn action_move(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
@@ -3985,7 +4023,8 @@ impl Game {
     }
 
     pub fn clamp(args: &[Value]) -> gml::Result<Value> {
-        expect_args!(args, [real, real, real]).map(|(n, lo, hi)| Value::Real(n.clamp(lo, hi)))
+        // NOTE: rust clamp() has an assert, GM doesn't
+        expect_args!(args, [real, real, real]).map(|(n, lo, hi)| Value::Real(n.min(lo).max(hi)))
     }
 
     pub fn lerp(args: &[Value]) -> gml::Result<Value> {
@@ -9078,8 +9117,10 @@ impl Game {
         self.audio.stop_sound(sound_id);
         if self.assets.sounds.get_asset(sound_id).is_some() {
             self.assets.sounds[sound_id as usize] = None;
+            Ok(Default::default())
+        } else {
+            Err(gml::Error::FunctionError("sound_delete".into(), "Trying to delete non-existing sound".into()))
         }
-        Ok(Default::default())
     }
 
     pub fn font_exists(&self, args: &[Value]) -> gml::Result<Value> {
@@ -9186,9 +9227,20 @@ impl Game {
         }
     }
 
-    pub fn font_delete(&mut self, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function font_delete")
+    pub fn font_delete(&mut self, args: &[Value]) -> gml::Result<Value> {
+        let font_id = expect_args!(args, [int])?;
+        if let Some(font) = self.assets.fonts.get_asset(font_id) {
+            if font.own_graphics {
+                // font_add isn't in yet but atm for ttfs all characters are on the same texture
+                if let Some(c) = font.get_char(font.first) {
+                    self.renderer.delete_sprite(c.atlas_ref);
+                }
+            }
+        } else {
+            return Err(gml::Error::FunctionError("font_delete".into(), "Trying to delete non-existing font".into()))
+        }
+        self.assets.fonts[font_id as usize] = None;
+        Ok(Default::default())
     }
 
     pub fn script_exists(&self, args: &[Value]) -> gml::Result<Value> {
@@ -9427,8 +9479,10 @@ impl Game {
         let path_id = expect_args!(args, [int])?;
         if self.assets.paths.get_asset(path_id).is_some() {
             self.assets.paths[path_id as usize] = None;
+            Ok(Default::default())
+        } else {
+            Err(gml::Error::FunctionError("path_delete".into(), "Trying to delete non-existing path".into()))
         }
-        Ok(Default::default())
     }
 
     pub fn path_add_point(&mut self, args: &[Value]) -> gml::Result<Value> {

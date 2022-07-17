@@ -1,5 +1,3 @@
-extern crate winres;
-
 use std::{env, error::Error, process::Command};
 use time::OffsetDateTime;
 

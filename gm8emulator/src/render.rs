@@ -281,6 +281,19 @@ pub trait RendererTrait {
         alpha: f64,
         use_origin: bool,
     );
+    fn draw_sprite_pos(
+        &mut self,
+        texture: AtlasRef,
+        x1: f64,
+        y1: f64,
+        x2: f64,
+        y2: f64,
+        x3: f64,
+        y3: f64,
+        x4: f64,
+        y4: f64,
+        alpha: f64
+    );
     fn set_view_matrix(&mut self, view: [f32; 16]);
     fn set_viewproj_matrix(&mut self, view: [f32; 16], proj: [f32; 16]);
     fn get_model_matrix(&self) -> [f32; 16];
@@ -633,6 +646,24 @@ impl Renderer {
         self.0.draw_sprite_general(
             texture, part_x, part_y, part_w, part_h, x, y, xscale, yscale, angle, col1, col2, col3, col4, alpha,
             use_origin,
+        )
+    }
+
+    pub fn draw_sprite_pos(
+        &mut self,
+        texture: AtlasRef,
+        x1: f64,
+        y1: f64,
+        x2: f64,
+        y2: f64,
+        x3: f64,
+        y3: f64,
+        x4: f64,
+        y4: f64,
+        alpha: f64,
+    ) {
+        self.0.draw_sprite_pos(
+            texture, x1, y1, x2, y2, x3, y3, x4, y4, alpha
         )
     }
 

@@ -455,15 +455,13 @@ impl Game {
             },
             Instruction::Return { return_type } => return Ok(*return_type),
             Instruction::Repeat { count, body } => {
-                let mut count = self.eval(count, context)?.round();
-                while count > 0 {
+                for _ in 0..self.eval(count, context)?.round() {
                     match self.execute(body, context)? {
                         ReturnType::Normal => (),
                         ReturnType::Continue => continue,
                         ReturnType::Break => break,
                         ReturnType::Exit => return Ok(ReturnType::Exit),
                     }
-                    count -= 1;
                 }
             },
             Instruction::SetReturnValue { value } => {

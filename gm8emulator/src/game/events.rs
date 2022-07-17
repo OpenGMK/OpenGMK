@@ -412,7 +412,7 @@ impl Game {
             self.run_object_event(gml::ev::MOUSE, 60, None)?;
         }
 
-        // Mouse wheel up
+        // Mouse wheel down
         if self.input.mouse_wheel_down() {
             self.run_object_event(gml::ev::MOUSE, 61, None)?;
         }
