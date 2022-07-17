@@ -104,9 +104,12 @@ impl Asset for IncludedFile {
         writer.write_u32::<LE>(self.stored_in_gmk.into())?;
         if let Some(data) = &self.embedded_data {
             writer.write_u32::<LE>(data.len() as u32)?;
+            // TODO: How many years old is this comment below?
+            // I imagine the data's length is meant to be written?
+            // It's not like anybody is testing serialisation.
             // TODO: minio.write_buffer?
             writer.write_all(data)?;
-            data.len();
+            //data.len();
         }
         match &self.export_settings {
             ExportSetting::NoExport => {

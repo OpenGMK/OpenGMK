@@ -1408,7 +1408,7 @@ impl RendererTrait for RendererImpl {
     fn dump_sprite_part(&self, atlas_ref: AtlasRef, part_x: i32, part_y: i32, part_w: i32, part_h: i32) -> Box<[u8]> {
         let rect = match self.get_rect(atlas_ref) {
             Some(rect) => {
-                AtlasRect { x: rect.x + part_x, y: rect.y + part_y, w: rect.w + part_w, h: rect.h + part_h, ..*rect }
+                AtlasRect { x: rect.x + part_x, y: rect.y + part_y, w: part_w, h: part_h, ..*rect }
             },
             None => return Box::new([]),
         };
@@ -1761,6 +1761,53 @@ impl RendererTrait for RendererImpl {
                 .push_vertex(rotate(right, top), [tex_right, tex_top], split_colour(col2, alpha), normal)
                 .push_vertex(rotate(right, bottom), [tex_right, tex_bottom], split_colour(col3, alpha), normal)
                 .push_vertex(rotate(left, bottom), [tex_left, tex_bottom], split_colour(col4, alpha), normal),
+        );
+    }
+
+    fn draw_sprite_pos(
+        &mut self,
+        texture: AtlasRef,
+        x1: f64,
+        y1: f64,
+        x2: f64,
+        y2: f64,
+        x3: f64,
+        y3: f64,
+        x4: f64,
+        y4: f64,
+        alpha: f64,
+    ) {
+        let atlas_ref = match self.get_rect(texture) {
+            Some(rect) => *rect,
+            None => return,
+        };
+
+        self.set_texture_repeat(false);
+
+        // get texture corners
+        let tex_left = 0.0;
+        let tex_top = 0.0;
+        let tex_right = tex_left + 1.0;
+        let tex_bottom = tex_top + 1.0;
+
+        let (tex_left, tex_top, tex_right, tex_bottom) =
+            (tex_left as f32, tex_top as f32, tex_right as f32, tex_bottom as f32);
+
+        let normal = [0.0, 0.0, 0.0];
+        let depth = self.depth;
+
+        //correct for gm offset
+        let correct = |xoff, yoff| {
+            [(xoff-0.5) as f32, (yoff-0.5) as f32, depth]
+        };
+
+        // push the vertices
+        self.push_primitive(
+            PrimitiveBuilder::new(atlas_ref, PrimitiveType::TriFan)
+                .push_vertex(correct(x1, y1), [tex_left, tex_top], split_colour(0xffffff, alpha), normal)
+                .push_vertex(correct(x2, y2), [tex_right, tex_top], split_colour(0xffffff, alpha), normal)
+                .push_vertex(correct(x3, y3), [tex_right, tex_bottom], split_colour(0xffffff, alpha), normal)
+                .push_vertex(correct(x4, y4), [tex_left, tex_bottom], split_colour(0xffffff, alpha), normal),
         );
     }
 
