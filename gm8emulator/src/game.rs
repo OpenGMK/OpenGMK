@@ -2211,7 +2211,16 @@ impl Game {
             }
 
             self.frame()?;
-            handle_scene_change!(self);
+            match self.scene_change {
+                Some(SceneChange::Room(id)) => self.load_room(id)?,
+                Some(SceneChange::Restart) => self.restart()?,
+                Some(SceneChange::End) => self.restart()?,
+                Some(SceneChange::Load(ref mut path)) => {
+                    let path = std::mem::take(path);
+                    self.load_gm_save(path)?
+                },
+                None => (),
+            }
 
             // exit if X pressed or game_end() invoked
             if self.close_requested {
