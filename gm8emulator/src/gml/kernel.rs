@@ -4719,8 +4719,7 @@ impl Game {
         this.update_bbox(sprite);
 
         Ok(match object_id {
-            gml::SELF => 0.0,
-            gml::OTHER => {
+            gml::OTHER if context.this != context.other => {
                 let sprite = self.get_instance_mask_sprite(context.other);
                 let other = self.room.instance_list.get(context.other);
                 other.update_bbox(sprite);
@@ -4731,6 +4730,7 @@ impl Game {
                 let this = this;
                 let mut iter = self.room.instance_list.iter_by_drawing();
                 while let Some(other) = iter.next(&self.room.instance_list) {
+                    if context.this == other { continue }
                     let sprite = self.get_instance_mask_sprite(other);
                     let other = self.room.instance_list.get(other);
                     other.update_bbox(sprite);
@@ -4746,6 +4746,7 @@ impl Game {
                 let this = this;
                 let mut iter = self.room.instance_list.iter_by_identity(object_id);
                 while let Some(other) = iter.next(&self.room.instance_list) {
+                    if context.this == other { continue }
                     let sprite = self.get_instance_mask_sprite(other);
                     let other = self.room.instance_list.get(other);
                     other.update_bbox(sprite);
@@ -4758,13 +4759,13 @@ impl Game {
             },
             instance_id => {
                 match self.room.instance_list.get_by_instid(instance_id) {
-                    Some(handle) => {
+                    Some(handle) if handle != context.this => {
                         let sprite = self.get_instance_mask_sprite(handle);
                         let other = self.room.instance_list.get(handle);
                         other.update_bbox(sprite);
                         instance_distance(this, other)
                     },
-                    None => 1000000.0, // Again, GML default
+                    _ => 1000000.0, // Again, GML default
                 }
             },
         }
