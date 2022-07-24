@@ -170,6 +170,7 @@ pub struct Game {
     pub play_type: PlayType,
     pub stored_events: VecDeque<replay::Event>,
     pub frame_limiter: bool, // whether to limit FPS of gameplay by room_speed
+    pub frame_limit_at: usize, // on which frame to start limiting FPS
 
     pub audio: audio::AudioManager,
 
@@ -285,6 +286,7 @@ impl Game {
         temp_dir: Option<PathBuf>,
         encoding: &'static Encoding,
         frame_limiter: bool,
+        frame_limit_at: usize,
         play_type: PlayType,
     ) -> Result<Self, Box<dyn std::error::Error>> {
         // Parse file path
@@ -1256,6 +1258,7 @@ impl Game {
             file_finder: None,
             spoofed_time_nanos: None,
             frame_limiter,
+            frame_limit_at,
             fps: 0,
             frame_counter: 0,
             parameters: game_arguments,
@@ -2239,6 +2242,8 @@ impl Game {
                 self.frame_counter = 0;
             }
             self.frame_counter += 1;
+
+            self.frame_limiter |= frame_count == self.frame_limit_at && self.frame_limit_at != 0;
 
             if let (Some(time), true) = (duration.checked_sub(diff), self.frame_limiter) {
                 gml::datetime::sleep(time);
