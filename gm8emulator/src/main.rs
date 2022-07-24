@@ -79,22 +79,15 @@ fn xmain() -> i32 {
     let strict = matches.opt_present("s");
     let multithread = !matches.opt_present("t");
     let spoof_time = !matches.opt_present("r");
-    let frame_limit_at = match matches.opt_str("l").map(|frame| {
-            match frame.parse::<usize>() 
-            {
-                Ok(f) => f,
-                Err(e) => {
-                    panic!("{}", e);
-                },
-            }
+    let frame_limit_at = matches.opt_str("l").map(|frame| {
+        match frame.parse::<usize>() 
+        {
+            Ok(f) => f,
+            Err(e) => {
+                panic!("{}", e);
+            },
         }
-    )
-    {
-        Some(f) => f,
-        None => {
-            panic!("could not parse frame value");
-        },
-    };
+    }).unwrap_or(0);
     let frame_limiter = !matches.opt_present("l");
     let verbose = matches.opt_present("v");
     let output_bin = matches.opt_str("o").map(PathBuf::from);
