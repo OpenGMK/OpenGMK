@@ -3,7 +3,7 @@ use crate::{
     game::{
         Renderer,
         recording::{
-            ContextMenu,
+            instance_report::InstanceReport,
             window::{Window, DisplayInformation},
         },
     },
@@ -20,6 +20,7 @@ struct GameViewData {
 
 pub struct GameWindow {
     callback_data: GameViewData,
+    context_menu_options: Option<Vec<(String, i32)>>,
 }
 
 // Game window
@@ -37,8 +38,11 @@ impl Window for GameWindow {
     }
 
     fn is_open(&self) -> bool { true }
-}
 
+    fn show_context_menu(&mut self, info: &mut DisplayInformation) -> bool {
+        self.display_context_menu(info)
+    }
+}
 
 impl GameWindow {
     pub fn new() -> GameWindow {
@@ -50,6 +54,7 @@ impl GameWindow {
                 y: 0,
                 renderer: std::ptr::null_mut(),
             },
+            context_menu_options: None,
         }
     }
 
@@ -110,8 +115,28 @@ impl GameWindow {
         info.frame.end();
     }
 
+    fn display_context_menu(&mut self, info: &mut DisplayInformation) -> bool {
+        if !info.frame.window_focused() {
+            self.context_menu_options = None;
+        } else {
+            for (label, id) in self.context_menu_options.as_ref().unwrap() {
+                if info.frame.menu_item(&label) {
+                    if !info.config.watched_ids.contains(&id) {
+                        info.config.watched_ids.push(*id);
+                        info.instance_reports.push((*id, InstanceReport::new(info.game, *id)));
+                        info.config.save();
+                    }
+                    self.context_menu_options = None;
+                    break
+                }
+            }
+        }
+
+        self.context_menu_options.is_some()
+    }
+
     /// Gets all the instances the mouse is hovered over and puts them in a context menu
-    fn set_context_menu_instances(&self, info: &mut DisplayInformation) {
+    fn set_context_menu_instances(&mut self, info: &mut DisplayInformation) {
         unsafe {
             cimgui_sys::igSetWindowFocusNil();
         }
@@ -140,7 +165,9 @@ impl GameWindow {
         }
         
         if options.len() > 0 {
-            *info.context_menu = Some(ContextMenu::Instances { pos: info.frame.mouse_pos(), options });
+            if info.request_context_menu() {
+                self.context_menu_options = Some(options);
+            }
         }
     }
 }

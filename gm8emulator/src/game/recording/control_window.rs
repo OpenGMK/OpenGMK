@@ -6,7 +6,6 @@ use crate::{
         recording::{
             KeyState,
             InputMode,
-            ContextMenu,
             keybinds::Binding,
             window::{Window, DisplayInformation},
         },
@@ -136,13 +135,58 @@ impl Window for ControlWindow {
                 *info.new_rand = Some(rand);
             }
         }
+
         if info.frame.item_hovered() && info.frame.right_clicked() {
-            *info.context_menu = Some(ContextMenu::Seed { pos: info.frame.mouse_pos() });
+            info.request_context_menu();
         }
+
         info.frame.end();
     }
 
     fn is_open(&self) -> bool { true }
+
+    fn show_context_menu(&mut self, info: &mut DisplayInformation) -> bool {
+        let mut context_menu_open = true;
+
+        if !info.frame.window_focused() {
+            context_menu_open = false;
+        } else {
+            let count;
+            if info.new_rand.is_some() && info.frame.menu_item("Reset") {
+                count = None;
+                context_menu_open = false;
+                *info.new_rand = None;
+            } else if info.frame.menu_item("+1 RNG call") {
+                count = Some(1);
+                context_menu_open = false;
+            } else if info.frame.menu_item("+5 RNG calls") {
+                count = Some(5);
+                context_menu_open = false;
+            } else if info.frame.menu_item("+10 RNG calls") {
+                count = Some(10);
+                context_menu_open = false;
+            } else if info.frame.menu_item("+50 RNG calls") {
+                count = Some(50);
+                context_menu_open = false;
+            } else {
+                count = None;
+            }
+            if let Some(count) = count {
+                if let Some(rand) = &mut info.new_rand {
+                    for _ in 0..count {
+                        rand.cycle();
+                    }
+                } else {
+                    let mut rand = info.game.rand.clone();
+                    for _ in 0..count {
+                        rand.cycle();
+                    }
+                    *info.new_rand = Some(rand);
+                }
+            }
+        }
+        context_menu_open
+     }
 }
 
 impl ControlWindow {
@@ -256,7 +300,7 @@ impl ControlWindow {
         info.game.renderer.clear_view(crate::game::recording::CLEAR_COLOUR, 1.0);
         *info.renderer_state = info.game.renderer.state();
         info.game.renderer.set_state(info.ui_renderer_state);
-        *info.context_menu = None;
+        info.clear_context_menu();
         *info.new_rand = None;
         *info.new_mouse_pos = None;
 

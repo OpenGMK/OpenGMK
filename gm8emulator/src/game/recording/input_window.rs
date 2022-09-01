@@ -5,7 +5,6 @@ use crate::{
             self,
             KeyState,
             InputMode,
-            ContextMenu,
             window::{Window, DisplayInformation},
         },
     },
@@ -13,7 +12,13 @@ use crate::{
 };
 use ramen::event::Key;
 
-pub struct InputWindows;
+pub enum ContextMenuType {
+    Key(Key), Mouse(i8)
+}
+
+pub struct InputWindows {
+    context_menu_type: Option<ContextMenuType>,
+}
 
 // Keyboard & Mouse window
 impl Window for InputWindows {
@@ -26,15 +31,25 @@ impl Window for InputWindows {
     }
 
     fn is_open(&self) -> bool { true }
+    
+    fn show_context_menu(&mut self, info: &mut DisplayInformation) -> bool {
+        self.display_context_menu(info)
+    }
+
+    fn context_menu_close(&mut self) {
+        self.context_menu_type = None;
+    }
 }
 
 // Keyboard window
 impl InputWindows {
     pub fn new() -> Self {
-        InputWindows { }
+        InputWindows {
+            context_menu_type: None,
+        }
     }
 
-    fn show_input_windows(&self, info: &mut DisplayInformation) {
+    fn show_input_windows(&mut self, info: &mut DisplayInformation) {
         let DisplayInformation {
             frame,
             game,
@@ -42,7 +57,6 @@ impl InputWindows {
             config,
             win_padding,
             mouse_state,
-            context_menu,
             keyboard_state,
             game_running,
             new_mouse_pos,
@@ -51,6 +65,7 @@ impl InputWindows {
             ..
         } = info;
 
+        let mut request_context_menu = false;
         // Macro for keyboard keys and mouse buttons...
         macro_rules! kb_btn {
             ($name: expr, $size: expr, $x: expr, $y: expr, key $code: expr) => {
@@ -67,7 +82,9 @@ impl InputWindows {
                             unsafe {
                                 cimgui_sys::igSetWindowFocusNil();
                             }
-                            **context_menu = Some(ContextMenu::Button { pos: frame.mouse_pos(), key: $code });
+                            
+                            self.context_menu_type = Some(ContextMenuType::Key($code));
+                            request_context_menu = true;
                         }
                         if frame.middle_clicked() && hovered {
                             unsafe {
@@ -124,7 +141,9 @@ impl InputWindows {
                 let hovered = frame.item_hovered();
                 if frame.right_clicked() && hovered {
                     unsafe { cimgui_sys::igSetWindowFocusNil(); }
-                    **context_menu = Some(ContextMenu::MouseButton { pos: frame.mouse_pos(), button: $code });
+
+                    self.context_menu_type = Some(ContextMenuType::Mouse($code));
+                    request_context_menu = true;
                 }
                 if frame.middle_clicked() && hovered {
                     unsafe {
@@ -423,5 +442,25 @@ impl InputWindows {
             }
         }
         frame.end();
+
+        if request_context_menu {
+            if !info.request_context_menu() {
+                self.context_menu_type = None;
+            }
+        }
+    }
+
+    fn display_context_menu(&mut self, info: &mut DisplayInformation) -> bool {
+        match self.context_menu_type {
+            Some(ContextMenuType::Key(key)) => {
+                let key_state = &mut info.keyboard_state[usize::from(input::ramen2vk(key))];
+                key_state.menu(&mut info.frame)
+            },
+            Some(ContextMenuType::Mouse(button)) => {
+                let key_state = &mut info.mouse_state[button as usize];
+                key_state.menu(&mut info.frame)
+            },
+            None => { false },
+        }
     }
 }

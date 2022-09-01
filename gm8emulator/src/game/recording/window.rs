@@ -2,7 +2,7 @@ use crate::{
     imgui,
     game::{
         Game,
-        recording::{KeyState, ContextMenu, ProjectConfig, instance_report::InstanceReport, keybinds::{Keybindings, Binding}},
+        recording::{KeyState, ProjectConfig, instance_report::InstanceReport, keybinds::{Keybindings, Binding}},
         replay::Replay,
         savestate::{self, SaveState},
     },
@@ -14,7 +14,6 @@ use std::path::PathBuf;
 pub struct DisplayInformation<'a, 'f> {
     pub game: &'a mut Game,
     pub frame: &'a mut imgui::Frame<'f>,
-    pub context_menu: &'a mut Option<ContextMenu>,
     pub game_running: &'a mut bool,
     pub setting_mouse_pos: &'a mut bool,
     pub new_mouse_pos: &'a mut Option<(i32, i32)>,
@@ -41,6 +40,12 @@ pub struct DisplayInformation<'a, 'f> {
     pub win_border_size: f32,
 
     pub keybindings: &'a mut Keybindings,
+
+
+    // These probably shouldn't be pub. I just don't know how to initialize the struct otherwise.
+    pub _clear_context_menu: bool,
+    pub _request_context_menu: bool,
+    pub _context_menu_requested: bool,
 }
 
 pub trait WindowType {
@@ -54,6 +59,12 @@ pub trait Window: WindowType {
     fn name(&self) -> String;
 
     fn window_id(&self) -> usize { 0 }
+
+    /// Displays the context menu. Returns false if the context menu is not open anymore.
+    fn show_context_menu(&mut self, _info: &mut DisplayInformation) -> bool { false }
+
+    /// Runs when an open context menu on this window is closed.
+    fn context_menu_close(&mut self) { }
 }
 impl<T> WindowType for T
     where T: Window + 'static
@@ -197,7 +208,7 @@ impl DisplayInformation<'_, '_> {
                 if self.game.input.mouse_check_button(i as i8 + 1) { KeyState::Held } else { KeyState::Neutral };
         }
 
-        *self.context_menu = None;
+        self.clear_context_menu();
         *self.new_rand = None;
         *self.new_mouse_pos = None;
         *self.err_string = None;
@@ -217,5 +228,33 @@ impl DisplayInformation<'_, '_> {
         self.config.save();
 
         self.update_instance_reports();
+    }
+
+    pub fn clear_context_menu(&mut self) {
+        self._clear_context_menu = true;
+    }
+
+    pub fn context_menu_clear_requested(&self) -> bool {
+        self._clear_context_menu
+    }
+
+    pub fn request_context_menu(&mut self) -> bool {
+        if !self._clear_context_menu && !self._context_menu_requested {
+            self._request_context_menu = true;
+            // don't allow another context menu to be requested in the same frame
+            self._context_menu_requested = true;
+            true
+        } else {
+            false
+        }
+    }
+
+    pub fn context_menu_requested(&self) -> bool {
+        self._request_context_menu
+    }
+
+    pub fn reset_context_menu_state(&mut self, clear_context_menu: bool) {
+        self._clear_context_menu = clear_context_menu;
+        self._request_context_menu = false;
     }
 }

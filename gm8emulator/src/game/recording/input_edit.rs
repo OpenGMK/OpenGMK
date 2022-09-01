@@ -8,7 +8,7 @@ use crate::{
             FrameRng,
         },
         recording::{
-            KeyState, ContextMenu,
+            KeyState,
             window::{
                 Window,
                 Openable,
@@ -22,7 +22,7 @@ use crate::{
 enum MouseSelection {
     None,
     Left,
-    Middle,
+    //Middle,
     Right,
 }
 pub struct InputEditWindow {
@@ -40,7 +40,6 @@ pub struct InputEditWindow {
     selection_end_indicies: (usize, usize),
 
     context_menu: bool,
-    context_menu_pos: imgui::Vec2<f32>,
     context_menu_indicies: (usize, usize),
     context_menu_keystate: KeyState,
 }
@@ -68,15 +67,9 @@ const BGCOLOR_DISABLED_ALT: u32 = rgb!(165, 120, 120);
 
 impl Window for InputEditWindow {
     fn show_window(&mut self, info: &mut DisplayInformation) {
-        if info.context_menu.is_none() {
-            if self.context_menu {
-                self.is_selecting = MouseSelection::None;
-                self.context_menu = false;
-            }
-        }
 
         // todo: figure out a better system on when to update this.
-        if self.last_frame != info.config.current_frame || !self.updated{
+        if self.last_frame != info.config.current_frame || !self.updated {
             self.updated = true;
             self.last_frame = info.config.current_frame;
             self.scroll_to_current_frame = true;
@@ -124,7 +117,7 @@ impl Window for InputEditWindow {
             self.scroll_y = info.frame.get_scroll_y();
 
             self.draw_input_rows(info);
-            self.check_selection(info.frame, info.context_menu, info.replay);
+            self.check_selection(info);
 
             info.frame.end_table();
         }
@@ -143,10 +136,6 @@ impl Window for InputEditWindow {
 
         unsafe { cimgui_sys::igPopStyleVar(1); }
         info.frame.end();
-
-        if self.context_menu {
-            self.show_context_menu(info);
-        }
     }
 
     fn is_open(&self) -> bool {
@@ -155,6 +144,15 @@ impl Window for InputEditWindow {
 
     fn name(&self) -> String {
         Self::window_name().to_owned()
+    }
+
+    fn show_context_menu(&mut self, info: &mut DisplayInformation) -> bool {
+        self.display_context_menu(info)
+    }
+
+    fn context_menu_close(&mut self) {
+        self.context_menu = false;
+        self.is_selecting = MouseSelection::None;
     }
 }
 impl Openable<Self> for InputEditWindow {
@@ -184,7 +182,6 @@ impl InputEditWindow {
             selection_end_indicies: (0, 0),
 
             context_menu: false,
-            context_menu_pos: imgui::Vec2(0.0, 0.0),
             context_menu_indicies: (0, 0),
             context_menu_keystate: KeyState::Neutral,
         }
@@ -211,18 +208,15 @@ impl InputEditWindow {
         }
     }
 
-    fn show_context_menu(&mut self, info: &mut DisplayInformation) {
+    fn display_context_menu(&mut self, info: &mut DisplayInformation) -> bool {
         let DisplayInformation {
             frame,
             replay,
-            context_menu,
             ..
         } = info;
 
-        frame.begin_context_menu(self.context_menu_pos);
-
         if self.selection_start_indicies == self.selection_end_indicies {
-            if !self.context_menu_keystate.menu(frame, self.context_menu_pos) {
+            if !self.context_menu_keystate.menu(frame) {
                 let frame_index = self.context_menu_indicies.0;
                 let key_index = self.context_menu_indicies.1;
     
@@ -230,7 +224,6 @@ impl InputEditWindow {
     
                 self.is_selecting = MouseSelection::None;
                 self.context_menu = false;
-                **context_menu = None;
             }
         } else {
             if let Some(state) = self.any_button_menu(frame) {
@@ -244,19 +237,17 @@ impl InputEditWindow {
 
                 self.is_selecting = MouseSelection::None;
                 self.context_menu = false;
-                **context_menu = None;
 
                 // fix key states
                 self.update_keys(info);
             }
         }
 
-        info.frame.end();
+        self.context_menu
     }
 
     fn any_button_menu(&self, frame: &mut imgui::Frame<'_>) -> Option<KeyState> {
-        frame.begin_context_menu(self.context_menu_pos);
-        let result = if frame.menu_item("Release") {
+        if frame.menu_item("Release") {
             Some(KeyState::HeldWillRelease)
         } else if frame.menu_item("Release, Press") {
             Some(KeyState::HeldWillDouble)
@@ -276,10 +267,7 @@ impl InputEditWindow {
             Some(KeyState::NeutralWillCactus)
         } else {
             None
-        };
-        frame.end();
-
-        result
+        }
     }
 
     fn update_replay_keystate(&mut self, frame_index: usize, key_index: usize, new_keystate: KeyState, replay: &mut Replay) {
@@ -504,16 +492,16 @@ impl InputEditWindow {
         }
     }
 
-    fn check_selection(&mut self, frame: &mut imgui::Frame<'_>, context_menu: &mut Option<ContextMenu>, replay: &mut Replay) {
+    fn check_selection(&mut self, info: &mut DisplayInformation) {
         match self.is_selecting {
             MouseSelection::Left => {
-                if frame.left_released() {
+                if info.frame.left_released() {
                     if self.selection_start_indicies == self.selection_end_indicies {
                         let (i, j) = self.selection_start_indicies;
                         let mut target_state = self.states[i][j].clone();
                         target_state.click();
 
-                        self.update_replay_keystate(i, j, target_state, replay);
+                        self.update_replay_keystate(i, j, target_state, info.replay);
                     } else {
                         let key_index = self.selection_start_indicies.1;
                         let start = usize::min(self.selection_start_indicies.0, self.selection_end_indicies.0);
@@ -522,29 +510,27 @@ impl InputEditWindow {
                             let mut target_state = self.states[frame_index][key_index].clone();
                             target_state.click();
     
-                            self.update_replay_keystate(frame_index, key_index, target_state, replay);
+                            self.update_replay_keystate(frame_index, key_index, target_state, info.replay);
                         }
                     }
                     self.is_selecting = MouseSelection::None;
                 }
             },
             MouseSelection::Right => {
-                if frame.right_released() {
-                    self.context_menu = true;
-                    self.context_menu_pos = frame.mouse_pos();
-                    self.context_menu_indicies = self.selection_start_indicies;
-                    self.context_menu_keystate = self.states[self.selection_start_indicies.0][self.selection_start_indicies.1].clone();
-                    *context_menu = Some(ContextMenu::Any);
+                if info.frame.right_released() {
+                    if info.request_context_menu() {
+                        self.context_menu = true;
+                        self.context_menu_indicies = self.selection_start_indicies;
+                        self.context_menu_keystate = self.states[self.selection_start_indicies.0][self.selection_start_indicies.1].clone();
+                    }
                 }
             },
             _ => {
-                if !frame.mouse_down() {
+                if !info.frame.mouse_down() {
                     self.is_selecting = MouseSelection::None;
                 }
             },
         }
-
-        
     }
 
     fn update_replay(&mut self, frame_index: usize, key_index: usize, replay: &mut Replay, target_state: KeyState) {

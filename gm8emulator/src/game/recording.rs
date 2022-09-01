@@ -151,9 +151,8 @@ impl KeyState {
         };
     }
 
-    fn menu(&mut self, frame: &mut imgui::Frame, pos: imgui::Vec2<f32>) -> bool {
-        frame.begin_context_menu(pos);
-        let open = if !frame.window_focused() {
+    fn menu(&mut self, frame: &mut imgui::Frame) -> bool {
+        if !frame.window_focused() {
             false
         } else if self.is_held() {
             if frame.menu_item("(Keep Held)") {
@@ -196,9 +195,7 @@ impl KeyState {
             } else {
                 true
             }
-        };
-        frame.end();
-        open
+        }
     }
 
     pub fn repr(&self) -> &'static str {
@@ -290,14 +287,6 @@ impl KeyState {
             Self::Neutral | Self::Held => (),
         }
     }
-}
-
-pub enum ContextMenu {
-    Button { pos: imgui::Vec2<f32>, key: Key },
-    MouseButton { pos: imgui::Vec2<f32>, button: i8 },
-    Instances { pos: imgui::Vec2<f32>, options: Vec<(String, i32)> },
-    Seed { pos: imgui::Vec2<f32> },
-    Any,
 }
 
 #[derive(Deserialize, Serialize)]
@@ -462,7 +451,8 @@ impl Game {
         let mut game_running = true; // false indicates the game closed or crashed, and so advancing is not allowed
         let mut err_string: Option<String> = None;
 
-        let mut context_menu: Option<ContextMenu> = None;
+        let mut context_menu_window: Option<usize> = None;
+        let mut context_menu_pos: imgui::Vec2<f32> = imgui::Vec2(0.0,0.0);
         let mut savestate;
         let mut renderer_state;
 
@@ -663,6 +653,8 @@ impl Game {
             let io = context.io();
             io.set_mouse_wheel(0.0);
 
+            let mut clear_context_menu = false;
+
             // poll window events
             self.window.swap_events();
             for event in self.window.events() {
@@ -716,11 +708,11 @@ impl Game {
                         config.ui_height = u16::try_from(height).unwrap_or(u16::MAX);
                         io.set_display_size(imgui::Vec2(width as f32, height as f32));
                         self.renderer.resize_framebuffer(width, height, false);
-                        context_menu = None;
+                        clear_context_menu = true;
                     },
                     Event::Focus(false) => {
                         io.clear_inputs();
-                        context_menu = None;
+                        clear_context_menu = true;
                     },
                     Event::CloseRequest(_) => break 'gui,
                     _ => (),
@@ -749,7 +741,6 @@ impl Game {
                 let mut display_info = DisplayInformation {
                     game: self,
                     frame: &mut frame,
-                    context_menu: &mut context_menu,
                     game_running: &mut game_running,
                     setting_mouse_pos: &mut setting_mouse_pos,
                     new_mouse_pos: &mut new_mouse_pos,
@@ -776,93 +767,63 @@ impl Game {
                     win_padding: win_padding,
 
                     keybindings: &mut keybindings,
+
+                    _clear_context_menu: clear_context_menu,
+                    _request_context_menu: false,
+                    _context_menu_requested: false,
                 };
 
-                for (win, focus) in &mut windows {
+                let mut new_context_menu_window: Option<usize> = context_menu_window;
+
+                for (index, (win, focus)) in windows.iter_mut().enumerate() {
                     if *focus {
                         display_info.frame.set_next_window_focus();
                         *focus = false;
                     }
                     win.show_window(&mut display_info);
-                }
-                windows.retain(|(win, _)| win.is_open());
-            }
 
-            // Context menu windows (aka right-click menus)
-            match &context_menu {
-                Some(ContextMenu::Button { pos, key }) => {
-                    let key_state = &mut keyboard_state[usize::from(input::ramen2vk(*key))];
-                    if !key_state.menu(&mut frame, *pos) {
-                        context_menu = None;
+                    if !clear_context_menu {
+                        if display_info.context_menu_clear_requested() {
+                            clear_context_menu = true;
+                        } else if display_info.context_menu_requested() {
+                            new_context_menu_window = Some(index);
+                            context_menu_pos = display_info.frame.mouse_pos();
+                        }
                     }
-                },
-                Some(ContextMenu::MouseButton { pos, button }) => {
-                    let key_state = &mut mouse_state[*button as usize];
-                    if !key_state.menu(&mut frame, *pos) {
-                        context_menu = None;
+                    display_info.reset_context_menu_state(clear_context_menu);
+                }
+
+                if clear_context_menu {
+                    new_context_menu_window = None;
+                }
+
+                if context_menu_window != new_context_menu_window {
+                    if context_menu_window.is_some() {
+                        // Close old context menu
+                        match windows.get_mut(context_menu_window.unwrap()) {
+                            Some((win, _)) => win.context_menu_close(),
+                            None => {},
+                        }
                     }
-                },
-                Some(ContextMenu::Instances { pos, options }) => {
-                    frame.begin_context_menu(*pos);
-                    if !frame.window_focused() {
-                        context_menu = None;
-                    } else {
-                        for (label, id) in options {
-                            if frame.menu_item(label) {
-                                if !config.watched_ids.contains(id) {
-                                    config.watched_ids.push(*id);
-                                    instance_reports.push((*id, InstanceReport::new(&*self, *id)));
-                                    config.save();
-                                }
-                                context_menu = None;
-                                break
+
+                    context_menu_window = new_context_menu_window;
+                }
+
+                if context_menu_window.is_some() {
+                    match windows.get_mut(context_menu_window.unwrap()) {
+                        Some((win, _)) => {
+                            display_info.frame.begin_context_menu(context_menu_pos);
+                            if !win.show_context_menu(&mut display_info) {
+                                win.context_menu_close();
+                                context_menu_window = None;
                             }
-                        }
+                            display_info.frame.end();
+                        },
+                        None => context_menu_window = None,
                     }
-                    frame.end();
-                },
-                Some(ContextMenu::Seed { pos }) => {
-                    frame.begin_context_menu(*pos);
-                    if !frame.window_focused() {
-                        context_menu = None;
-                    } else {
-                        let count;
-                        if new_rand.is_some() && frame.menu_item("Reset") {
-                            count = None;
-                            context_menu = None;
-                            new_rand = None;
-                        } else if frame.menu_item("+1 RNG call") {
-                            count = Some(1);
-                            context_menu = None;
-                        } else if frame.menu_item("+5 RNG calls") {
-                            count = Some(5);
-                            context_menu = None;
-                        } else if frame.menu_item("+10 RNG calls") {
-                            count = Some(10);
-                            context_menu = None;
-                        } else if frame.menu_item("+50 RNG calls") {
-                            count = Some(50);
-                            context_menu = None;
-                        } else {
-                            count = None;
-                        }
-                        if let Some(count) = count {
-                            if let Some(rand) = &mut new_rand {
-                                for _ in 0..count {
-                                    rand.cycle();
-                                }
-                            } else {
-                                let mut rand = self.rand.clone();
-                                for _ in 0..count {
-                                    rand.cycle();
-                                }
-                                new_rand = Some(rand);
-                            }
-                        }
-                    }
-                    frame.end();
-                },
-                None | Some(ContextMenu::Any) => (),
+                }
+
+                windows.retain(|(win, _)| win.is_open());
             }
 
             // Show error/info message if there is one
