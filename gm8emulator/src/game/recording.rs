@@ -904,12 +904,12 @@ impl Game {
 
             context.io().set_delta_time(time_start.elapsed().as_micros() as f32 / 1000000.0);
         }
+        
+        config.save();
+        let _ = File::create(&keybind_path).map(|f| bincode::serialize_into(f, &keybindings));
 
         let mut backup_path = project_path.clone();
         backup_path.push("backup.gmtas");
-        replay.to_file(&backup_path);
-
-        config.save();
-        let _ = File::create(&keybind_path).map(|f| bincode::serialize_into(f, &keybindings));
+        replay.to_file(&backup_path).expect("backup.gmtas could not be saved.");
     }
 }
