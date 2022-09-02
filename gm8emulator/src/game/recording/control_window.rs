@@ -148,43 +148,40 @@ impl Window for ControlWindow {
     fn show_context_menu(&mut self, info: &mut DisplayInformation) -> bool {
         let mut context_menu_open = true;
 
-        if !info.frame.window_focused() {
+        let count;
+        if info.new_rand.is_some() && info.frame.menu_item("Reset") {
+            count = None;
+            context_menu_open = false;
+            *info.new_rand = None;
+        } else if info.frame.menu_item("+1 RNG call") {
+            count = Some(1);
+            context_menu_open = false;
+        } else if info.frame.menu_item("+5 RNG calls") {
+            count = Some(5);
+            context_menu_open = false;
+        } else if info.frame.menu_item("+10 RNG calls") {
+            count = Some(10);
+            context_menu_open = false;
+        } else if info.frame.menu_item("+50 RNG calls") {
+            count = Some(50);
             context_menu_open = false;
         } else {
-            let count;
-            if info.new_rand.is_some() && info.frame.menu_item("Reset") {
-                count = None;
-                context_menu_open = false;
-                *info.new_rand = None;
-            } else if info.frame.menu_item("+1 RNG call") {
-                count = Some(1);
-                context_menu_open = false;
-            } else if info.frame.menu_item("+5 RNG calls") {
-                count = Some(5);
-                context_menu_open = false;
-            } else if info.frame.menu_item("+10 RNG calls") {
-                count = Some(10);
-                context_menu_open = false;
-            } else if info.frame.menu_item("+50 RNG calls") {
-                count = Some(50);
-                context_menu_open = false;
-            } else {
-                count = None;
-            }
-            if let Some(count) = count {
-                if let Some(rand) = &mut info.new_rand {
-                    for _ in 0..count {
-                        rand.cycle();
-                    }
-                } else {
-                    let mut rand = info.game.rand.clone();
-                    for _ in 0..count {
-                        rand.cycle();
-                    }
-                    *info.new_rand = Some(rand);
+            count = None;
+        }
+        if let Some(count) = count {
+            if let Some(rand) = &mut info.new_rand {
+                for _ in 0..count {
+                    rand.cycle();
                 }
+            } else {
+                let mut rand = info.game.rand.clone();
+                for _ in 0..count {
+                    rand.cycle();
+                }
+                *info.new_rand = Some(rand);
             }
         }
+
         context_menu_open
      }
 }

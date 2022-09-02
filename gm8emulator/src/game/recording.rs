@@ -152,9 +152,7 @@ impl KeyState {
     }
 
     fn menu(&mut self, frame: &mut imgui::Frame) -> bool {
-        if !frame.window_focused() {
-            false
-        } else if self.is_held() {
+        if self.is_held() {
             if frame.menu_item("(Keep Held)") {
                 *self = KeyState::Held;
                 false
@@ -813,7 +811,7 @@ impl Game {
                     match windows.get_mut(context_menu_window.unwrap()) {
                         Some((win, _)) => {
                             display_info.frame.begin_context_menu(context_menu_pos);
-                            if !win.show_context_menu(&mut display_info) {
+                            if !display_info.frame.window_focused() || !win.show_context_menu(&mut display_info) {
                                 win.context_menu_close();
                                 context_menu_window = None;
                             }

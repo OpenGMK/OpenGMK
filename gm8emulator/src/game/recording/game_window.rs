@@ -116,19 +116,15 @@ impl GameWindow {
     }
 
     fn display_context_menu(&mut self, info: &mut DisplayInformation) -> bool {
-        if !info.frame.window_focused() {
-            self.context_menu_options = None;
-        } else {
-            for (label, id) in self.context_menu_options.as_ref().unwrap() {
-                if info.frame.menu_item(&label) {
-                    if !info.config.watched_ids.contains(&id) {
-                        info.config.watched_ids.push(*id);
-                        info.instance_reports.push((*id, InstanceReport::new(info.game, *id)));
-                        info.config.save();
-                    }
-                    self.context_menu_options = None;
-                    break
+        for (label, id) in self.context_menu_options.as_ref().unwrap() {
+            if info.frame.menu_item(&label) {
+                if !info.config.watched_ids.contains(&id) {
+                    info.config.watched_ids.push(*id);
+                    info.instance_reports.push((*id, InstanceReport::new(info.game, *id)));
+                    info.config.save();
                 }
+                self.context_menu_options = None;
+                break
             }
         }
 
