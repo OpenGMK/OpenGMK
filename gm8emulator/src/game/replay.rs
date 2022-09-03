@@ -160,6 +160,29 @@ impl Replay {
         self.frames.last_mut().unwrap() // Last cannot be None since we just pushed an element
     }
 
+    // Adds a new frame of input to the specified position of the replay.
+    // Mouse position will be the same as the previous frame unless this is the first frame,
+    // in which case it will be (0, 0)
+    pub fn insert_new_frame(&mut self, index: usize) -> &mut Frame {
+        let (mouse_x, mouse_y) = match self.frames.get(index-1) {
+            Some(frame) => (frame.mouse_x, frame.mouse_y),
+            None => (0, 0),
+        };
+        self.frames.insert(index, Frame {
+            mouse_x,
+            mouse_y,
+            inputs: Vec::new(),
+            events: Vec::new(),
+            new_seed: None,
+            new_time: None,
+        });
+        self.frames.get_mut(index).unwrap()
+    }
+
+    pub fn delete_frame(&mut self, index: usize) -> Frame {
+        self.frames.remove(index)
+    }
+
     // Gets the data associated with a given frame, if any
     pub fn get_frame(&self, index: usize) -> Option<&Frame> {
         self.frames.get(index)

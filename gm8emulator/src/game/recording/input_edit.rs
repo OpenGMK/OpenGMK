@@ -36,11 +36,11 @@ pub struct InputEditWindow {
     scroll_to_current_frame: bool,
 
     is_selecting: MouseSelection,
-    selection_start_indicies: (usize, usize),
-    selection_end_indicies: (usize, usize),
+    selection_start_indicies: (usize, Option<usize>),
+    selection_end_indicies: (usize, Option<usize>),
 
     context_menu: bool,
-    context_menu_indicies: (usize, usize),
+    context_menu_indicies: (usize, Option<usize>),
     context_menu_keystate: KeyState,
 }
 
@@ -73,7 +73,7 @@ impl Window for InputEditWindow {
             self.updated = true;
             self.last_frame = info.config.current_frame;
             self.scroll_to_current_frame = true;
-            self.update_keys(info);
+            self.update_keys(info.replay);
         }
 
         unsafe { cimgui_sys::igPushStyleVarVec2(cimgui_sys::ImGuiStyleVar__ImGuiStyleVar_WindowPadding as _, imgui::Vec2(0.0, 0.0).into()); }
@@ -178,11 +178,11 @@ impl InputEditWindow {
             scroll_to_current_frame: false,
 
             is_selecting: MouseSelection::None,
-            selection_start_indicies: (0, 0),
-            selection_end_indicies: (0, 0),
+            selection_start_indicies: (0, None),
+            selection_end_indicies: (0, None),
 
             context_menu: false,
-            context_menu_indicies: (0, 0),
+            context_menu_indicies: (0, None),
             context_menu_keystate: KeyState::Neutral,
         }
     }
@@ -215,31 +215,62 @@ impl InputEditWindow {
             ..
         } = info;
 
-        if self.selection_start_indicies == self.selection_end_indicies {
-            if !self.context_menu_keystate.menu(frame) {
-                let frame_index = self.context_menu_indicies.0;
-                let key_index = self.context_menu_indicies.1;
-    
-                self.update_replay_keystate(frame_index, key_index, self.context_menu_keystate, replay);
-    
-                self.is_selecting = MouseSelection::None;
-                self.context_menu = false;
+        if let Some(key_index) = self.context_menu_indicies.1 {
+            if self.selection_start_indicies.0 == self.selection_end_indicies.0 {
+                if !self.context_menu_keystate.menu(frame) {
+                    let frame_index = self.context_menu_indicies.0;
+
+                    self.update_replay_keystate(frame_index, key_index, self.context_menu_keystate, replay);
+
+                    self.is_selecting = MouseSelection::None;
+                    self.context_menu = false;
+                }
+            } else {
+                if let Some(state) = self.any_button_menu(frame) {
+                    let start = usize::min(self.selection_start_indicies.0, self.selection_end_indicies.0);
+                    let end = usize::max(self.selection_start_indicies.0, self.selection_end_indicies.0);
+
+                    for frame_index in start..end {
+                        self.update_replay_keystate(frame_index, key_index, state, replay);
+                    }
+
+                    self.is_selecting = MouseSelection::None;
+                    self.context_menu = false;
+
+                    // fix key states
+                    self.update_keys(info.replay);
+                }
             }
         } else {
-            if let Some(state) = self.any_button_menu(frame) {
+            if frame.menu_item("Add 1 frame before") {
+                let start = usize::min(self.selection_start_indicies.0, self.selection_end_indicies.0);
+                self.add_frames(info.replay, start, 1);
+                self.context_menu = false;
+            } else if frame.menu_item("Add 10 frames before") {
+                let start = usize::min(self.selection_start_indicies.0, self.selection_end_indicies.0);
+                self.add_frames(info.replay, start, 10);
+                self.context_menu = false;
+            } else if frame.menu_item("Add 50 frames before") {
+                let start = usize::min(self.selection_start_indicies.0, self.selection_end_indicies.0);
+                self.add_frames(info.replay, start, 50);
+                self.context_menu = false;
+            } else if frame.menu_item("Add 1 frame after") {
+                let start = usize::max(self.selection_start_indicies.0, self.selection_end_indicies.0)+1;
+                self.add_frames(info.replay, start, 1);
+                self.context_menu = false;
+            } else if frame.menu_item("Add 10 frames after") {
+                let start = usize::max(self.selection_start_indicies.0, self.selection_end_indicies.0)+1;
+                self.add_frames(info.replay, start, 10);
+                self.context_menu = false;
+            } else if frame.menu_item("Add 50 frames after") {
+                let start = usize::max(self.selection_start_indicies.0, self.selection_end_indicies.0)+1;
+                self.add_frames(info.replay, start, 50);
+                self.context_menu = false;
+            } else if frame.menu_item("Delete frame(s)") {
                 let start = usize::min(self.selection_start_indicies.0, self.selection_end_indicies.0);
                 let end = usize::max(self.selection_start_indicies.0, self.selection_end_indicies.0);
-                let key_index = self.selection_start_indicies.1;
-
-                for frame_index in start..end {
-                    self.update_replay_keystate(frame_index, key_index, state, replay);
-                }
-
-                self.is_selecting = MouseSelection::None;
+                self.delete_frames(replay, start, end);
                 self.context_menu = false;
-
-                // fix key states
-                self.update_keys(info);
             }
         }
 
@@ -310,12 +341,7 @@ impl InputEditWindow {
         self.update_replay(frame_index, key_index, replay, new_keystate);
     }
 
-    fn update_keys(&mut self, info: &mut DisplayInformation) {
-        let DisplayInformation {
-            replay,
-            ..
-        } = info;
-
+    fn update_keys(&mut self, replay: &mut Replay) {
         // clear selection if keys need to be updated.
         self.is_selecting = MouseSelection::None;
 
@@ -383,6 +409,8 @@ impl InputEditWindow {
             ..
         } = info;
 
+        let mouse_pos = frame.mouse_pos();
+
         let visible_height = frame.window_size().1 - INPUT_TABLE_YPOS;
         let float_count = replay.frame_count() as f32;
 
@@ -400,6 +428,7 @@ impl InputEditWindow {
         }
         for i in start_index..(clipped_below as usize) {
             frame.table_next_row(0, INPUT_TABLE_HEIGHT);
+
             if i == config.current_frame {
                 self.set_table_colors(BGCOLOR_CURRENT, BGCOLOR_CURRENT_ALT);
             } else if i == config.current_frame + 1 {
@@ -412,6 +441,7 @@ impl InputEditWindow {
             frame.table_set_column_index(0);
             frame.text(&format!("{}", i));
 
+            let mut any_button_hovered = false;
             for j in 0..self.keys.len() {
                 frame.table_set_column_index(j as i32 + 1);
                 let keystate = &self.states[i][j];
@@ -422,12 +452,15 @@ impl InputEditWindow {
                 let item_rect_size = frame.get_item_rect_size();
 
                 let mut within_selection = false;
-                if self.is_selecting != MouseSelection::None && i >= config.current_frame && j == self.selection_start_indicies.1 {
-                    let mouse_pos = frame.mouse_pos();
+                // If we are selecting, check if the button falls withing the range of selected items.
+                if self.is_selecting != MouseSelection::None && i >= config.current_frame && j == self.selection_start_indicies.1.unwrap_or(j) {
                     if !self.context_menu && (hovered || (mouse_pos.1 >= item_rect_min.1 && mouse_pos.1 <= item_rect_min.1 + item_rect_size.1)) {
+                        // If we don't have a context menu open and the mouse is vertically on this button, mark it as selected
                         within_selection = true;
-                        self.selection_end_indicies = (i, j);
+                        // And set this as the ending index
+                        self.selection_end_indicies = (i, self.selection_start_indicies.1);
                     } else {
+                        // Otherwise check if the index falls within the selected indicies
                         within_selection = i >= usize::min(self.selection_start_indicies.0, self.selection_end_indicies.0) && i <= usize::max(self.selection_start_indicies.0, self.selection_end_indicies.0);
                     }
                 }
@@ -438,17 +471,18 @@ impl InputEditWindow {
                 }
 
                 if hovered {
+                    any_button_hovered = true;
                     self.hovered_text = Some(keystate.repr());
                     // if we clicked on an editable frame
                     if i >= config.current_frame {
                         if frame.left_clicked() {
                             self.is_selecting = MouseSelection::Left;
-                            self.selection_start_indicies = (i, j);
-                            self.selection_end_indicies = (i, j);
+                            self.selection_start_indicies = (i, Some(j));
+                            self.selection_end_indicies = (i, Some(j));
                         } else if frame.right_clicked() {
                             self.is_selecting = MouseSelection::Right;
-                            self.selection_start_indicies = (i, j);
-                            self.selection_end_indicies = (i, j);
+                            self.selection_start_indicies = (i, Some(j));
+                            self.selection_end_indicies = (i, Some(j));
                         }
                     }
                 }
@@ -465,6 +499,9 @@ impl InputEditWindow {
             
             frame.button(&text, imgui::Vec2(INPUT_TABLE_RNG_WIDTH, INPUT_TABLE_HEIGHT), None);
             let hovered = frame.item_hovered();
+            if hovered {
+                any_button_hovered = true;
+            }
             // If this is a rng change we haven't reached yet and is hovered
             if i >= config.current_frame && hovered {
                 if frame.left_clicked() {
@@ -484,6 +521,17 @@ impl InputEditWindow {
                     current_frame.new_seed = None;
                 }
             }
+
+            // If we aren't hovering any of the key buttons, check if we are hovering the current row
+            if frame.right_clicked() && !any_button_hovered && frame.window_hovered() && i >= config.current_frame {
+                let row_pos = frame.get_item_rect_min(); // Get last item position to figure out whether or not we are hovering the current row
+                if  mouse_pos.1 >= row_pos.1 && mouse_pos.1 <= row_pos.1 + INPUT_TABLE_HEIGHT {
+                    self.is_selecting = MouseSelection::Right;
+                    self.selection_start_indicies = (i, None);
+                    self.selection_end_indicies = (i, None);
+                }
+            }
+
         }
 
         if float_count - clipped_below > 0.0 {
@@ -498,12 +546,12 @@ impl InputEditWindow {
                 if info.frame.left_released() {
                     if self.selection_start_indicies == self.selection_end_indicies {
                         let (i, j) = self.selection_start_indicies;
-                        let mut target_state = self.states[i][j].clone();
+                        let mut target_state = self.states[i][j.unwrap()].clone();
                         target_state.click();
 
-                        self.update_replay_keystate(i, j, target_state, info.replay);
+                        self.update_replay_keystate(i, j.unwrap(), target_state, info.replay);
                     } else {
-                        let key_index = self.selection_start_indicies.1;
+                        let key_index = self.selection_start_indicies.1.unwrap();
                         let start = usize::min(self.selection_start_indicies.0, self.selection_end_indicies.0);
                         let end = usize::max(self.selection_start_indicies.0, self.selection_end_indicies.0);
                         for frame_index in start..end {
@@ -521,7 +569,9 @@ impl InputEditWindow {
                     if info.request_context_menu() {
                         self.context_menu = true;
                         self.context_menu_indicies = self.selection_start_indicies;
-                        self.context_menu_keystate = self.states[self.selection_start_indicies.0][self.selection_start_indicies.1].clone();
+                        if let Some(index) = self.selection_start_indicies.1 {
+                            self.context_menu_keystate = self.states[self.selection_start_indicies.0][index].clone();
+                        }
                     }
                 }
             },
@@ -531,6 +581,45 @@ impl InputEditWindow {
                 }
             },
         }
+    }
+
+    fn add_frames(&mut self, replay: &mut Replay, index: usize, count: usize) {
+        if count != 0 {
+            let mut i = count;
+            while i != 0 {
+                i -= 1;
+                replay.insert_new_frame(index);
+            }
+
+            self.update_keys(replay)
+        }
+    }
+
+    fn delete_frames(&mut self, replay: &mut Replay, start: usize, end: usize) {
+        assert!(start <= end, "delete_frames: start must be less or equal to end");
+
+        if end == replay.frame_count()-1 {
+            replay.truncate_frames(start);
+        } else {
+            for _ in start..end+1 {
+                replay.delete_frame(start);
+                self.states.remove(start);
+            }
+
+            // update all key states for the first non-deleted frame to match the previous frame.
+            for key in 0..self.keys.len() {
+                let start_pressed = if start == 0 {
+                    false
+                } else {
+                    self.states[start-1][key].ends_in_press()
+                };
+
+                let state = self.update_keystate_front(start, key, start_pressed).clone();
+                self.update_replay(start, key, replay, state);
+            }
+        }
+
+        self.update_keys(replay);
     }
 
     fn update_replay(&mut self, frame_index: usize, key_index: usize, replay: &mut Replay, target_state: KeyState) {
@@ -554,8 +643,7 @@ impl InputEditWindow {
 
         macro_rules! invalid {
             () => {{
-                    println!("Warning: Invalid input order {}: {}", state.repr(), pressed);
-
+                println!("Warning: Invalid input order {}: {}", state.repr(), pressed);
                 KeyState::Neutral
             }};
         }
@@ -573,5 +661,24 @@ impl InputEditWindow {
 
                     _ => if pressed { KeyState::NeutralWillPress } else { KeyState::HeldWillRelease },
                 };
+    }
+
+    fn update_keystate_front(&mut self, frame_index: usize, key_index: usize, start_pressed: bool) -> &KeyState{
+        let state = &mut self.states[frame_index][key_index];
+
+        if state.starts_with_press() != start_pressed {
+            *state = match state {
+                KeyState::NeutralWillPress => KeyState::Held,
+                KeyState::Neutral | KeyState::NeutralWillDouble | KeyState::NeutralDoubleEveryFrame => KeyState::HeldWillRelease,
+                KeyState::NeutralWillTriple => KeyState::HeldWillDouble,
+                KeyState::NeutralWillCactus => KeyState::HeldWillRelease,
+                
+                KeyState::HeldWillRelease => KeyState::Neutral,
+                KeyState::Held | KeyState::HeldWillDouble | KeyState::HeldDoubleEveryFrame => KeyState::NeutralWillPress,
+                KeyState::HeldWillTriple => KeyState::NeutralWillDouble,
+            }
+        }
+
+        state
     }
 }
