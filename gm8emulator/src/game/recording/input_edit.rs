@@ -25,6 +25,10 @@ enum MouseSelection {
     //Middle,
     Right,
 }
+#[derive(PartialEq, Eq, Copy, Clone)]
+enum TableColor {
+    DISABLED, CURRENT, SELECTED, DEFAULT, NONE
+}
 pub struct InputEditWindow {
     is_open: bool,
     updated: bool,
@@ -43,6 +47,8 @@ pub struct InputEditWindow {
     context_menu: bool,
     context_menu_indicies: (usize, Option<usize>),
     context_menu_keystate: KeyState,
+
+    last_table_color: TableColor,
 }
 
 const INPUT_TABLE_WIDTH: f32 = 50.0;
@@ -65,6 +71,8 @@ const BGCOLOR_CURRENT: u32 = rgb!(145, 210, 145);
 const BGCOLOR_CURRENT_ALT: u32 = rgb!(120, 165, 121);
 const BGCOLOR_DISABLED: u32 = rgb!(210, 145, 145);
 const BGCOLOR_DISABLED_ALT: u32 = rgb!(165, 120, 120);
+const BGCOLOR_SELECTED: u32 = rgb!(244, 231, 90);
+const BGCOLOR_SELECTED_ALT: u32 = rgb!(232, 223, 127);
 
 impl Window for InputEditWindow {
     fn show_window(&mut self, info: &mut DisplayInformation) {
@@ -186,6 +194,8 @@ impl InputEditWindow {
             context_menu: false,
             context_menu_indicies: (0, None),
             context_menu_keystate: KeyState::Neutral,
+
+            last_table_color: TableColor::NONE,
         }
     }
 
@@ -207,6 +217,24 @@ impl InputEditWindow {
             cimgui_sys::igPopStyleColor(2);
             cimgui_sys::igPushStyleColorU32(cimgui_sys::ImGuiCol__ImGuiCol_TableRowBg as _, color);
             cimgui_sys::igPushStyleColorU32(cimgui_sys::ImGuiCol__ImGuiCol_TableRowBgAlt as _, color_alt);
+        }
+    }
+
+    fn set_table_color(&mut self, color: TableColor) {
+        if self.last_table_color != color {
+            self.last_table_color = color;
+            match color {
+                TableColor::NONE => {},
+                TableColor::DISABLED => self.set_table_colors(BGCOLOR_DISABLED, BGCOLOR_DISABLED_ALT),
+                TableColor::SELECTED => self.set_table_colors(BGCOLOR_SELECTED, BGCOLOR_SELECTED_ALT),
+                TableColor::CURRENT => self.set_table_colors(BGCOLOR_CURRENT, BGCOLOR_CURRENT_ALT),
+                TableColor::DEFAULT => {
+                    // remove whatever is currently on the stack
+                    unsafe { cimgui_sys::igPopStyleColor(2); }
+                    // and push the default colors
+                    self.push_current_row_colors();
+                },
+            }
         }
     }
 
@@ -424,20 +452,22 @@ impl InputEditWindow {
             frame.table_next_row(0, clipped_above * TOTAL_INPUT_TABLE_HEIGHT);
         }
 
+        self.last_table_color = TableColor::NONE;
         let start_index = clipped_above as usize;
         if start_index < config.current_frame {
-            self.set_table_colors(BGCOLOR_DISABLED, BGCOLOR_DISABLED_ALT);
+            self.set_table_color(TableColor::DISABLED);
         }
         for i in start_index..(clipped_below as usize) {
             frame.table_next_row(0, INPUT_TABLE_HEIGHT);
 
-            if i == config.current_frame {
-                self.set_table_colors(BGCOLOR_CURRENT, BGCOLOR_CURRENT_ALT);
-            } else if i == config.current_frame + 1 {
-                // remove whatever is currently on the stack
-                unsafe { cimgui_sys::igPopStyleColor(2); }
-                // and push the default colors
-                self.push_current_row_colors();
+            if self.is_selecting != MouseSelection::None && self.selection_column.is_none() 
+                && i >= usize::min(self.selection_start_index, self.selection_end_index)
+                && i <= usize::max(self.selection_start_index, self.selection_end_index) {
+                    self.set_table_color(TableColor::SELECTED);
+            } else if i == config.current_frame {
+                self.set_table_color(TableColor::CURRENT);
+            } else if i > config.current_frame {
+                self.set_table_color(TableColor::DEFAULT)
             }
 
             frame.table_set_column_index(0);
