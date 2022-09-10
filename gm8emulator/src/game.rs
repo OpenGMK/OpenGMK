@@ -2200,6 +2200,21 @@ impl Game {
         loop {
             self.window.swap_events();
             self.input.mouse_step();
+            
+            if self.frame_limit_at > 0 && frame_count == self.frame_limit_at || frame_count == replay.frame_count() {
+                if let Some(bin) = &output_bin {
+                    let render_state = self.renderer.state();
+                    let mut new_replay = replay.clone();
+                    new_replay.truncate_frames(frame_count);
+                    match SaveState::from(&mut self, new_replay, render_state)
+                        .save_to_file(bin, &mut savestate::Buffer::new())
+                    {
+                        Ok(()) => break Ok(()),
+                        Err(e) => break Err(format!("Error saving to {:?}: {:?}", output_bin, e).into()),
+                    }
+                }
+            }
+
             if let Some(frame) = replay.get_frame(frame_count) {
                 if !self.stored_events.is_empty() {
                     return Err(format!(
@@ -2211,14 +2226,6 @@ impl Game {
                 }
 
                 self.set_input_from_frame(frame);
-            } else if let Some(bin) = &output_bin {
-                let render_state = self.renderer.state();
-                match SaveState::from(&mut self, replay.clone(), render_state)
-                    .save_to_file(bin, &mut savestate::Buffer::new())
-                {
-                    Ok(()) => break Ok(()),
-                    Err(e) => break Err(format!("Error saving to {:?}: {:?}", output_bin, e).into()),
-                }
             }
 
             self.frame()?;

@@ -346,7 +346,7 @@ impl ProjectConfig {
 }
 
 impl Game {
-    pub fn record(&mut self, project_path: PathBuf, pause: bool) {
+    pub fn record(&mut self, project_path: PathBuf, pause: bool, pause_at_save: Option<&PathBuf>) {
         let mut save_buffer = savestate::Buffer::new();
         let mut startup_successful = true;
 
@@ -486,7 +486,7 @@ impl Game {
             load_backup_recording!();
         }
 
-        if !save_paths[config.quicksave_slot].exists() || pause {
+        if !save_paths[config.quicksave_slot].exists() || (pause && pause_at_save.is_none()) {
             if let Err(e) = match self.init() {
                 Ok(()) => match self.scene_change {
                     Some(SceneChange::Room(id)) => self.load_room(id),
@@ -556,7 +556,8 @@ impl Game {
                 }
             }
         } else {
-            match SaveState::from_file(&save_paths[config.quicksave_slot], &mut save_buffer) {
+            let save_path = pause_at_save.unwrap_or(&save_paths[config.quicksave_slot]);
+            match SaveState::from_file(&save_path, &mut save_buffer) {
                 Ok(state) => {
                     let (rep, ren) = state.clone().load_into(self);
                     config.current_frame = rep.frame_count();

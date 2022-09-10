@@ -55,7 +55,7 @@ fn xmain() -> i32 {
     opts.optopt("f", "replay-file", "path to savestate file to replay", "FILE");
     opts.optopt("o", "output-file", "output savestate name in replay mode", "FILE.bin");
     opts.optmulti("a", "game-arg", "argument to pass to the game", "ARG");
-    opts.optflag("p", "pause", "pause at beginning of record mode in read-only mode instead of loading a savestate");
+    opts.optflagopt("p", "pause", "start tas ui in read-only mode. Either loads the savestate specified after this parameter or starts at the first frame", "savestate");
 
     let matches = match opts.parse(&args[1..]) {
         Ok(matches) => matches,
@@ -93,6 +93,7 @@ fn xmain() -> i32 {
     let verbose = matches.opt_present("v");
     let output_bin = matches.opt_str("o").map(PathBuf::from);
     let pause = matches.opt_present("p");
+    let pause_at_save = matches.opt_str("p").map(PathBuf::from);
     let project_path = matches.opt_str("n").map(|name| {
         let mut p = env::current_dir().expect("std::env::current_dir() failed");
         p.push("projects");
@@ -241,7 +242,7 @@ fn xmain() -> i32 {
 
     if let Err(err) = if let Some(path) = project_path {
         components.spoofed_time_nanos = Some(time_now);
-        components.record(path, pause);
+        components.record(path, pause, pause_at_save.as_ref());
         Ok(())
     } else {
         // cache temp_dir and included files because the other functions take ownership
