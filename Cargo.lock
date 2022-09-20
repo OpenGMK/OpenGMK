@@ -703,8 +703,11 @@ dependencies = [
 
 [[package]]
 name = "ramen"
-version = "0.0.1"
-source = "git+https://github.com/notviri/ramen?branch=july-demo#73e24a19186a14e791a2f9fa22971aac85c3bf7a"
+version = "0.0.3"
+source = "git+https://github.com/viriuwu/ramen#c14c2182892886bf223e256e1847daa753c121f9"
+dependencies = [
+ "libc",
+]
 
 [[package]]
 name = "rand"

@@ -4,7 +4,7 @@
 
 use super::wgl_ffi::*;
 
-use ramen::{platform::win32::WindowExt as _, window::Window};
+use ramen::window::Window;
 use std::{
     mem::{self, size_of},
     ops::Drop,
