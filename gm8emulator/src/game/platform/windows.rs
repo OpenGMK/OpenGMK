@@ -1,3 +1,5 @@
+#![cfg(windows)]
+
 use std::{ffi::OsStr, mem, os::windows::ffi::OsStrExt, ptr};
 
 #[allow(non_snake_case)]
