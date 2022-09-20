@@ -35,8 +35,7 @@ rmp3 = { version = "0.3", features = ["float"] }
 rust-ini = "0.17"
 serde = { version = "1.0", features = ["derive", "rc"] }
 time = { version = "0.3", features = ["local-offset", "macros"] }
-#udon = { git = "https://github.com/adamcake/udon", branch = "soundio", features = ["serde-derives", "wav"] }
-udon = { path = "../../udon", features = ["serde-derives", "wav"] }
+udon = { git = "https://github.com/adamcake/udon", branch = "soundio", features = ["serde-derives", "wav"] }
 
 [target.'cfg(all(target_os = "windows"))'.dependencies]
 crc32fast = "1.2"
