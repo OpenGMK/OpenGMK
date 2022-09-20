@@ -56,7 +56,7 @@ pub struct AudioManager {
 impl AudioManager {
     pub fn new(do_output: bool) -> Self {
         // TODO: not all these unwraps
-        let session = Session::new(Api::Wasapi).unwrap();
+        let session = Session::new(Api::SoundIo).unwrap();
         let device = session.default_output_device().unwrap();
         let sample_rate = device.sample_rate();
         let channel_count = device.channel_count();
