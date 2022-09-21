@@ -456,8 +456,8 @@ impl Game {
                         .and_then(|x| x.checked_sub(1))
                         .into_iter()
                         .for_each(|x| io.set_mouse_button(x, matches!(ev, Event::MouseDown(_)))),
-                    Event::ScrollUp => io.set_mouse_wheel(-120.0),
-                    Event::ScrollDown => io.set_mouse_wheel(120.0),
+                    Event::ScrollUp => io.set_mouse_wheel(120.0),
+                    Event::ScrollDown => io.set_mouse_wheel(-120.0),
                     Event::Resize((width, height)) => {
                         config.ui_width = u16::try_from(width).unwrap_or(u16::MAX);
                         config.ui_height = u16::try_from(height).unwrap_or(u16::MAX);
