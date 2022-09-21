@@ -1,11 +1,11 @@
 //! Game rendering functionality
 
 pub mod atlas;
-mod opengl;
+pub mod opengl;
 
 use crate::types::Colour;
 use atlas::{AtlasRect, AtlasRef};
-use ramen::window::Window;
+use ramen::{connection::Connection, window::Window};
 use serde::{Deserialize, Serialize};
 use std::any::Any;
 
@@ -548,9 +548,9 @@ impl Default for RendererOptions {
 }
 
 impl Renderer {
-    pub fn new(backend: (), options: &RendererOptions, window: &Window, clear_colour: Colour) -> Result<Self, String> {
+    pub fn new(backend: (), connection: &Connection, options: &RendererOptions, window: &Window, clear_colour: Colour) -> Result<Self, String> {
         Ok(Self(Box::new(match backend {
-            () => opengl::RendererImpl::new(options, window, clear_colour)?,
+            () => opengl::RendererImpl::new(options, connection, window, clear_colour)?,
         })))
     }
 

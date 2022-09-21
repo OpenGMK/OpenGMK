@@ -40,3 +40,6 @@ udon = { git = "https://github.com/adamcake/udon", features = ["serde-derives", 
 [target.'cfg(all(target_os = "windows"))'.dependencies]
 crc32fast = "1.2"
 libffi = "1.0.0"
+
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"

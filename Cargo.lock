@@ -280,6 +280,7 @@ dependencies = [
  "hex",
  "image",
  "indexmap",
+ "libc",
  "libffi",
  "lzzzz",
  "memoffset 0.5.6",
@@ -423,7 +424,7 @@ dependencies = [
 [[package]]
 name = "libsoundio-sys"
 version = "0.3.0"
-source = "git+https://github.com/adamcake/udon#7ae650b16b77cccb5227bc43bcedb8b9cfa2601e"
+source = "git+https://github.com/adamcake/udon#e1e8878747385e7838ceeaaae2636dbc52de5c37"
 dependencies = [
  "cc",
  "cmake",
@@ -579,9 +580,9 @@ dependencies = [
 
 [[package]]
 name = "once_cell"
-version = "1.14.0"
+version = "1.15.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2f7254b99e31cad77da24b08ebf628882739a608578bb1bcdfc1f9c21260d7c0"
+checksum = "e82dad04139b71a90c080c8463fe0dc7902db5192d939bd0950f074d014339e1"
 
 [[package]]
 name = "ordered-multimap"
@@ -711,7 +712,7 @@ dependencies = [
 [[package]]
 name = "ramen"
 version = "0.0.3"
-source = "git+https://github.com/viriuwu/ramen#01ba5c05d8a6a33550b9e25b21007ba220b07683"
+source = "git+https://github.com/viriuwu/ramen#5d288d94e9ee6ad7b59fe3c1fe321a37447324b5"
 dependencies = [
  "libc",
  "parking_lot",
@@ -901,7 +902,7 @@ dependencies = [
 [[package]]
 name = "udon"
 version = "0.0.1"
-source = "git+https://github.com/adamcake/udon#7ae650b16b77cccb5227bc43bcedb8b9cfa2601e"
+source = "git+https://github.com/adamcake/udon#e1e8878747385e7838ceeaaae2636dbc52de5c37"
 dependencies = [
  "libsoundio-sys",
  "serde",

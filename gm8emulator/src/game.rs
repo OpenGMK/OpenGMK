@@ -544,8 +544,19 @@ impl Game {
         let (width, height) = options.size;
         let window_border = !settings.dont_draw_border;
         let window_icons = !settings.dont_show_buttons;
+
         let connection = ramen::connection::Connection::new()?;
-        let window = connection.builder()
+        let mut visual: u32 = 0;
+        #[cfg(unix)]
+        unsafe {
+            let display = connection.xdisplay();
+            let screen = connection.xscreenid();
+            crate::render::opengl::glx::glx_init(display, screen);
+            let glx = crate::render::opengl::glx::GLX.as_ref().unwrap();
+            visual = glx.visual;
+        }
+        
+        let mut builder = connection.builder()
             .visible(false)
             .size((width as _, height as _))
             .borderless(!window_border && play_type != PlayType::Record)
@@ -561,16 +572,23 @@ impl Game {
                 Some(Controls::new().minimise(settings.allow_resize).maximise(settings.allow_resize))
             } else {
                 None
-            })
-            .build()
-            .expect("oh no");
+            });
+
+        // if unix... pass visual...
+        #[cfg(unix)]
+        unsafe {
+            let glx = crate::render::opengl::glx::GLX.as_ref().unwrap();
+            builder = builder.depth(glx.depth).visual(glx.visual);
+        }
+
+        let window = builder.build()?;
 
         // Set up audio manager
         let mut audio = audio::AudioManager::new(play_type != PlayType::Record);
 
         // TODO: specific flags here (make wb mutable)
 
-        let mut renderer = Renderer::new((), &options, &window, settings.clear_colour.into())?;
+        let mut renderer = Renderer::new((), &connection, &options, &window, settings.clear_colour.into())?;
 
         let mut atlases = AtlasBuilder::new(renderer.max_texture_size() as _);
 
