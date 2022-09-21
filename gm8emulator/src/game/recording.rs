@@ -164,6 +164,7 @@ enum InputMode {
 struct ProjectConfig {
     ui_width: u16,
     ui_height: u16,
+    ui_maximised: bool,
     rerecords: u64,
     watched_ids: Vec<i32>,
     full_keyboard: bool,
@@ -184,6 +185,7 @@ impl Game {
         let default_config = ProjectConfig {
             ui_width: 1280,
             ui_height: 720,
+            ui_maximised: false,
             rerecords: 0,
             watched_ids: Vec::new(),
             full_keyboard: false,
@@ -397,7 +399,11 @@ impl Game {
             }
         }
 
-        self.window.set_size((config.ui_width, config.ui_height));
+        if config.ui_maximised {
+            self.window.set_maximised(true);
+        } else {
+            self.window.set_size((config.ui_width, config.ui_height));
+        }
 
         for (i, state) in keyboard_state.iter_mut().enumerate() {
             if self.input.keyboard_check_direct(i as u8) {
@@ -463,6 +469,10 @@ impl Game {
                         io.clear_inputs();
                         context_menu = None;
                     },
+                    Event::Maximise(b) => {
+                        config.ui_maximised = b;
+                        context_menu = None;
+                    }
                     Event::CloseRequest => break 'gui,
                     _ => (),
                 }
