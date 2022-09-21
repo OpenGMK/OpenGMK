@@ -711,7 +711,7 @@ dependencies = [
 [[package]]
 name = "ramen"
 version = "0.0.3"
-source = "git+https://github.com/viriuwu/ramen#c14c2182892886bf223e256e1847daa753c121f9"
+source = "git+https://github.com/viriuwu/ramen#01ba5c05d8a6a33550b9e25b21007ba220b07683"
 dependencies = [
  "libc",
  "parking_lot",
