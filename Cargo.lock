@@ -424,7 +424,7 @@ dependencies = [
 [[package]]
 name = "libsoundio-sys"
 version = "0.3.0"
-source = "git+https://github.com/adamcake/udon#e1e8878747385e7838ceeaaae2636dbc52de5c37"
+source = "git+https://github.com/adamcake/udon#3aa55fca14659ddbb940e9e01a101d64bc4773b5"
 dependencies = [
  "cc",
  "cmake",
@@ -712,7 +712,7 @@ dependencies = [
 [[package]]
 name = "ramen"
 version = "0.0.3"
-source = "git+https://github.com/viriuwu/ramen#5d288d94e9ee6ad7b59fe3c1fe321a37447324b5"
+source = "git+https://github.com/viriuwu/ramen#486d0ebe565e17d624280f66818f59f1aee5ac21"
 dependencies = [
  "libc",
  "parking_lot",
@@ -902,7 +902,7 @@ dependencies = [
 [[package]]
 name = "udon"
 version = "0.0.1"
-source = "git+https://github.com/adamcake/udon#e1e8878747385e7838ceeaaae2636dbc52de5c37"
+source = "git+https://github.com/adamcake/udon#3aa55fca14659ddbb940e9e01a101d64bc4773b5"
 dependencies = [
  "libsoundio-sys",
  "serde",
