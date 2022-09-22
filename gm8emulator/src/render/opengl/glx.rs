@@ -220,7 +220,7 @@ impl PlatformImpl {
 impl Drop for PlatformImpl {
     fn drop(&mut self) {
         unsafe {
-            unimplemented!()
+            //unimplemented!()
         }
     }
 }

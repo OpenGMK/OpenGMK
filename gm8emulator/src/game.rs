@@ -562,7 +562,7 @@ impl Game {
             .borderless(!window_border && play_type != PlayType::Record)
             .title(room1_caption.to_owned())
             .resizable(match play_type {
-                PlayType::Normal => settings.allow_resize,
+                PlayType::Normal => false,//settings.allow_resize,
                 PlayType::Record => true,
                 PlayType::Replay => false,
             })
