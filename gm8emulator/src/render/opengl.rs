@@ -2463,8 +2463,11 @@ impl RendererTrait for RendererImpl {
 
             // Draw framebuffer to screen
             self.gl.BindFramebuffer(gl::DRAW_FRAMEBUFFER, 0);
+            assert_eq!(self.gl.GetError(), 0);
             self.clear_view((0.0, 0.0, 0.0).into(), 1.0); // to avoid weird strobe lights (???)
+            assert_eq!(self.gl.GetError(), 0);
             self.gl.BindFramebuffer(gl::READ_FRAMEBUFFER, self.framebuffer.fbo);
+            assert_eq!(self.gl.GetError(), 0);
             self.gl.BlitFramebuffer(
                 0,
                 fb_height,
@@ -2477,7 +2480,9 @@ impl RendererTrait for RendererImpl {
                 gl::COLOR_BUFFER_BIT,
                 if self.next_render_state.interpolate_pixels.into() { gl::LINEAR } else { gl::NEAREST },
             );
+            assert_eq!(self.gl.GetError(), 0);
             self.gl.BindFramebuffer(gl::DRAW_FRAMEBUFFER, fb_old as u32);
+            assert_eq!(self.gl.GetError(), 0);
 
             self.gl.Enable(gl::SCISSOR_TEST);
 

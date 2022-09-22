@@ -124,8 +124,8 @@ pub fn glx_init(display: *mut Display, screen: u32) {
             }
         }
         if !(has_cc && has_gpa && has_swc) { panic!("upgrade your drivers Thanks"); }
-        let glXCreateContextAttribsARB = std::mem::transmute::<_, unsafe extern "C" fn(*mut Display, GLXFBConfig, GLXContext, c_int, *const c_int) -> GLXContext>(glXGetProcAddressARB("glXCreateContextAttribsARB".as_ptr().cast()));
-        let glXSwapIntervalEXT = std::mem::transmute::<_, unsafe extern "C" fn(*mut Display, GLXDrawable, interval: c_int)>(glXGetProcAddressARB("glXSwapIntervalEXT".as_ptr().cast()));
+        let glXCreateContextAttribsARB = std::mem::transmute::<_, unsafe extern "C" fn(*mut Display, GLXFBConfig, GLXContext, c_int, *const c_int) -> GLXContext>(glXGetProcAddressARB("glXCreateContextAttribsARB\0".as_ptr().cast()));
+        let glXSwapIntervalEXT = std::mem::transmute::<_, unsafe extern "C" fn(*mut Display, GLXDrawable, interval: c_int)>(glXGetProcAddressARB("glXSwapIntervalEXT\0".as_ptr().cast()));
         let mut depth: c_int = 0;
         _ = glXGetFBConfigAttrib(display, fb_config, DEPTH_SIZE, &mut depth);
         let mut visual: c_int = 0;
@@ -190,7 +190,6 @@ impl PlatformImpl {
     pub unsafe fn swap_buffers(&self) {
         let glx = GLX.as_ref().unwrap();
         glXSwapBuffers(glx.xlib, self.window);
-        unimplemented!()
     }
 
     pub unsafe fn set_swap_interval(&self, n: u32) -> bool {
