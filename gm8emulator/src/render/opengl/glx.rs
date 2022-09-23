@@ -168,8 +168,11 @@ impl PlatformImpl {
 
     pub unsafe fn get_function_loader() -> Result<Box<dyn FnMut(&'static str) -> *const std::os::raw::c_void>, String> {
         let glx = GLX.as_ref().unwrap();
-        let libgl = libc::dlopen("libGL.so\0".as_ptr().cast(), libc::RTLD_GLOBAL | libc::RTLD_NOW);
-        if libgl.is_null() { panic!("lol"); }
+        let mut libgl = libc::dlopen("libGL.so.1\0".as_ptr().cast(), libc::RTLD_GLOBAL | libc::RTLD_NOW);
+        if libgl.is_null() {
+            libgl = libc::dlopen("libGL.so\0".as_ptr().cast(), libc::RTLD_GLOBAL | libc::RTLD_NOW);
+        }
+        if libgl.is_null() { panic!("libGL missing, you might not have drivers"); }
         Ok(Box::new(move |name: &'static str| unsafe {
             LOAD_BUF.clear();
             LOAD_BUF.extend_from_slice(name.as_bytes());

@@ -557,6 +557,7 @@ impl Game {
         }
         
         let mut builder = connection.builder()
+            .class_name("OpenGMK")
             .visible(false)
             .size((width as _, height as _))
             .borderless(!window_border && play_type != PlayType::Record)
@@ -564,8 +565,7 @@ impl Game {
             .resizable(match play_type {
                 PlayType::Normal => {
                     if cfg!(unix) {
-                        // NVIDIA driver seems to explode on glBlitFramebuffer right now,
-                        // but only if it's actually scaling... tell WMs not to stretch rn.
+                        // Does not work right now, explodes glBlitFramebuffer. Ouch.
                         // Works with record mode, so it's specific to regular play mode.
                         false
                     } else {
