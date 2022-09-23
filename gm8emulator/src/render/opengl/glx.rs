@@ -20,6 +20,7 @@ extern "C" {
     fn glXMakeContextCurrent(dpy: *mut Display, drawable: GLXDrawable, read: GLXDrawable, ctx: GLXContext) -> c_int;
     fn glXQueryDrawable(dpy: *mut Display, drawable: GLXDrawable, prop: c_int, value: *mut c_uint) -> c_int;
     fn glXSwapBuffers(dpy: *mut Display, drawable: GLXDrawable);
+    fn glXDestroyWindow(dpy: *mut Display, win: GLXWindow);
 }
 
 type GLXDrawable = u32;
@@ -93,7 +94,6 @@ pub fn glx_init(display: *mut Display, screen: u32) {
         let mut n_configs: c_int = 0;
         let configs = glXChooseFBConfig(display, screen as c_int, &GLX_FB_ATTRIBS[0], &mut n_configs);
         if configs.is_null() || n_configs < 1 { panic!("couldn't get fb configs :("); }
-        println!("found {} suitable frame buffer configs", n_configs);
         let mut best_sc: c_int = -10_000_000; // return to tradition
         let mut best_sc_idx: c_int = 0;
         for i in 0..(n_configs as usize) {
@@ -152,7 +152,6 @@ pub struct PlatformImpl {
 impl PlatformImpl {
     pub unsafe fn new(connection: &Connection, window: &Window) -> Result<Self, String> {
         let glx = GLX.as_ref().unwrap();
-        println!("xlib: {:p}, fbc: {:p}, attr:{:#?}", glx.xlib, glx.fb_config, GLX_CC_ATTRIBS);
         let context = (glx.glXCreateContextAttribsARB)(
             glx.xlib,
             glx.fb_config,
@@ -220,7 +219,9 @@ impl PlatformImpl {
 impl Drop for PlatformImpl {
     fn drop(&mut self) {
         unsafe {
-            //unimplemented!()
+            let glx = GLX.as_ref().unwrap();
+            glXMakeContextCurrent(glx.xlib, 0, 0, std::ptr::null_mut());
+            glXDestroyWindow(glx.xlib, self.glx_window);
         }
     }
 }
