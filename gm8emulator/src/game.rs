@@ -562,7 +562,16 @@ impl Game {
             .borderless(!window_border && play_type != PlayType::Record)
             .title(room1_caption.to_owned())
             .resizable(match play_type {
-                PlayType::Normal => false,//settings.allow_resize,
+                PlayType::Normal => {
+                    if cfg!(unix) {
+                        // NVIDIA driver seems to explode on glBlitFramebuffer right now,
+                        // but only if it's actually scaling... tell WMs not to stretch rn.
+                        // Works with record mode, so it's specific to regular play mode.
+                        false
+                    } else {
+                        settings.allow_resize
+                    }
+                },
                 PlayType::Record => true,
                 PlayType::Replay => false,
             })
