@@ -1,6 +1,5 @@
 use crate::types::ArraySerde;
 use serde::{Deserialize, Serialize};
-use std::num::NonZeroI32;
 
 const KEY_MAX: usize = u8::max_value() as usize + 1;
 const MB_ANY: i8 = -1;

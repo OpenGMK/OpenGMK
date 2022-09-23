@@ -23,7 +23,7 @@ use crate::{
     tile::Tile,
 };
 use image::RgbaImage;
-//use ramen::window::Cursor;
+use ramen::window::Cursor;
 use std::{
     io::{Read, Write},
     process::Command,
@@ -227,12 +227,11 @@ impl Game {
         let show_icons = expect_args!(args, [bool])?;
         if show_icons != self.window_icons {
             self.window_icons = show_icons;
-            if self.play_type != PlayType::Record {
-                // TODO: This is me when I'm over mars
-                // self.window.set_controls({
-                //     if self.window_icons { Some(ramen::window::Controls::enabled()) } else { None }
-                // })
-            }
+            // if self.play_type != PlayType::Record {
+            //     self.window.set_controls({
+            //         if self.window_icons { Some(ramen::window::Controls::new()) } else { None }
+            //     })
+            // }
         }
         Ok(Default::default())
     }
@@ -285,40 +284,38 @@ impl Game {
 
     pub fn window_set_cursor(&mut self, args: &[Value]) -> gml::Result<Value> {
         let mut code = expect_args!(args, [int])?;
-        let _ = code;
-        // TODO: This is me when I'm over the planet of Mars
-        // let cursor = match code {
-        //     // TODO: maybe add more of these to ramen but wtf
-        //     x if x == gml_consts::CR_DEFAULT as i32 => Cursor::Arrow,
-        //     x if x == gml_consts::CR_ARROW as i32 => Cursor::Arrow,
-        //     x if x == gml_consts::CR_CROSS as i32 => Cursor::Cross,
-        //     x if x == gml_consts::CR_BEAM as i32 => Cursor::IBeam,
-        //     x if x == gml_consts::CR_SIZE_NESW as i32 => Cursor::ResizeNESW,
-        //     x if x == gml_consts::CR_SIZE_NS as i32 => Cursor::ResizeNS,
-        //     x if x == gml_consts::CR_SIZE_NWSE as i32 => Cursor::ResizeNWSE,
-        //     x if x == gml_consts::CR_SIZE_WE as i32 => Cursor::ResizeWE,
-        //     x if x == gml_consts::CR_UPARROW as i32 => Cursor::Arrow, // ???
-        //     x if x == gml_consts::CR_HOURGLASS as i32 => Cursor::Wait,
-        //     x if x == gml_consts::CR_DRAG as i32 => Cursor::Arrow, // ???
-        //     x if x == gml_consts::CR_NODROP as i32 => Cursor::Unavailable, // ???
-        //     x if x == gml_consts::CR_HSPLIT as i32 => Cursor::ResizeWE,
-        //     x if x == gml_consts::CR_VSPLIT as i32 => Cursor::ResizeNS,
-        //     x if x == gml_consts::CR_MULTIDRAG as i32 => Cursor::Arrow, // ???
-        //     x if x == gml_consts::CR_SQLWAIT as i32 => Cursor::Wait,    // ???
-        //     x if x == gml_consts::CR_NO as i32 => Cursor::Unavailable,
-        //     x if x == gml_consts::CR_APPSTART as i32 => Cursor::Progress, // ???
-        //     x if x == gml_consts::CR_HELP as i32 => Cursor::Help,
-        //     x if x == gml_consts::CR_HANDPOINT as i32 => Cursor::Hand,
-        //     x if x == gml_consts::CR_SIZE_ALL as i32 => Cursor::ResizeAll,
-        //     _ => {
-        //         code = gml_consts::CR_NONE as i32;
-        //         Cursor::Blank
-        //     },
-        // };
-        // if self.play_type == PlayType::Normal {
-        //     self.window.set_cursor(cursor);
-        // }
-        // self.window_cursor_gml = code;
+        let cursor = match code {
+            // TODO: maybe add more of these to ramen but wtf
+            x if x == gml_consts::CR_DEFAULT as i32 => Cursor::Arrow,
+            x if x == gml_consts::CR_ARROW as i32 => Cursor::Arrow,
+            x if x == gml_consts::CR_CROSS as i32 => Cursor::Cross,
+            x if x == gml_consts::CR_BEAM as i32 => Cursor::IBeam,
+            x if x == gml_consts::CR_SIZE_NESW as i32 => Cursor::ResizeNESW,
+            x if x == gml_consts::CR_SIZE_NS as i32 => Cursor::ResizeNS,
+            x if x == gml_consts::CR_SIZE_NWSE as i32 => Cursor::ResizeNWSE,
+            x if x == gml_consts::CR_SIZE_WE as i32 => Cursor::ResizeWE,
+            x if x == gml_consts::CR_UPARROW as i32 => Cursor::Arrow, // ???
+            x if x == gml_consts::CR_HOURGLASS as i32 => Cursor::Wait,
+            x if x == gml_consts::CR_DRAG as i32 => Cursor::Arrow, // ???
+            x if x == gml_consts::CR_NODROP as i32 => Cursor::Unavailable, // ???
+            x if x == gml_consts::CR_HSPLIT as i32 => Cursor::ResizeWE,
+            x if x == gml_consts::CR_VSPLIT as i32 => Cursor::ResizeNS,
+            x if x == gml_consts::CR_MULTIDRAG as i32 => Cursor::Arrow, // ???
+            x if x == gml_consts::CR_SQLWAIT as i32 => Cursor::Wait,    // ???
+            x if x == gml_consts::CR_NO as i32 => Cursor::Unavailable,
+            x if x == gml_consts::CR_APPSTART as i32 => Cursor::Progress, // ???
+            x if x == gml_consts::CR_HELP as i32 => Cursor::Help,
+            x if x == gml_consts::CR_HANDPOINT as i32 => Cursor::Hand,
+            x if x == gml_consts::CR_SIZE_ALL as i32 => Cursor::ResizeAll,
+            _ => {
+                code = gml_consts::CR_NONE as i32;
+                Cursor::Blank
+            },
+        };
+        if self.play_type == PlayType::Normal {
+            self.window.set_cursor(cursor);
+        }
+        self.window_cursor_gml = code;
         Ok(Default::default())
     }
 
@@ -3571,15 +3568,14 @@ impl Game {
 
     pub fn action_set_cursor(&mut self, args: &[Value]) -> gml::Result<Value> {
         let (sprite_id, show_window_cursor) = expect_args!(args, [int, bool])?;
-        // TODO: This is me when I mark The idk im running out of these
         let _ = (sprite_id, show_window_cursor);
-        // self.cursor_sprite = sprite_id;
-        // let cursor = if show_window_cursor {
-        //     Cursor::Arrow // GM8 seems to always resets to default cursor on call of this function
-        // } else {
-        //     Cursor::Blank
-        // };
-        // self.window.set_cursor(cursor);
+        self.cursor_sprite = sprite_id;
+        let cursor = if show_window_cursor {
+            Cursor::Arrow // GM8 seems to always resets to default cursor on call of this function
+        } else {
+            Cursor::Blank
+        };
+        self.window.set_cursor(cursor);
         Ok(Default::default())
     }
 
