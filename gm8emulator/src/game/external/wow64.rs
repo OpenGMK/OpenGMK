@@ -63,12 +63,24 @@ impl ChildProcess {
                 PROCESS_DEFAULT_NAME
             ))
         }
-        let mut child = process::Command::new(process_path)
-            .stdin(process::Stdio::piped())
-            .stdout(process::Stdio::piped())
-            .arg(dll::PROTOCOL_VERSION.to_string())
-            .spawn()
-            .map_err(|e| format!("failed to spawn child process: {}", e))?;
+        let mut child = if cfg!(windows) {
+            process::Command::new(process_path)
+                .arg(dll::PROTOCOL_VERSION.to_string())
+                .stdin(process::Stdio::piped())
+                .stdout(process::Stdio::piped())
+                .spawn()
+        } else {
+            let mut wineprefix = std::env::current_dir().unwrap();
+            wineprefix.push("opengmk-wine");
+            process::Command::new("wine")
+                .env("WINEDEBUG", "-all")
+                .env("WINEPREFIX", &wineprefix)
+                .arg(&process_path)
+                .arg(dll::PROTOCOL_VERSION.to_string())
+                .stdin(process::Stdio::piped())
+                .stdout(process::Stdio::piped())
+                .spawn()
+        }.map_err(|e| format!("failed to spawn child process: {}", e))?;
         let stdin = child.stdin.take().unwrap();
         let mut stdout = child.stdout.take().unwrap();
         // make sure we're talking to the right version
