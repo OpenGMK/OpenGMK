@@ -280,6 +280,7 @@ dependencies = [
  "hex",
  "image",
  "indexmap",
+ "libc",
  "libffi",
  "lzzzz",
  "memoffset 0.5.6",
@@ -423,7 +424,7 @@ dependencies = [
 [[package]]
 name = "libsoundio-sys"
 version = "0.3.0"
-source = "git+https://github.com/adamcake/udon#7ae650b16b77cccb5227bc43bcedb8b9cfa2601e"
+source = "git+https://github.com/adamcake/udon#7064c583f7e475c73038e8f2e02f794385ae5509"
 dependencies = [
  "cc",
  "cmake",
@@ -579,9 +580,9 @@ dependencies = [
 
 [[package]]
 name = "once_cell"
-version = "1.14.0"
+version = "1.15.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2f7254b99e31cad77da24b08ebf628882739a608578bb1bcdfc1f9c21260d7c0"
+checksum = "e82dad04139b71a90c080c8463fe0dc7902db5192d939bd0950f074d014339e1"
 
 [[package]]
 name = "ordered-multimap"
@@ -711,7 +712,7 @@ dependencies = [
 [[package]]
 name = "ramen"
 version = "0.0.3"
-source = "git+https://github.com/viriuwu/ramen#01ba5c05d8a6a33550b9e25b21007ba220b07683"
+source = "git+https://github.com/viriuwu/ramen#486d0ebe565e17d624280f66818f59f1aee5ac21"
 dependencies = [
  "libc",
  "parking_lot",
@@ -820,18 +821,18 @@ checksum = "d29ab0c6d3fc0ee92fe66e2d99f700eab17a8d57d1c1d3b748380fb20baa78cd"
 
 [[package]]
 name = "serde"
-version = "1.0.144"
+version = "1.0.145"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0f747710de3dcd43b88c9168773254e809d8ddbdf9653b84e2554ab219f17860"
+checksum = "728eb6351430bccb993660dfffc5a72f91ccc1295abaa8ce19b27ebe4f75568b"
 dependencies = [
  "serde_derive",
 ]
 
 [[package]]
 name = "serde_derive"
-version = "1.0.144"
+version = "1.0.145"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "94ed3a816fb1d101812f83e789f888322c34e291f894f19590dc310963e87a00"
+checksum = "81fa1584d3d1bcacd84c277a0dfe21f5b0f6accf4a23d04d4c6d61f1af522b4c"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -901,7 +902,7 @@ dependencies = [
 [[package]]
 name = "udon"
 version = "0.0.1"
-source = "git+https://github.com/adamcake/udon#7ae650b16b77cccb5227bc43bcedb8b9cfa2601e"
+source = "git+https://github.com/adamcake/udon#7064c583f7e475c73038e8f2e02f794385ae5509"
 dependencies = [
  "libsoundio-sys",
  "serde",

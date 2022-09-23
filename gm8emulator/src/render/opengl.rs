@@ -7,7 +7,7 @@ use crate::{
     types::Colour,
 };
 use memoffset::offset_of;
-use ramen::window::Window;
+use ramen::{connection::Connection, window::Window};
 use rect_packer::DensePacker;
 use std::{any::Any, f64::consts::PI, ffi::CStr, mem::size_of, ptr};
 
@@ -22,6 +22,12 @@ use gl::types::{GLchar, GLenum, GLint, GLsizei, GLuint};
 mod wgl;
 #[cfg(target_os = "windows")]
 mod wgl_ffi;
+#[cfg(target_os = "windows")]
+use wgl as native_gl;
+#[cfg(unix)]
+pub mod glx;
+#[cfg(unix)]
+use glx as native_gl;
 
 macro_rules! shader_file {
     ($path: expr) => {
@@ -158,7 +164,7 @@ impl RenderState {
 }
 
 pub struct RendererImpl {
-    imp: wgl::PlatformImpl,
+    imp: native_gl::PlatformImpl,
     gl: gl::Gl,
     //program: GLuint,
     //vao: GLuint,
@@ -376,13 +382,13 @@ impl ShapeBuilder {
 }
 
 impl RendererImpl {
-    pub fn new(options: &RendererOptions, window: &Window, clear_colour: Colour) -> Result<Self, String> {
+    pub fn new(options: &RendererOptions, connection: &Connection, window: &Window, clear_colour: Colour) -> Result<Self, String> {
         unsafe {
-            let imp = wgl::PlatformImpl::new(window)?;
+            let imp = native_gl::PlatformImpl::new(connection, window)?;
 
             // gl function pointers
-            let gl = gl::Gl::load_with(wgl::PlatformImpl::get_function_loader()?);
-            wgl::PlatformImpl::clean_function_loader();
+            let gl = gl::Gl::load_with(native_gl::PlatformImpl::get_function_loader()?);
+            native_gl::PlatformImpl::clean_function_loader();
 
             // debug print
             let ver_str = CStr::from_ptr(gl.GetString(gl::VERSION).cast()).to_str().unwrap();
@@ -2457,8 +2463,11 @@ impl RendererTrait for RendererImpl {
 
             // Draw framebuffer to screen
             self.gl.BindFramebuffer(gl::DRAW_FRAMEBUFFER, 0);
+            assert_eq!(self.gl.GetError(), 0);
             self.clear_view((0.0, 0.0, 0.0).into(), 1.0); // to avoid weird strobe lights (???)
+            assert_eq!(self.gl.GetError(), 0);
             self.gl.BindFramebuffer(gl::READ_FRAMEBUFFER, self.framebuffer.fbo);
+            assert_eq!(self.gl.GetError(), 0);
             self.gl.BlitFramebuffer(
                 0,
                 fb_height,
@@ -2471,7 +2480,9 @@ impl RendererTrait for RendererImpl {
                 gl::COLOR_BUFFER_BIT,
                 if self.next_render_state.interpolate_pixels.into() { gl::LINEAR } else { gl::NEAREST },
             );
+            assert_eq!(self.gl.GetError(), 0);
             self.gl.BindFramebuffer(gl::DRAW_FRAMEBUFFER, fb_old as u32);
+            assert_eq!(self.gl.GetError(), 0);
 
             self.gl.Enable(gl::SCISSOR_TEST);
 
