@@ -563,15 +563,7 @@ impl Game {
             .borderless(!window_border && play_type != PlayType::Record)
             .title(room1_caption.to_owned())
             .resizable(match play_type {
-                PlayType::Normal => {
-                    if cfg!(unix) {
-                        // Does not work right now, explodes glBlitFramebuffer. Ouch.
-                        // Works with record mode, so it's specific to regular play mode.
-                        false
-                    } else {
-                        settings.allow_resize
-                    }
-                },
+                PlayType::Normal => settings.allow_resize,
                 PlayType::Record => true,
                 PlayType::Replay => false,
             })
@@ -607,7 +599,7 @@ impl Game {
             n => Scaling::Fixed(f64::from(n) / 100.0),
         };
 
-        //println!("GPU Max Texture Size: {}", renderer.max_gpu_texture_size());
+        println!("GPU Max Texture Size: {}", renderer.max_texture_size());
 
         let particle_shapes = particle::load_shapes(&mut atlases);
 

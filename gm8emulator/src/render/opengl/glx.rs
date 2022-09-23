@@ -102,7 +102,7 @@ pub fn glx_init(display: *mut Display, screen: u32) {
             let mut msb: c_int = 0;
             if glXGetFBConfigAttrib(display, config, SAMPLES, &mut sc) != 0 { continue; }
             if glXGetFBConfigAttrib(display, config, SAMPLE_BUFFERS, &mut msb) != 0 { continue; }
-            if msb == 0 { continue; }
+            if msb != 0 { continue; } // prevent glBlitFramebuffer crash due to MSB mismatch with FBO
             if sc > best_sc {
                 best_sc = sc;
                 best_sc_idx = i as _;
