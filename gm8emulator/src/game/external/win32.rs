@@ -85,13 +85,13 @@ impl NativeManager {
             let dll_wchar = wstrz(&signature.dll);
             let dll_handle = LoadLibraryW(dll_wchar.as_ptr());
             if dll_handle.is_null() {
-                return Err(format!("failed to load dll '{}'", signature.dll))
+                return Err(format!("failed to load dll '{}' (err {})", signature.dll, GetLastError()))
             }
             let symbol_c = CString::new(signature.symbol.clone()).unwrap();
             let function = GetProcAddress(dll_handle, symbol_c.as_ptr());
             if function.is_null() {
                 FreeLibrary(dll_handle);
-                return Err(format!("failed to GetProcAddress for '{}' in '{}", signature.symbol, signature.dll))
+                return Err(format!("failed to GetProcAddress for '{}' in '{}' (err {})", signature.symbol, signature.dll, GetLastError()))
             }
 
             // compatibility hacks

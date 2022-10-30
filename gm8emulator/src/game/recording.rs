@@ -29,8 +29,8 @@ use crate::{
     imgui, input,
 };
 use ramen::{
-    event::{Event, Key},
-    monitor::Size,
+    event::Event,
+    input::Key,
 };
 use serde::{Deserialize, Serialize};
 use std::{
@@ -297,6 +297,7 @@ pub enum InputMode {
 pub struct ProjectConfig {
     ui_width: u16,
     ui_height: u16,
+    ui_maximised: bool,
     rerecords: u64,
     watched_ids: Vec<i32>,
     full_keyboard: bool,
@@ -312,6 +313,7 @@ impl ProjectConfig {
         let default_config = Self {
             ui_width: 1280,
             ui_height: 720,
+            ui_maximised: false,
             rerecords: 0,
             watched_ids: Vec::new(),
             full_keyboard: false,
@@ -611,7 +613,11 @@ impl Game {
             }
         }
 
-        self.window.set_inner_size(Size::Physical(config.ui_width.into(), config.ui_height.into()));
+        if config.ui_maximised {
+            self.window.set_maximised(true);
+        } else {
+            self.window.set_size((config.ui_width, config.ui_height));
+        }
 
         for (i, state) in keyboard_state.iter_mut().enumerate() {
             if self.input.keyboard_check_direct(i as u8) {
@@ -655,18 +661,18 @@ impl Game {
             let mut clear_context_menu = false;
 
             // poll window events
-            self.window.swap_events();
-            for event in self.window.events() {
+            self.window.poll_events();
+            for event in self.window.events().into_iter().copied() {
                 match event {
                     ev @ Event::KeyboardDown(key) | ev @ Event::KeyboardUp(key) => {
                         setting_mouse_pos = false;
                         let state = matches!(ev, Event::KeyboardDown(_));
-                        let vk = input::ramen2vk(*key);
+                        let vk = input::ramen2vk(key);
                         io.set_key(usize::from(vk), state);
                         match key {
-                            Key::LShift | Key::RShift => io.set_shift(state),
-                            Key::LControl | Key::RControl => io.set_ctrl(state),
-                            Key::LAlt | Key::RAlt => io.set_alt(state),
+                            Key::LeftShift | Key::RightShift => io.set_shift(state),
+                            Key::LeftControl | Key::RightControl => io.set_ctrl(state),
+                            Key::LeftAlt | Key::RightAlt => io.set_alt(state),
                             _ => (),
                         }
 
@@ -691,29 +697,32 @@ impl Game {
                             }
                         }
                     },
-                    Event::MouseMove((point, scale)) => {
-                        let (x, y) = point.as_physical(*scale);
+                    Event::MouseMove((x, y)) => {
                         io.set_mouse(imgui::Vec2(x as f32, y as f32));
                     },
-                    ev @ Event::MouseDown(btn) | ev @ Event::MouseUp(btn) => usize::try_from(input::ramen2mb(*btn))
+                    ev @ Event::MouseDown(btn) | ev @ Event::MouseUp(btn) => usize::try_from(input::ramen2mb(btn))
                         .ok()
                         .and_then(|x| x.checked_sub(1))
                         .into_iter()
                         .for_each(|x| io.set_mouse_button(x, matches!(ev, Event::MouseDown(_)))),
-                    Event::MouseWheel(delta) => io.set_mouse_wheel(delta.get() as f32 / 120.0),
-                    Event::Resize((size, scale)) => {
-                        let (width, height) = size.as_physical(*scale);
+                    Event::ScrollUp => io.set_mouse_wheel(120.0),
+                    Event::ScrollDown => io.set_mouse_wheel(-120.0),
+                    Event::Resize((width, height)) => {
                         config.ui_width = u16::try_from(width).unwrap_or(u16::MAX);
                         config.ui_height = u16::try_from(height).unwrap_or(u16::MAX);
                         io.set_display_size(imgui::Vec2(width as f32, height as f32));
-                        self.renderer.resize_framebuffer(width, height, false);
+                        self.renderer.resize_framebuffer(width as _, height as _, false);
                         clear_context_menu = true;
                     },
                     Event::Focus(false) => {
                         io.clear_inputs();
                         clear_context_menu = true;
                     },
-                    Event::CloseRequest(_) => break 'gui,
+                    Event::Maximise(b) => {
+                        config.ui_maximised = b;
+                        clear_context_menu = true;
+                    }
+                    Event::CloseRequest => break 'gui,
                     _ => (),
                 }
             }

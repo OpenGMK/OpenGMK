@@ -295,7 +295,7 @@ impl Value {
 
     pub fn modulo(self, rhs: Self) -> gml::Result<Self> {
         match (self, rhs) {
-            (Self::Real(lhs), Self::Real(rhs)) => Ok((lhs % rhs).into()),
+            (Self::Real(lhs), Self::Real(rhs)) => Ok(Self::Real(lhs - (lhs / rhs).floor_towards_zero() * rhs)),
             (x, y) => invalid_op!(Modulo, x, y),
         }
     }

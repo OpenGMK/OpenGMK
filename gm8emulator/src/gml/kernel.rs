@@ -97,46 +97,46 @@ fn rgb_to_hsv(colour: i32) -> (i32, i32, i32) {
 impl Game {
     pub fn display_get_width(&self, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [])?;
+        #[cfg(target_os = "windows")]
         if self.play_type == PlayType::Normal {
-            platform::display_width().map(Value::from).ok_or_else(|| {
+            return platform::display_width().map(Value::from).ok_or_else(|| {
                 gml::Error::FunctionError("display_get_width".into(), "getting display width failed".into())
-            })
-        } else {
-            Ok(1280.into())
+            });
         }
+        Ok(1280.into())
     }
 
     pub fn display_get_height(&self, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [])?;
+        #[cfg(target_os = "windows")]
         if self.play_type == PlayType::Normal {
-            platform::display_height().map(Value::from).ok_or_else(|| {
+            return platform::display_height().map(Value::from).ok_or_else(|| {
                 gml::Error::FunctionError("display_get_height".into(), "getting display height failed".into())
-            })
-        } else {
-            Ok(720.into())
+            });
         }
+        Ok(720.into())
     }
 
     pub fn display_get_colordepth(&self, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [])?;
+        #[cfg(target_os = "windows")]
         if self.play_type == PlayType::Normal {
-            platform::display_colour_depth().map(Value::from).ok_or_else(|| {
+            return platform::display_colour_depth().map(Value::from).ok_or_else(|| {
                 gml::Error::FunctionError("display_get_colordepth".into(), "getting display colour depth failed".into())
-            })
-        } else {
-            Ok(32.into())
+            });
         }
+        Ok(32.into())
     }
 
     pub fn display_get_frequency(&self, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [])?;
+        #[cfg(target_os = "windows")]
         if self.play_type == PlayType::Normal {
-            platform::display_frequency().map(Value::from).ok_or_else(|| {
+            return platform::display_frequency().map(Value::from).ok_or_else(|| {
                 gml::Error::FunctionError("display_get_frequency".into(), "getting display frequency failed".into())
-            })
-        } else {
-            Ok(60.into())
+            });
         }
+        Ok(60.into())
     }
 
     pub fn display_set_size(&mut self, _args: &[Value]) -> gml::Result<Value> {
@@ -227,11 +227,11 @@ impl Game {
         let show_icons = expect_args!(args, [bool])?;
         if show_icons != self.window_icons {
             self.window_icons = show_icons;
-            if self.play_type != PlayType::Record {
-                self.window.set_controls({
-                    if self.window_icons { Some(ramen::window::Controls::enabled()) } else { None }
-                })
-            }
+            // if self.play_type != PlayType::Record {
+            //     self.window.set_controls({
+            //         if self.window_icons { Some(ramen::window::Controls::new()) } else { None }
+            //     })
+            // }
         }
         Ok(Default::default())
     }
@@ -345,14 +345,7 @@ impl Game {
         let (width, height) = expect_args!(args, [int, int])?;
         if width > 0 && height > 0 {
             self.window_inner_size = (width as u32, height as u32);
-            self.window.execute(|window| {
-                use ramen::monitor::Size;
-                if window.is_dpi_logical() {
-                    unimplemented!();
-                } else {
-                    window.set_inner_size(Size::Physical(width as u32, height as u32));
-                }
-            });
+            self.window.set_size((width as _, height as _));
         }
         Ok(Default::default())
     }
@@ -428,7 +421,7 @@ impl Game {
                 (region_w, region_h)
             };
             self.window_inner_size = (width, height);
-            self.window.set_inner_size(ramen::monitor::Size::Physical(width, height));
+            self.window.set_size((width as _, height as _));
         }
         Ok(Default::default())
     }
@@ -3575,6 +3568,7 @@ impl Game {
 
     pub fn action_set_cursor(&mut self, args: &[Value]) -> gml::Result<Value> {
         let (sprite_id, show_window_cursor) = expect_args!(args, [int, bool])?;
+        let _ = (sprite_id, show_window_cursor);
         self.cursor_sprite = sprite_id;
         let cursor = if show_window_cursor {
             Cursor::Arrow // GM8 seems to always resets to default cursor on call of this function
@@ -6658,29 +6652,30 @@ impl Game {
     }
 
     pub fn disk_free(&self, args: &[Value]) -> gml::Result<Value> {
+        #[cfg(target_os = "windows")]
         if self.play_type == PlayType::Normal {
             let path = match args.get(0).clone() {
                 Some(Value::Str(p)) => p.as_ref().get(0).map(|&x| x as char),
                 _ => None,
             };
-            Ok(platform::disk_free(path).map(|x| x as f64).unwrap_or(-1f64).into())
-        } else {
-            // half a terabyte
-            Ok((0x80000_00000u64 as f64).into())
+            return Ok(platform::disk_free(path).map(|x| x as f64).unwrap_or(-1f64).into());
         }
+
+        // half a terabyte
+        Ok((0x80000_00000u64 as f64).into())
     }
 
     pub fn disk_size(&self, args: &[Value]) -> gml::Result<Value> {
+        #[cfg(target_os = "windows")]
         if self.play_type == PlayType::Normal {
             let path = match args.get(0).clone() {
                 Some(Value::Str(p)) => p.as_ref().get(0).map(|&x| x as char),
                 _ => None,
             };
-            Ok(platform::disk_size(path).map(|x| x as f64).unwrap_or(-1f64).into())
-        } else {
-            // a terabyte
-            Ok((0x1_00000_00000u64 as f64).into())
+            return Ok(platform::disk_size(path).map(|x| x as f64).unwrap_or(-1f64).into());
         }
+        // a terabyte
+        Ok((0x1_00000_00000u64 as f64).into())
     }
 
     pub fn splash_set_caption(&mut self, _args: &[Value]) -> gml::Result<Value> {
@@ -7678,12 +7673,16 @@ impl Game {
 
     pub fn window_handle(&self, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [])?;
-        #[cfg(target_os = "windows")]
-        {
-            use ramen::platform::win32::WindowExt as _;
-            Ok((self.window.hwnd() as usize).into())
-        }
-        // TODO: Others! (They'll compile error here so it'll remind me)
+        Ok({
+            #[cfg(target_os = "windows")]
+            {
+                self.window.hwnd() as u64 as f64
+            }
+            #[cfg(unix)]
+            {
+                self.window.xid()
+            }
+        }.into())
     }
 
     pub fn show_debug_message(&self, args: &[Value]) -> gml::Result<Value> {

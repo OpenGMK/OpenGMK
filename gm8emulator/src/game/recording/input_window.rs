@@ -1,16 +1,14 @@
 use crate::{
     imgui, input,
-    game::{
-        recording::{
-            self,
-            KeyState,
-            InputMode,
-            window::{Window, DisplayInformation},
-        },
+    game::recording::{
+        self,
+        KeyState,
+        InputMode,
+        window::{Window, DisplayInformation},
     },
     types::Colour,
 };
-use ramen::event::Key;
+use ramen::input::Key;
 
 pub enum ContextMenuType {
     Key(Key), Mouse(i8)
@@ -233,27 +231,27 @@ impl InputWindows {
                 cur_y = (content_max.1 - (win_padding.1 * 2.0)).ceil() - (button_height * 5.0 + 4.0);
                 kb_btn!("`", button_size, cur_x, cur_y);
                 cur_x += button_width + 1.0;
-                kb_btn!("1", button_size, cur_x, cur_y, key Key::Num1);
+                kb_btn!("1", button_size, cur_x, cur_y, key Key::Alpha1);
                 cur_x += button_width + 1.0;
-                kb_btn!("2", button_size, cur_x, cur_y, key Key::Num2);
+                kb_btn!("2", button_size, cur_x, cur_y, key Key::Alpha2);
                 cur_x += button_width + 1.0;
-                kb_btn!("3", button_size, cur_x, cur_y, key Key::Num3);
+                kb_btn!("3", button_size, cur_x, cur_y, key Key::Alpha3);
                 cur_x += button_width + 1.0;
-                kb_btn!("4", button_size, cur_x, cur_y, key Key::Num4);
+                kb_btn!("4", button_size, cur_x, cur_y, key Key::Alpha4);
                 cur_x += button_width + 1.0;
-                kb_btn!("5", button_size, cur_x, cur_y, key Key::Num5);
+                kb_btn!("5", button_size, cur_x, cur_y, key Key::Alpha5);
                 cur_x += button_width + 1.0;
-                kb_btn!("6", button_size, cur_x, cur_y, key Key::Num6);
+                kb_btn!("6", button_size, cur_x, cur_y, key Key::Alpha6);
                 cur_x += button_width + 1.0;
-                kb_btn!("7", button_size, cur_x, cur_y, key Key::Num7);
+                kb_btn!("7", button_size, cur_x, cur_y, key Key::Alpha7);
                 cur_x += button_width + 1.0;
-                kb_btn!("8", button_size, cur_x, cur_y, key Key::Num8);
+                kb_btn!("8", button_size, cur_x, cur_y, key Key::Alpha8);
                 cur_x += button_width + 1.0;
-                kb_btn!("9", button_size, cur_x, cur_y, key Key::Num9);
+                kb_btn!("9", button_size, cur_x, cur_y, key Key::Alpha9);
                 cur_x += button_width + 1.0;
-                kb_btn!("0", button_size, cur_x, cur_y, key Key::Num0);
+                kb_btn!("0", button_size, cur_x, cur_y, key Key::Alpha0);
                 cur_x += button_width + 1.0;
-                kb_btn!("-", button_size, cur_x, cur_y, key Key::Subtract);
+                kb_btn!("-", button_size, cur_x, cur_y, key Key::Minus);
                 cur_x += button_width + 1.0;
                 kb_btn!("=", button_size, cur_x, cur_y);
                 cur_x += button_width + 1.0;
@@ -292,7 +290,7 @@ impl InputWindows {
                 cur_x += button_width + 1.0;
                 kb_btn!("]", button_size, cur_x, cur_y);
                 cur_x += button_width + 1.0;
-                kb_btn!("Enter", imgui::Vec2(left_part_edge - cur_x, button_height * 2.0 + 1.0), cur_x, cur_y, key Key::Enter);
+                kb_btn!("Enter", imgui::Vec2(left_part_edge - cur_x, button_height * 2.0 + 1.0), cur_x, cur_y, key Key::Return);
                 cur_x = content_max.0 - (button_width * 3.0 + 2.0);
                 kb_btn!("Del", button_size, cur_x, cur_y, key Key::Delete);
                 cur_x += button_width + 1.0;
@@ -328,7 +326,7 @@ impl InputWindows {
                 kb_btn!("#", button_size, cur_x, cur_y);
                 cur_x = content_min.0;
                 cur_y += button_height + 1.0;
-                kb_btn!("Shift", imgui::Vec2(button_width * 2.0, button_height), cur_x, cur_y, key Key::LShift);
+                kb_btn!("Shift", imgui::Vec2(button_width * 2.0, button_height), cur_x, cur_y, key Key::LeftShift);
                 cur_x += button_width * 2.0 + 1.0;
                 kb_btn!("\\", button_size, cur_x, cur_y);
                 cur_x += button_width + 1.0;
@@ -352,31 +350,31 @@ impl InputWindows {
                 cur_x += button_width + 1.0;
                 kb_btn!("/", button_size, cur_x, cur_y);
                 cur_x += button_width + 1.0;
-                kb_btn!("RShift", imgui::Vec2(left_part_edge - cur_x, button_height), cur_x, cur_y, key Key::RShift);
+                kb_btn!("RShift", imgui::Vec2(left_part_edge - cur_x, button_height), cur_x, cur_y, key Key::RightShift);
                 cur_x = content_min.0;
                 cur_y += button_height + 1.0;
-                kb_btn!("Ctrl", imgui::Vec2((button_width * 1.5).floor(), button_height), cur_x, cur_y, key Key::LControl);
+                kb_btn!("Ctrl", imgui::Vec2((button_width * 1.5).floor(), button_height), cur_x, cur_y, key Key::LeftControl);
                 cur_x += (button_width * 1.5).floor() + 1.0;
-                kb_btn!("Win", button_size, cur_x, cur_y, key Key::LSuper);
+                kb_btn!("Win", button_size, cur_x, cur_y, key Key::LeftSuper);
                 cur_x += button_width + 1.0;
-                kb_btn!("Alt", button_size, cur_x, cur_y, key Key::LAlt);
+                kb_btn!("Alt", button_size, cur_x, cur_y, key Key::LeftAlt);
                 cur_x += button_width + 1.0;
                 kb_btn!("Space", imgui::Vec2((left_part_edge - cur_x) - (button_width * 3.5 + 3.0).floor(), button_height), cur_x, cur_y, key Key::Space);
                 cur_x = left_part_edge - (button_width * 3.5 + 2.0).floor();
-                kb_btn!("RAlt", button_size, cur_x, cur_y, key Key::RAlt);
+                kb_btn!("RAlt", button_size, cur_x, cur_y, key Key::RightAlt);
                 cur_x += button_width + 1.0;
                 kb_btn!("Pg", button_size, cur_x, cur_y, key Key::Applications);
                 cur_x += button_width + 1.0;
-                kb_btn!("RCtrl", imgui::Vec2(left_part_edge - cur_x, button_height), cur_x, cur_y, key Key::RControl);
+                kb_btn!("RCtrl", imgui::Vec2(left_part_edge - cur_x, button_height), cur_x, cur_y, key Key::RightControl);
                 cur_x = content_max.0 - (button_width * 3.0 + 2.0);
-                kb_btn!("<", button_size, cur_x, cur_y, key Key::Left);
+                kb_btn!("<", button_size, cur_x, cur_y, key Key::LeftArrow);
                 cur_x += button_width + 1.0;
-                kb_btn!("v", button_size, cur_x, cur_y, key Key::Down);
+                kb_btn!("v", button_size, cur_x, cur_y, key Key::DownArrow);
                 cur_y -= button_height + 1.0;
-                kb_btn!("^", button_size, cur_x, cur_y, key Key::Up);
+                kb_btn!("^", button_size, cur_x, cur_y, key Key::UpArrow);
                 cur_x += button_width + 1.0;
                 cur_y += button_height + 1.0;
-                kb_btn!(">", button_size, cur_x, cur_y, key Key::Right);
+                kb_btn!(">", button_size, cur_x, cur_y, key Key::RightArrow);
             }
             frame.end();
         } else {
@@ -396,12 +394,12 @@ impl InputWindows {
                 let button_height = ((content_max.1 - content_min.1) / 2.5).floor();
                 let button_size = imgui::Vec2(button_width, button_height);
                 let arrows_left_bound = content_min.0 + ((content_max.0 - content_min.0) / 2.0 - (button_width * 1.5)).floor();
-                kb_btn!("<", button_size, arrows_left_bound, content_max.1 - button_height - 8.0, key Key::Left);
-                kb_btn!("v", button_size, arrows_left_bound + button_width + 1.0, content_max.1 - button_height - 8.0, key Key::Down);
-                kb_btn!(">", button_size, arrows_left_bound + (button_width * 2.0 + 2.0), content_max.1 - button_height - 8.0, key Key::Right);
-                kb_btn!("^", button_size, arrows_left_bound + button_width + 1.0, content_max.1 - (button_height * 2.0) - 9.0, key Key::Up);
+                kb_btn!("<", button_size, arrows_left_bound, content_max.1 - button_height - 8.0, key Key::LeftArrow);
+                kb_btn!("v", button_size, arrows_left_bound + button_width + 1.0, content_max.1 - button_height - 8.0, key Key::DownArrow);
+                kb_btn!(">", button_size, arrows_left_bound + (button_width * 2.0 + 2.0), content_max.1 - button_height - 8.0, key Key::RightArrow);
+                kb_btn!("^", button_size, arrows_left_bound + button_width + 1.0, content_max.1 - (button_height * 2.0) - 9.0, key Key::UpArrow);
                 kb_btn!("R", button_size, content_min.0, content_min.1, key Key::R);
-                kb_btn!("Shift", button_size, content_min.0, content_max.1 - button_height - 8.0, key Key::LShift);
+                kb_btn!("Shift", button_size, content_min.0, content_max.1 - button_height - 8.0, key Key::LeftShift);
                 kb_btn!("F2", button_size, content_max.0 - button_width, content_min.1, key Key::F2);
                 kb_btn!("Z", button_size, content_max.0 - button_width, content_max.1 - button_height - 8.0, key Key::Z);
             }

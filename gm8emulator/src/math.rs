@@ -290,6 +290,11 @@ impl Real {
     }
 
     #[inline(always)]
+    pub fn floor_towards_zero(self) -> Self {
+        Self(self.0.abs().floor() * self.0.signum())
+    }
+
+    #[inline(always)]
     pub fn ceil(self) -> Self {
         Self(self.0.ceil())
     }

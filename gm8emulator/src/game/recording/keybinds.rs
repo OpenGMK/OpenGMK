@@ -4,7 +4,7 @@ use crate::{
     types::Colour,
     game::recording::window::{Window, Openable, DisplayInformation},
 };
-use ramen::event::Key;
+use ramen::input::Key;
 use serde::{Deserialize, Serialize};
 use std::{
     fmt::{Display, Formatter, Error},

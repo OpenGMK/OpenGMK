@@ -4,7 +4,7 @@
 
 use super::wgl_ffi::*;
 
-use ramen::{platform::win32::WindowExt as _, window::Window};
+use ramen::{connection::Connection, window::Window};
 use std::{
     mem::{self, size_of},
     ops::Drop,
@@ -191,7 +191,7 @@ unsafe fn load_function(name: *const c_char, gl32_dll: HMODULE) -> *const c_void
 }
 
 impl PlatformImpl {
-    pub unsafe fn new(window: &Window) -> Result<Self, String> {
+    pub unsafe fn new(_connection: &Connection, window: &Window) -> Result<Self, String> {
         // our device context
         let device = wapi_call!(GetDC(window.hwnd()))?;
 
