@@ -675,27 +675,9 @@ impl Game {
                             Key::LeftAlt | Key::RightAlt => io.set_alt(state),
                             _ => (),
                         }
-
-                        if state {
-                            let mut buf = vec![0 as u16; 4];
-                            let mut keyboard_state = vec![0 as u8; 256];
-                            if io.get_shift() {
-                                keyboard_state[input::Button::Shift as usize] = 0xff;
-                            }
-                            let result = unsafe {
-                                user32::ToUnicode(
-                                    vk as u32,
-                                    0,
-                                    keyboard_state.as_ptr(),
-                                    buf.as_mut_ptr(),
-                                    buf.len() as i32,
-                                    0
-                                )
-                            };
-                            if result == 1 {
-                                io.add_input_character(buf[0] as u32);
-                            }
-                        }
+                    },
+                    Event::Input(chr) => {
+                        io.add_input_character(chr);
                     },
                     Event::MouseMove((x, y)) => {
                         io.set_mouse(imgui::Vec2(x as f32, y as f32));

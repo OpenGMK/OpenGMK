@@ -632,8 +632,14 @@ impl IO {
         unsafe { (*self.0.Fonts).TexID = ptr };
     }
 
-    pub fn add_input_character(&mut self, code: u32) {
-        unsafe { c::ImGuiIO_AddInputCharacter(&mut self.0, code); }
+    pub fn add_input_character(&mut self, chr: char) {
+        let mut b = [0u16; 2];
+        let section = chr.encode_utf16(&mut b);
+        unsafe {
+            for chars in section {
+                c::ImGuiIO_AddInputCharacterUTF16(&mut self.0, *chars);
+            }
+        }
     }
 
     pub fn setup_default_keymap(&mut self) {
