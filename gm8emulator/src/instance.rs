@@ -260,7 +260,8 @@ impl Instance {
 
     // Sets direction and speed based on hspeed and vspeed
     fn update_speed_direction(&self) {
-        self.direction.set((-self.vspeed.get()).arctan2(self.hspeed.get()).to_degrees().rem_euclid(Real::from(360.0)));
+        let direction = (-self.vspeed.get()).arctan2(self.hspeed.get()).to_degrees().rem_euclid(Real::from(360.0));
+        self.direction.set(if (direction - direction.round()).abs() < 0.0001.into() { direction.round() } else { direction });
         self.speed.set((self.hspeed.get() * self.hspeed.get() + self.vspeed.get() * self.vspeed.get()).sqrt());
     }
 
