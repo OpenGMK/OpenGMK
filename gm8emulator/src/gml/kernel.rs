@@ -2637,9 +2637,9 @@ impl Game {
     pub fn action_move_point(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
         let (x, y, speed) = expect_args!(args, [real, real, real])?;
         let instance = self.room.instance_list.get(context.this);
-        let speed = if context.relative { instance.speed.get() + speed } else { speed };
-        let direction = (instance.y.get() - y).arctan2(x - instance.x.get()).to_degrees();
-        instance.set_speed_direction(speed, direction);
+        let (x, y) = if context.relative { (instance.x.get() + x, instance.y.get() + y) } else { (x, y) };
+        instance.set_hvspeed(x - instance.x.get(), y - instance.y.get());
+        instance.set_speed(speed);
         Ok(Default::default())
     }
 
@@ -4018,7 +4018,7 @@ impl Game {
 
     pub fn clamp(args: &[Value]) -> gml::Result<Value> {
         // NOTE: rust clamp() has an assert, GM doesn't
-        expect_args!(args, [real, real, real]).map(|(n, lo, hi)| Value::Real(n.min(lo).max(hi)))
+        expect_args!(args, [real, real, real]).map(|(n, lo, hi)| Value::Real(n.max(lo).min(hi)))
     }
 
     pub fn lerp(args: &[Value]) -> gml::Result<Value> {

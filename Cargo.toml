@@ -16,6 +16,3 @@ codegen-units = 1
 opt-level = 3
 lto = 'thin'
 strip = true
-
-[patch.crates-io]
-cmake = { git = "https://github.com/alexcrichton/cmake-rs" }

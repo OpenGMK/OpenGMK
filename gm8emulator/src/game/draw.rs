@@ -313,6 +313,13 @@ impl Game {
             game.particles.draw_system(id, &mut game.renderer, &game.assets, true);
         }
 
+        // Calculate effective width and height of view, for background tiling purposes
+        let angle_rad = angle.to_radians();
+        let angle_sin = angle_rad.sin().abs();
+        let angle_cos = angle_rad.cos().abs();
+        let tile_end_x = f64::from(src_x) + (f64::from(src_w) * angle_cos) + (f64::from(src_h) * angle_sin);
+        let tile_end_y = f64::from(src_y) + (f64::from(src_w) * angle_sin) + (f64::from(src_h) * angle_cos);
+    
         // draw backgrounds
         self.renderer.set_depth(12000.0);
         for background in self.room.backgrounds.iter().filter(|x| x.visible && !x.is_foreground) {
@@ -326,8 +333,8 @@ impl Game {
                         background.yscale.into(),
                         background.blend,
                         background.alpha.into(),
-                        if background.tile_horizontal { Some((src_x + src_w).into()) } else { None },
-                        if background.tile_vertical { Some((src_y + src_h).into()) } else { None },
+                        background.tile_horizontal.then_some(tile_end_x),
+                        background.tile_vertical.then_some(tile_end_y),
                     );
                 }
             }
@@ -399,8 +406,8 @@ impl Game {
                         background.yscale.into(),
                         background.blend,
                         background.alpha.into(),
-                        if background.tile_horizontal { Some((src_x + src_w).into()) } else { None },
-                        if background.tile_vertical { Some((src_y + src_h).into()) } else { None },
+                        background.tile_horizontal.then_some(tile_end_x),
+                        background.tile_vertical.then_some(tile_end_y),
                     );
                 }
             }
