@@ -2198,7 +2198,7 @@ impl Game {
     }
 
     // Replays some recorded inputs to the game
-    pub fn replay(mut self, replay: Replay, output_bin: Option<PathBuf>) -> Result<(), Box<dyn std::error::Error>> {
+    pub fn replay(mut self, replay: Replay, output_bin: Option<PathBuf>, start_save_path: Option<&PathBuf>) -> Result<(), Box<dyn std::error::Error>> {
         let mut frame_count: usize = 0;
         self.rand.set_seed(replay.start_seed);
         self.spoofed_time_nanos = Some(replay.start_time);
@@ -2209,11 +2209,29 @@ impl Game {
             self.renderer.upload_sprite(Box::new([0, 0, 0, 0]), 1, 1, 0, 0).expect("Failed to upload blank sprite");
         }
 
-        for ev in replay.startup_events.iter() {
-            self.stored_events.push_back(ev.clone());
+        if start_save_path.is_some() {
+            let mut save_buffer = savestate::Buffer::new();
+            match SaveState::from_file(start_save_path.unwrap(), &mut save_buffer) {
+                Ok(state) => {
+                    let (rep, ren) = state.clone().load_into(&mut self);
+                    if !replay.contains_part(&rep) {
+                        panic!("Savestate is not part of replay");
+                    }
+
+                    frame_count = rep.frame_count();
+                    self.renderer.set_state(&ren);
+                },
+                Err(e) => {
+                    panic!("(Fatal) Error loading savestate file: {:?}", e);
+                }
+            }
+        } else {
+            for ev in replay.startup_events.iter() {
+                self.stored_events.push_back(ev.clone());
+            }
+            self.init()?;
+            handle_scene_change!(self);
         }
-        self.init()?;
-        handle_scene_change!(self);
 
         let mut time_now = Instant::now();
         loop {
