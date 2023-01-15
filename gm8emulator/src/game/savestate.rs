@@ -107,6 +107,8 @@ pub struct SaveState {
     pub gm_version: Version,
     pub spoofed_time_nanos: Option<u128>,
 
+    pub clean_state: bool,
+
     scaling: Scaling,
     unscaled_width: u32,
     unscaled_height: u32,
@@ -122,7 +124,7 @@ pub struct SaveState {
 
 impl SaveState {
     /// Creates a new SaveState from the given components.
-    pub fn from(game: &mut Game, replay: Replay, renderer_state: RendererState) -> Self {
+    pub fn from(game: &Game, replay: Replay, renderer_state: RendererState, clean_state: bool) -> Self {
         let (window_width, window_height) = game.renderer.stored_size();
         let screenshot = game.renderer.stored_pixels();
         let zbuffer = game.renderer.stored_zbuffer();
@@ -202,6 +204,7 @@ impl SaveState {
             replay,
             screenshot,
             zbuffer,
+            clean_state,
         }
     }
 

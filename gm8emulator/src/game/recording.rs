@@ -38,8 +38,10 @@ use std::{
     path::PathBuf,
     time::Instant,
 };
-
-const CLEAR_COLOUR: Colour = Colour::new(0.0196, 0.1059, 0.06275);
+const GRID_COLOUR_GOOD: Colour = Colour::new(0.25, 0.625, 0.38671875);
+const GRID_COLOUR_BAD: Colour = Colour::new(0.75, 0.359375, 0.0);
+const CLEAR_COLOUR_GOOD: Colour = Colour::new(0.0196, 0.1059, 0.06275);
+const CLEAR_COLOUR_BAD: Colour = Colour::new(0.078125, 0.046875, 0.03515625);
 const BTN_NEUTRAL_COL: Colour = Colour::new(0.15, 0.15, 0.21);
 const BTN_NDOUBLE_COL: Colour = Colour::new(0.21, 0.21, 0.26);
 const BTN_NTRIPLE_COL: Colour = Colour::new(0.24, 0.24, 0.315);
@@ -47,6 +49,9 @@ const BTN_HELD_COL: Colour = Colour::new(0.486, 1.0, 0.506);
 const BTN_HDOUBLE_COL: Colour = Colour::new(0.46, 0.85, 0.48);
 const BTN_HTRIPLE_COL: Colour = Colour::new(0.44, 0.7, 0.455);
 const BTN_CACTUS_COL: Colour = Colour::new(1.0, 0.788, 0.055);
+
+// How long the grid takes to switch between colors, in miliseconds.
+const GRID_CHANGE_TIME: u32 = 500;
 
 #[derive(Clone, Copy, PartialEq)]
 pub enum KeyState {
@@ -384,25 +389,23 @@ impl Game {
             .expect("Failed to upload UI font");
         io.set_texture_id((&mut font as *mut AtlasRef).cast());
 
+        let mut clean_state = true;
+        let mut clean_state_previous = clean_state;
+        let mut clean_state_instance: Option<Instant> = None;
+
+        // Generate white grid sprite. Color is blended in when drawn.
+        // It's not entirely accurate to the K3 one anymore, someone's probably going to be upset at that.
         let grid = (0i32..(64 * 64 * 4))
             .map(|i| {
-                let n = i >> 2;
+                let n = i >> 2; // pixel index (floor(index/4))
                 let x = n % 64;
                 let y = n / 64;
-                let a = (y - x).abs() == 32 || (y + x - 63).abs() == 32;
-                let b = (y >= 34 && x + y == 97) || ((2..32).contains(&y) && x + y == 33);
                 let c = (31..34).contains(&(y - x).abs()) || (31..34).contains(&(y + x - 63).abs());
                 match (i & 1 != 0, i & 2 != 0) {
-                    (false, false) => u8::from(b) * 64,
-                    (true, false) => u8::from(a) * 128 + 64,
-                    (false, true) => {
-                        if a {
-                            99
-                        } else {
-                            u8::from(b) * 34 + 33
-                        }
-                    },
-                    (true, true) => u8::from(b || c) * 255,
+                    (false, false) => u8::from(c) * 255, // r
+                    (true, false) => u8::from(c) * 255, // g
+                    (false, true) => u8::from(c) * 255, // b
+                    (true, true) => u8::from(c) * 255, // a
                 }
             })
             .collect::<Vec<_>>()
@@ -533,7 +536,7 @@ impl Game {
                         // Just to initialize renderer_state and keep the compiler happy, this won't be used...
                         renderer_state = ui_renderer_state.clone();
                         err_string = Some(format!("(Fatal) Error loading quicksave file: {:?}", e));
-                        savestate = SaveState::from(self, replay.clone(), renderer_state.clone());
+                        savestate = SaveState::from(self, replay.clone(), renderer_state.clone(), false);
                         startup_successful = false;
                         game_running = false;
                     },
@@ -541,7 +544,7 @@ impl Game {
             } else {
                 let mut save_replay = replay.clone();
                 save_replay.truncate_frames(config.current_frame);
-                savestate = SaveState::from(self, save_replay, renderer_state.clone());
+                savestate = SaveState::from(self, save_replay, renderer_state.clone(), true);
 
                 if let Err(err) = savestate.save_to_file(&save_paths[config.quicksave_slot], &mut save_buffer) {
                     err_string = Some(format!(
@@ -586,6 +589,7 @@ impl Game {
                     } else {
                         replay = rep;
                     }
+                    clean_state = state.clean_state;
                     renderer_state = ren;
 
                     for (i, state) in keyboard_state.iter_mut().enumerate() {
@@ -606,7 +610,7 @@ impl Game {
                     // Just to initialize renderer_state and keep the compiler happy, this won't be used...
                     renderer_state = ui_renderer_state.clone();
                     err_string = Some(format!("(Fatal) Error loading quicksave file: {:?}", e));
-                    savestate = SaveState::from(self, replay.clone(), renderer_state.clone());
+                    savestate = SaveState::from(self, replay.clone(), renderer_state.clone(), false);
                     startup_successful = false;
                     game_running = false;
                 },
@@ -746,6 +750,8 @@ impl Game {
                     save_buffer: &mut save_buffer,
                     instance_reports: &mut instance_reports,
 
+                    clean_state: &mut clean_state,
+
                     startup_successful: &startup_successful,
                     ui_renderer_state: &ui_renderer_state,
                     fps_text: &fps_text,
@@ -830,6 +836,25 @@ impl Game {
             // Done
             frame.render();
 
+            // update grid color
+            if clean_state != clean_state_previous {
+                clean_state_previous = clean_state;
+                clean_state_instance = Some(Instant::now());
+            }
+
+            let mut grid_color = if clean_state { GRID_COLOUR_GOOD } else { GRID_COLOUR_BAD };
+            let mut grid_background = if clean_state { CLEAR_COLOUR_GOOD } else { CLEAR_COLOUR_BAD };
+
+            if clean_state_instance.is_some() && clean_state_instance.unwrap().elapsed().as_millis() < GRID_CHANGE_TIME as _ {
+                let start_grid_color = if clean_state { GRID_COLOUR_BAD } else { GRID_COLOUR_GOOD };
+                let start_grid_background = if clean_state { CLEAR_COLOUR_BAD } else { CLEAR_COLOUR_GOOD };
+
+                grid_color = start_grid_color.lerp(grid_color, clean_state_instance.unwrap().elapsed().as_millis() as _, GRID_CHANGE_TIME);
+                grid_background = start_grid_background.lerp(grid_background, clean_state_instance.unwrap().elapsed().as_millis() as _, GRID_CHANGE_TIME);
+            } else {
+                clean_state_instance = None;
+            }
+
             // draw imgui
             let start_xy = f64::from(grid_start.elapsed().as_millis().rem_euclid(2048) as i16) / -32.0;
             self.renderer.draw_sprite_tiled(
@@ -838,7 +863,7 @@ impl Game {
                 start_xy,
                 1.0,
                 1.0,
-                0xFFFFFF,
+                grid_color.as_decimal() as _,
                 0.5,
                 Some(config.ui_width.into()),
                 Some(config.ui_height.into()),
@@ -892,7 +917,7 @@ impl Game {
                 }
             }
 
-            self.renderer.finish(config.ui_width.into(), config.ui_height.into(), CLEAR_COLOUR);
+            self.renderer.finish(config.ui_width.into(), config.ui_height.into(), grid_background);
 
             context.io().set_delta_time(time_start.elapsed().as_micros() as f32 / 1000000.0);
         }
@@ -903,5 +928,16 @@ impl Game {
         let mut backup_path = project_path.clone();
         backup_path.push("backup.gmtas");
         replay.to_file(&backup_path).expect("backup.gmtas could not be saved.");
+    }
+}
+
+impl Colour {
+    fn lerp(&self, target: Colour, current: u32, max: u32) -> Colour {
+        let amount = current as f64 / max as f64;
+        Colour {
+            r: (target.r-self.r)*amount+self.r,
+            g: (target.g-self.g)*amount+self.g,
+            b: (target.b-self.b)*amount+self.b,
+        }
     }
 }

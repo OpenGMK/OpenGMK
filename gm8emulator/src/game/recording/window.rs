@@ -28,6 +28,8 @@ pub struct DisplayInformation<'a, 'f> {
     pub renderer_state: &'a mut RendererState,
     pub save_buffer: &'a mut savestate::Buffer,
     pub instance_reports: &'a mut Vec<(i32, Option<InstanceReport>)>,
+
+    pub clean_state: &'a mut bool,
     
     pub save_paths: &'a Vec<PathBuf>,
     pub fps_text: &'a String,
@@ -108,7 +110,7 @@ impl DisplayInformation<'_, '_> {
             // make sure the saved replay is only up to the savestate.
             savestate_replay.truncate_frames(self.config.current_frame);
 
-            let state = SaveState::from(self.game, savestate_replay, self.renderer_state.clone());
+            let state = SaveState::from(self.game, savestate_replay, self.renderer_state.clone(), *self.clean_state);
             let result = self.savestate_save_to_file(slot, &state);
             if slot == self.config.quicksave_slot {
                 *self.savestate = state;
@@ -195,9 +197,9 @@ impl DisplayInformation<'_, '_> {
     }
 
     fn savestate_load_from_state(&mut self, state: SaveState) {
+        *self.clean_state = state.clean_state;
         let (new_replay, new_renderer_state) = state.load_into(self.game);
         *self.renderer_state = new_renderer_state;
-
 
         for (i, state) in self.keyboard_state.iter_mut().enumerate() {
             *state =

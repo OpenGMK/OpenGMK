@@ -45,6 +45,7 @@ impl Window for ConsoleWindow {
             frame,
             game,
             keybindings,
+            clean_state,
             ..
         } = info;
 
@@ -129,6 +130,8 @@ impl Window for ConsoleWindow {
                                     self.output.push(format!("Error: {}\n", error));
                                 },
                             }
+
+                            **clean_state = false;
                         }
                     },
                     Err(error) => {

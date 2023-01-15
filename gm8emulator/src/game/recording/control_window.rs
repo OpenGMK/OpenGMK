@@ -294,7 +294,7 @@ impl ControlWindow {
             info.config.ui_width.into(),
             info.config.ui_height.into()
         );
-        info.game.renderer.clear_view(crate::game::recording::CLEAR_COLOUR, 1.0);
+        info.game.renderer.clear_view(if *info.clean_state { crate::game::recording::CLEAR_COLOUR_GOOD } else { crate::game::recording::CLEAR_COLOUR_BAD }, 1.0);
         *info.renderer_state = info.game.renderer.state();
         info.game.renderer.set_state(info.ui_renderer_state);
         info.clear_context_menu();
