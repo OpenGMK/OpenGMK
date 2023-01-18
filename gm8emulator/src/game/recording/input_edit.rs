@@ -60,7 +60,6 @@ const TOTAL_INPUT_TABLE_HEIGHT: f32 = INPUT_TABLE_HEIGHT + TABLE_PADDING * 2.0; 
 // draw 2 elements above and below the visible region.
 const TABLE_CLIPPING: f32 = TOTAL_INPUT_TABLE_HEIGHT*2.0;
 
-
 macro_rules! rgb {
     ($r:expr, $g:expr, $b:expr) => {
         // create rgb value with 0.5 alpha
@@ -90,7 +89,7 @@ impl Window for InputEditWindow {
 
         unsafe {
             cimgui_sys::igSetCursorPos(imgui::Vec2(0.0, INPUT_TABLE_YPOS).into());
-            cimgui_sys::igPushStyleVarVec2(cimgui_sys::ImGuiStyleVar__ImGuiStyleVar_CellPadding as _, imgui::Vec2(TABLE_PADDING, TABLE_PADDING).into());
+            cimgui_sys::igPushStyleVarVec2(cimgui_sys::ImGuiStyleVar__ImGuiStyleVar_CellPadding as _, imgui::Vec2(TABLE_PADDING, 0.0).into());
         }
         self.push_current_row_colors();
 
@@ -210,6 +209,7 @@ impl InputEditWindow {
             cimgui_sys::igPushStyleColorU32(cimgui_sys::ImGuiCol__ImGuiCol_TableRowBgAlt as _, cimgui_sys::igGetColorU32Col(cimgui_sys::ImGuiCol__ImGuiCol_TableRowBgAlt as _, 1.0));
         }
     }
+
     /// Sets the row color and alternative row color. Expects 2 items to be on the current color style stack.
     /// This needs to be done so that the current color can live long enough.
     fn set_table_colors(&self, color: u32, color_alt: u32) {
@@ -458,7 +458,7 @@ impl InputEditWindow {
             self.set_table_color(TableColor::DISABLED);
         }
         for i in start_index..(clipped_below as usize) {
-            frame.table_next_row(0, INPUT_TABLE_HEIGHT);
+            frame.table_next_row(0, TOTAL_INPUT_TABLE_HEIGHT);
 
             if self.is_selecting != MouseSelection::None && self.selection_column.is_none() 
                 && i >= usize::min(self.selection_start_index, self.selection_end_index)
@@ -477,7 +477,7 @@ impl InputEditWindow {
             for j in 0..self.keys.len() {
                 frame.table_set_column_index(j as i32 + 1);
                 let keystate = &self.states[i][j];
-                frame.invisible_button(keystate.repr(), imgui::Vec2(INPUT_TABLE_WIDTH, INPUT_TABLE_HEIGHT), None);
+                frame.invisible_button(keystate.repr(), imgui::Vec2(INPUT_TABLE_WIDTH, TOTAL_INPUT_TABLE_HEIGHT), None);
 
                 let hovered = frame.item_hovered();
                 let item_rect_min = frame.get_item_rect_min();
@@ -497,9 +497,9 @@ impl InputEditWindow {
                     }
                 }
 
-                keystate.draw_keystate(frame, item_rect_min-frame.window_position(), item_rect_size);
+                keystate.draw_keystate(frame, item_rect_min-frame.window_position()+imgui::Vec2(0.0, TABLE_PADDING), item_rect_size - imgui::Vec2(0.0, TABLE_PADDING * 2.0));
                 if within_selection {
-                    frame.rect(item_rect_min, item_rect_min + item_rect_size, crate::types::Colour::new(0.3, 0.4, 0.7), 128);
+                    frame.rect(item_rect_min + imgui::Vec2(0.0, TABLE_PADDING), item_rect_min + item_rect_size - imgui::Vec2(0.0, TABLE_PADDING * 2.0 - 1.0), crate::types::Colour::new(0.3, 0.4, 0.7), 128);
                 }
 
                 if hovered {
