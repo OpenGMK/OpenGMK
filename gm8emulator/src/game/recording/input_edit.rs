@@ -134,11 +134,23 @@ impl Window for InputEditWindow {
             cimgui_sys::igPopStyleVar(1); // ImGuiStyleVar_CellPadding
         }
 
-        if let Some(text) = self.hovered_text {
+        let hovered_text = if self.is_selecting != MouseSelection::None {
+            let count = self.selection_start_index.abs_diff(self.selection_end_index)+1;
+
+            if let Some(text) = self.hovered_text {
+                Some(format!("{} selected; {}", count, text))
+            } else {
+                Some(format!("{} selected", count))
+            }
+        } else {
+            self.hovered_text.map(String::from)
+        };
+
+        if let Some(text) = hovered_text {
             unsafe {
                 cimgui_sys::igSetCursorPos(imgui::Vec2(8.0, 22.0).into());
             }
-            info.frame.text(text);
+            info.frame.text(text.as_str());
             self.hovered_text = None;
         }
 
