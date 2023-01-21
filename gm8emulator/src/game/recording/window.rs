@@ -2,7 +2,7 @@ use crate::{
     imgui,
     game::{
         Game,
-        recording::{KeyState, ProjectConfig, instance_report::InstanceReport, keybinds::{Keybindings, Binding}},
+        recording::{WindowKind, KeyState, ProjectConfig, instance_report::InstanceReport, keybinds::{Keybindings, Binding}},
         replay::Replay,
         savestate::{self, SaveState},
     },
@@ -61,6 +61,9 @@ pub trait Window: WindowType {
     fn name(&self) -> String;
 
     fn window_id(&self) -> usize { 0 }
+    
+    /// Returns the WindowType that is stored in the config. If it returns None it will not be stored in the config and won't automatically open on startup.
+    fn stored_kind(&self) -> Option<WindowKind> { None }
 
     /// Displays the context menu. Returns false if the context menu is not open anymore.
     fn show_context_menu(&mut self, _info: &mut DisplayInformation) -> bool { false }

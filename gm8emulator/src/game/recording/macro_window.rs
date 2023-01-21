@@ -33,6 +33,10 @@ enum StateChange {
 
 // Macro window
 impl Window for MacroWindow {
+    fn stored_kind(&self) -> Option<super::WindowKind> {
+        Some(super::WindowKind::Macro(self.id))
+    }
+    
     fn window_id(&self) -> usize {
         self.id
     }

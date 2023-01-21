@@ -18,6 +18,7 @@ use crate::{
             window::{
                 Window,
                 DisplayInformation,
+                Openable,
             },
         },
         replay::{self, Replay},
@@ -404,12 +405,26 @@ pub enum InputMode {
 }
 
 #[derive(Deserialize, Serialize)]
+pub enum WindowKind {
+    Control,
+    Game,
+    InstanceReports,
+    Input,
+    Savestates,
+    InputEditor,
+    Keybindings,
+    Macro(usize),
+    Console(usize),
+}
+
+#[derive(Deserialize, Serialize)]
 pub struct ProjectConfig {
     ui_width: u16,
     ui_height: u16,
     ui_maximised: bool,
     rerecords: u64,
     watched_ids: Vec<i32>,
+    open_windows: Vec<WindowKind>,
     full_keyboard: bool,
     input_mode: InputMode,
     quicksave_slot: usize,
@@ -426,6 +441,7 @@ impl ProjectConfig {
             ui_maximised: false,
             rerecords: 0,
             watched_ids: Vec::new(),
+            open_windows: Vec::new(),
             full_keyboard: false,
             input_mode: InputMode::Mouse,
             quicksave_slot: 0,
@@ -522,8 +538,6 @@ impl Game {
 
         let mut keyboard_state = [KeyState::Neutral; 256];
         let mut mouse_state = [KeyState::Neutral; 3];
-        let mut new_mouse_pos: Option<(i32, i32)> = None;
-        let mut setting_mouse_pos = false;
 
         let ui_renderer_state = RendererState {
             model_matrix: self.renderer.get_model_matrix(),
@@ -561,7 +575,7 @@ impl Game {
         let mut game_running = true; // false indicates the game closed or crashed, and so advancing is not allowed
         let mut err_string: Option<String> = None;
 
-        let mut savestate;
+        let savestate;
         let mut renderer_state;
 
         macro_rules! load_backup_recording {
@@ -745,6 +759,28 @@ impl Game {
         let instance_reports = config.watched_ids.iter().map(|id| (*id, InstanceReport::new(&*self, *id))).collect();
         let keybindings = keybinds::Keybindings::from_file_or_default(&keybind_path);
 
+        let mut windows: Vec<(Box<dyn Window>, bool)> = vec![
+            (Box::new(game_window::GameWindow::new()), true),
+            (Box::new(control_window::ControlWindow::new()), false),
+            (Box::new(savestate_window::SaveStateWindow::new(16)), false),
+            (Box::new(input_window::InputWindows::new()), false),
+            (Box::new(instance_report::InstanceReportWindow::new()), false),
+        ];
+
+        for window in &config.open_windows {
+            match window {
+                WindowKind::InputEditor => windows.push((Box::new(input_edit::InputEditWindow::open(0)), false)),
+                WindowKind::Keybindings => windows.push((Box::new(keybinds::KeybindWindow::open(0)), false)),
+                WindowKind::Macro(id) => windows.push((Box::new(macro_window::MacroWindow::open(*id)), false)),
+                WindowKind::Console(id) => windows.push((Box::new(console::ConsoleWindow::open(*id)), false)),
+                WindowKind::Control 
+                 | WindowKind::Game
+                 | WindowKind::InstanceReports
+                 | WindowKind::Input
+                 | WindowKind::Savestates => panic!("Control windows can not be stored in project config"),
+            }
+        }
+
         /* ----------------------
         Frame loop begins here
         ---------------------- */
@@ -779,14 +815,7 @@ impl Game {
             save_paths,
             keybind_path,
             keybindings,
-            windows: vec![
-                (Box::new(game_window::GameWindow::new()), true),
-                (Box::new(control_window::ControlWindow::new()), false),
-                (Box::new(savestate_window::SaveStateWindow::new(16)), false),
-                (Box::new(input_window::InputWindows::new()), false),
-                (Box::new(instance_report::InstanceReportWindow::new()), false),
-                // (Box::new(keybinds::KeybindWindow::new()), false),
-            ],
+            windows,
             win_border_size: 0.0,
             win_frame_height: 0.0,
             win_padding: imgui::Vec2(0.0, 0.0),
@@ -861,8 +890,8 @@ impl UIState<'_> {
 
             let time = self.clean_state_instant.unwrap().elapsed().as_millis();
             if time < GRID_CHANGE_TIME as _ {
-                self.grid_colour = self.grid_colour.lerp(target_grid_colour, time as _, GRID_CHANGE_TIME);
-                self.grid_colour_background = self.grid_colour_background.lerp(target_grid_background, time as _, GRID_CHANGE_TIME);
+                self.grid_colour = self.grid_colour.lerp(target_grid_colour, time as f64 / GRID_CHANGE_TIME as f64);
+                self.grid_colour_background = self.grid_colour_background.lerp(target_grid_background, time as f64 / GRID_CHANGE_TIME as f64);
             } else {
                 self.clean_state_instant = None;
                 self.grid_colour = target_grid_colour;
@@ -1094,6 +1123,7 @@ impl UIState<'_> {
     }
 
     fn save_config(&mut self) {
+        self.config.open_windows = self.windows.iter().filter_map(|(win, _)| win.stored_kind()).collect();
         self.err_string = self.config.save();
 
         let _ = File::create(&self.keybind_path).map(|f| bincode::serialize_into(f, &self.keybindings));
@@ -1105,8 +1135,7 @@ impl UIState<'_> {
 }
 
 impl Colour {
-    fn lerp(&self, target: Colour, current: u32, max: u32) -> Colour {
-        let amount = current as f64 / max as f64;
+    fn lerp(&self, target: Colour, amount: f64) -> Colour {
         Colour {
             r: (target.r-self.r)*amount+self.r,
             g: (target.g-self.g)*amount+self.g,

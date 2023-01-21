@@ -31,6 +31,10 @@ impl Openable<Self> for ConsoleWindow {
     }
 }
 impl Window for ConsoleWindow {
+    fn stored_kind(&self) -> Option<super::WindowKind> {
+        Some(super::WindowKind::Console(self.id))
+    }
+
     fn window_id(&self) -> usize {
         self.id
     }

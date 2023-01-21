@@ -74,8 +74,11 @@ const BGCOLOR_SELECTED: u32 = rgb!(244, 231, 90);
 const BGCOLOR_SELECTED_ALT: u32 = rgb!(232, 223, 127);
 
 impl Window for InputEditWindow {
-    fn show_window(&mut self, info: &mut DisplayInformation) {
+    fn stored_kind(&self) -> Option<super::WindowKind> {
+        Some(super::WindowKind::InputEditor)
+    }
 
+    fn show_window(&mut self, info: &mut DisplayInformation) {
         // todo: figure out a better system on when to update this.
         if self.last_frame != info.config.current_frame || !self.updated {
             self.updated = true;

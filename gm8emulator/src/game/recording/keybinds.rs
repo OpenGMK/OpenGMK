@@ -209,6 +209,10 @@ impl Openable<Self> for KeybindWindow {
     }
 }
 impl Window for KeybindWindow {
+    fn stored_kind(&self) -> Option<super::WindowKind> {
+        Some(super::WindowKind::Keybindings)
+    }
+
     fn name(&self) -> String {
         "Keybindings".to_owned()
     }
