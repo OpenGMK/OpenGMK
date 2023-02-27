@@ -5744,14 +5744,23 @@ impl Game {
 
     pub fn sleep(&mut self, args: &[Value]) -> gml::Result<Value> {
         let millis = expect_args!(args, [int])?;
-        if millis > 0 {
-            if self.play_type != PlayType::Record {
-                datetime::sleep(std::time::Duration::from_millis(millis as u64));
+        match u64::try_from(millis) {
+            Ok(0) | Err(_) => (),
+            Ok(millis) => {
+                let duration = std::time::Duration::from_millis(millis);
+                match self.play_type {
+                    PlayType::Normal => {
+                        datetime::sleep(duration);
+                        self.process_window_events();
+                    },
+                    PlayType::Record => (),
+                    PlayType::Replay => datetime::sleep(duration),
+                }
+
+                if let Some(ns) = self.spoofed_time_nanos.as_mut() {
+                    *ns += (millis as u128) * 1_000_000;
+                }
             }
-            if let Some(ns) = self.spoofed_time_nanos.as_mut() {
-                *ns += (millis as u128) * 1_000_000;
-            }
-            self.process_window_events();
         }
         Ok(Default::default())
     }
