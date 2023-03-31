@@ -5,7 +5,7 @@ use crate::{
 use phf::{phf_map, phf_ordered_map};
 
 pub mod constants {
-    pub const ANSI_CHARSET: f64 = 0.0f64;
+    pub const ANSI_CHARSET: f64 = 0.0;
     pub const ARABIC_CHARSET: f64 = 178.0;
     pub const BALTIC_CHARSET: f64 = 186.0;
     pub const CHINESEBIG5_CHARSET: f64 = 136.0;
