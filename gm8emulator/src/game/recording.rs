@@ -973,8 +973,14 @@ impl UIState<'_> {
         for event in self.game.window.events().into_iter().copied() {
             match event {
                 ev @ Event::KeyboardDown(key) | ev @ Event::KeyboardUp(key) => {
-                    self.setting_mouse_pos = false;
                     let state = matches!(ev, Event::KeyboardDown(_));
+                    if state { // Only cancel mouse selection when pressing down a key
+                        if key == Key::Escape && self.setting_mouse_pos {
+                            // Unset new mouse position if we pressed escape
+                            self.new_mouse_pos = None;
+                        }
+                        self.setting_mouse_pos = false;
+                    }
                     let vk = input::ramen2vk(key);
                     io.set_key(usize::from(vk), state);
                     match key {
