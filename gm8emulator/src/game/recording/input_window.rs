@@ -424,8 +424,8 @@ impl InputWindows {
             kb_btn!("Left", button_size, 4.0, 65.0, mouse 0);
             kb_btn!("Middle", button_size, 48.0, 65.0, mouse 2);
             kb_btn!("Right", button_size, 92.0, 65.0, mouse 1);
-            if frame.button("Set Mouse", imgui::Vec2(150.0, 20.0), Some(imgui::Vec2(150.0, 50.0)))
-                || set_mouse_bind_pressed
+            if (frame.button("Set Mouse", imgui::Vec2(150.0, 20.0), Some(imgui::Vec2(150.0, 50.0)))
+                || set_mouse_bind_pressed) && !config.is_read_only
             {
                 if **game_running {
                     **setting_mouse_pos = true;

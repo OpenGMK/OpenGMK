@@ -14,6 +14,7 @@ use crate::{
                 Openable,
                 DisplayInformation
             },
+            keybinds::Binding,
         },
     },
 };
@@ -92,9 +93,19 @@ impl Window for InputEditWindow {
         }
 
         if self.setting_mouse_pos_for_frame.is_some() && !*info.setting_mouse_pos {
-            if let Some(new_mouse_pos) = info.new_mouse_pos {
-                let frame = self.setting_mouse_pos_for_frame.unwrap();
-                if info.config.current_frame < frame && frame < info.replay.frame_count() {
+            let frame = self.setting_mouse_pos_for_frame.unwrap();
+            if info.config.current_frame <= frame && frame < info.replay.frame_count() {
+                if let Some(new_mouse_pos) = info.new_mouse_pos {
+                    // If we have a new mouse position, set it to that
+                    self.update_mouse_position_for_frame(frame, new_mouse_pos.0, new_mouse_pos.1, info.replay);
+                } else {
+                    // Otherwise if we pressed Escape to unset the mouse, use the previous frames mouse position
+                    let new_mouse_pos = if frame == 0 {
+                        (0, 0)
+                    } else {
+                        let replay_frame = info.replay.get_frame(frame-1).unwrap();
+                        (replay_frame.mouse_x, replay_frame.mouse_y)
+                    };
                     self.update_mouse_position_for_frame(frame, new_mouse_pos.0, new_mouse_pos.1, info.replay);
                 }
             }
@@ -510,6 +521,8 @@ impl InputEditWindow {
     }
 
     fn draw_input_rows(&mut self, info: &mut DisplayInformation) {
+        let set_mouse_bind_pressed = info.keybind_pressed(Binding::SetMouse);
+        
         let DisplayInformation {
             replay,
             frame,
@@ -656,12 +669,14 @@ impl InputEditWindow {
                 any_button_hovered = true;
             }
             // If we clicked on a mouse input we haven't reached yet
-            if i >= config.current_frame && mouse_hovered {
-                if frame.left_clicked() {
+            if i >= config.current_frame {
+                if (frame.left_clicked() && mouse_hovered) // If we left clicked and are hovering this button
+                    || (i == config.current_frame && set_mouse_bind_pressed) // or it's the next frame to be run and we used the keybind
+                {
                     **setting_mouse_pos = true;
                     self.setting_mouse_pos_for_frame = Some(i);
-                } else if frame.middle_clicked() && prev_frame.is_some() {
-                    self.update_mouse_position_for_frame(i, prev_frame.unwrap().mouse_x, prev_frame.unwrap().mouse_y, replay);
+                } else if frame.middle_clicked() && mouse_hovered {
+                    self.update_mouse_position_for_frame(i, prev_frame.map(|f| f.mouse_x).unwrap_or(0), prev_frame.map(|f| f.mouse_y).unwrap_or(0), replay);
                 }
             }
 
