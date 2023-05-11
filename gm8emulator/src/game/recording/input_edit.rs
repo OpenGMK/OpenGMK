@@ -39,6 +39,9 @@ pub struct InputEditWindow {
     hovered_text: Option<&'static str>,
     scroll_to_current_frame: bool,
 
+    setting_mouse_pos_for_frame: Option<usize>,
+    single_frame_mouse: bool,
+
     is_selecting: MouseSelection,
     selection_column: Option<usize>,
     selection_start_index: usize,
@@ -52,7 +55,8 @@ pub struct InputEditWindow {
 }
 
 const INPUT_TABLE_WIDTH: f32 = 50.0;
-const INPUT_TABLE_RNG_WIDTH: f32 = INPUT_TABLE_WIDTH * 2.0;
+const INPUT_TABLE_RNG_WIDTH: f32 = INPUT_TABLE_WIDTH * 1.5;
+const INPUT_TABLE_MOUSE_WIDTH: f32 = INPUT_TABLE_WIDTH * 1.5;
 const INPUT_TABLE_HEIGHT: f32 = 20.0;
 const INPUT_TABLE_YPOS: f32 = 44.0;
 const TABLE_PADDING: f32 = 2.0;
@@ -87,6 +91,17 @@ impl Window for InputEditWindow {
             self.update_keys(info.replay);
         }
 
+        if self.setting_mouse_pos_for_frame.is_some() && !*info.setting_mouse_pos {
+            if let Some(new_mouse_pos) = info.new_mouse_pos {
+                let frame = self.setting_mouse_pos_for_frame.unwrap();
+                if info.config.current_frame < frame && frame < info.replay.frame_count() {
+                    self.update_mouse_position_for_frame(frame, new_mouse_pos.0, new_mouse_pos.1, info.replay);
+                }
+            }
+            self.setting_mouse_pos_for_frame = None;
+            *info.new_mouse_pos = None;
+        }
+
         unsafe { cimgui_sys::igPushStyleVarVec2(cimgui_sys::ImGuiStyleVar__ImGuiStyleVar_WindowPadding as _, imgui::Vec2(0.0, 0.0).into()); }
         info.frame.begin_window(Self::window_name(), None, true, false, Some(&mut self.is_open));
 
@@ -100,7 +115,7 @@ impl Window for InputEditWindow {
 
         if info.frame.begin_table(
             "Input",
-            self.keys.len() as i32 + 2, // + Frame counter and RNG Seed columns
+            self.keys.len() as i32 + 3, // + Frame counter, RNG Seed and Mouse columns
             (cimgui_sys::ImGuiTableFlags__ImGuiTableFlags_RowBg
                 | cimgui_sys::ImGuiTableFlags__ImGuiTableFlags_Reorderable
                 | cimgui_sys::ImGuiTableFlags__ImGuiTableFlags_Borders
@@ -117,6 +132,7 @@ impl Window for InputEditWindow {
                 }
             }
             info.frame.table_setup_column("RNG", (cimgui_sys::ImGuiTableColumnFlags__ImGuiTableColumnFlags_NoReorder |  cimgui_sys::ImGuiTableColumnFlags__ImGuiTableColumnFlags_WidthFixed) as _, INPUT_TABLE_RNG_WIDTH);
+            info.frame.table_setup_column("Mouse", (cimgui_sys::ImGuiTableColumnFlags__ImGuiTableColumnFlags_NoReorder |  cimgui_sys::ImGuiTableColumnFlags__ImGuiTableColumnFlags_WidthFixed) as _, INPUT_TABLE_MOUSE_WIDTH);
             info.frame.table_setup_scroll_freeze(0, 1); // freeze header row
             info.frame.table_headers_row();
 
@@ -157,7 +173,23 @@ impl Window for InputEditWindow {
             self.hovered_text = None;
         }
 
-        unsafe { cimgui_sys::igPopStyleVar(1); }
+        let text = "Single Frame Mouse Editing:";
+        unsafe {
+            let c_text = std::ffi::CString::new(text).expect("CString::new failed");
+            let mut size = std::mem::MaybeUninit::uninit();
+            cimgui_sys::igCalcTextSize(size.as_mut_ptr(), c_text.as_ptr(), std::ptr::null(), false, -1.0);
+            let size = size.assume_init();
+            
+            // Technically igGetFrameHeightWithSpacing returns it with ItemSpacing.y instead of ItemInnerSpacing.x but
+            //   those are the same at the moment and i can't be bothered to figure out how to get ItemInnerSpacing.x right now. :)
+            let x = info.frame.window_size().0 - cimgui_sys::igGetFrameHeightWithSpacing() - size.x;
+            cimgui_sys::igSetCursorPos(imgui::Vec2(x-8.0, 22.0).into());
+        }
+        info.frame.text(text);
+        info.frame.same_line(0.0, -1.0);
+        info.frame.checkbox("##mouse", &mut self.single_frame_mouse);
+
+        unsafe { cimgui_sys::igPopStyleVar(1); } // ImGuiStyleVar__ImGuiStyleVar_WindowPadding
         info.frame.end();
     }
 
@@ -200,6 +232,9 @@ impl InputEditWindow {
             hovered_text: None,
             scroll_to_current_frame: false,
 
+            setting_mouse_pos_for_frame: None,
+            single_frame_mouse: false,
+
             is_selecting: MouseSelection::None,
             selection_column: None,
             selection_start_index: 0,
@@ -213,6 +248,34 @@ impl InputEditWindow {
         }
     }
 
+    fn update_mouse_position_for_frame(&mut self, frame: usize, x: i32, y: i32, replay: &mut Replay) {
+        // If we want to set a new mouse position and aren't setting the mouse position anymore, update the frames accordingly
+        if let Some(replay_frame) = replay.get_frame_mut(frame) {
+            if self.single_frame_mouse {
+                // Update just this frame
+                replay_frame.mouse_x = x;
+                replay_frame.mouse_y = y;
+            } else {
+                // Update this and all following frames that have had the same mouse position
+                let old_mouse_x = replay_frame.mouse_x;
+                let old_mouse_y = replay_frame.mouse_y;
+                replay_frame.mouse_x = x;
+                replay_frame.mouse_y = y;
+                
+                let mut current_frame = frame+1;
+                while let Some(next_frame) = replay.get_frame_mut(current_frame) {
+                    if next_frame.mouse_x == old_mouse_x && next_frame.mouse_y == old_mouse_y {
+                        next_frame.mouse_x = x;
+                        next_frame.mouse_y = y;
+                        current_frame += 1;
+                    } else {
+                        break;
+                    }
+                }
+            }
+        }
+    }
+    
     /// pushes the current row color and alternative row color on the color style stack.
     /// Used to be able to set the color directly to something else. Colors are applied on either the next next_row() call or the next end_table() call
     ///   depending on where the visible region ends. The active color needs to live long enough for either of them.
@@ -451,6 +514,7 @@ impl InputEditWindow {
             replay,
             frame,
             config,
+            setting_mouse_pos,
             ..
         } = info;
 
@@ -568,6 +632,36 @@ impl InputEditWindow {
                     };
                 } else if frame.middle_clicked() {
                     current_frame.new_seed = None;
+                }
+            }
+            let current_frame = replay.get_frame(i).unwrap();
+            let prev_frame = if i == 0 { None } else { replay.get_frame(i-1) };
+
+            // Mouse Column
+            frame.table_set_column_index(self.keys.len() as i32 + 2);
+            let mouse_text = if self.single_frame_mouse || prev_frame.is_none() {
+                format!("{}, {}", current_frame.mouse_x, current_frame.mouse_y)
+            } else {
+                // If we are in multi-frame mode for mouse edits then only show mouse coords when it actually changed
+                if prev_frame.unwrap().mouse_x == current_frame.mouse_x && prev_frame.unwrap().mouse_y == current_frame.mouse_y {
+                    String::from("-")
+                } else {
+                    format!("{}, {}", current_frame.mouse_x, current_frame.mouse_y)
+                }
+            };
+            
+            frame.button(&mouse_text, imgui::Vec2(INPUT_TABLE_MOUSE_WIDTH, INPUT_TABLE_HEIGHT), None);
+            let mouse_hovered = frame.item_hovered();
+            if mouse_hovered {
+                any_button_hovered = true;
+            }
+            // If we clicked on a mouse input we haven't reached yet
+            if i >= config.current_frame && mouse_hovered {
+                if frame.left_clicked() {
+                    **setting_mouse_pos = true;
+                    self.setting_mouse_pos_for_frame = Some(i);
+                } else if frame.middle_clicked() && prev_frame.is_some() {
+                    self.update_mouse_position_for_frame(i, prev_frame.unwrap().mouse_x, prev_frame.unwrap().mouse_y, replay);
                 }
             }
 
