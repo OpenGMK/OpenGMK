@@ -30,6 +30,7 @@ pub struct DisplayInformation<'a, 'f> {
     pub instance_reports: &'a mut Vec<(i32, Option<InstanceReport>)>,
 
     pub clean_state: &'a mut bool,
+    pub run_until_frame: &'a mut Option<usize>,
     
     pub save_paths: &'a Vec<PathBuf>,
     pub fps_text: &'a String,
@@ -123,6 +124,7 @@ impl DisplayInformation<'_, '_> {
     }
 
     pub fn savestate_load(&mut self, slot: usize) -> bool {
+        *self.run_until_frame = None;
         if slot == self.config.quicksave_slot {
             self.savestate_load_from_state(self.savestate.clone());
             true

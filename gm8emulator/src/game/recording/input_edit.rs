@@ -409,6 +409,10 @@ impl InputEditWindow {
                 }
 
                 self.context_menu = false;
+            } else if frame.menu_item("Run until last selected frame") {
+                let end = usize::max(self.selection_start_index, self.selection_end_index);
+                *info.run_until_frame = Some(end);
+                self.context_menu = false;
             }
         }
 

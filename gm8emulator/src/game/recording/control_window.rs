@@ -31,8 +31,20 @@ impl Window for ControlWindow {
 
         self.update_texts(info);
 
+        let run_until_frame = if let Some(frame) = *info.run_until_frame {
+            if frame > info.config.current_frame {
+                true
+            } else {
+                *info.run_until_frame = None;
+                false
+            }
+        } else {
+            false
+        };
+
         if (info.frame.button("Advance", imgui::Vec2(165.0, 20.0), None)
-            || info.keybind_pressed(Binding::Advance))
+            || info.keybind_pressed(Binding::Advance)
+            || run_until_frame)
             && *info.game_running
             && info.err_string.is_none()
         {

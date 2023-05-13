@@ -125,6 +125,9 @@ struct UIState<'g> {
     /// Cached reports on the current state of any instances the user is "watching"
     instance_reports: Vec<(i32, Option<InstanceReport>)>,
 
+    /// Until which frame the game should advance
+    run_until_frame: Option<usize>,
+
     /// Whether or not the current state of the game is clean or has potentially been modified
     clean_state: bool,
 
@@ -808,6 +811,7 @@ impl Game {
             clear_context_menu: false,
             context_menu_window: None,
             context_menu_pos: imgui::Vec2(0.0, 0.0),
+            run_until_frame: None,
             clean_state,
             clean_state_previous: clean_state,
             clean_state_instant: None,
@@ -977,12 +981,20 @@ impl UIState<'_> {
             match event {
                 ev @ Event::KeyboardDown(key) | ev @ Event::KeyboardUp(key) => {
                     let state = matches!(ev, Event::KeyboardDown(_));
-                    if state && !self.config.set_mouse_using_textbox { // Only cancel mouse selection when pressing down a key
-                        if key == Key::Escape && self.setting_mouse_pos {
-                            // Unset new mouse position if we pressed escape
-                            self.new_mouse_pos = None;
+                    if state { // Only cancel mouse selection when pressing down a key
+                        if key == Key::Escape {
+                            if self.setting_mouse_pos {
+                                // Unset new mouse position if we pressed escape
+                                self.new_mouse_pos = None;
+                            }
+                            // Cancel running until a frame when Escape was pressed
+                            self.run_until_frame = None;
                         }
-                        self.setting_mouse_pos = false;
+
+                        if !self.config.set_mouse_using_textbox {
+                            // If we are not setting the mouse using a textbox, let any keypress cancel out of it
+                            self.setting_mouse_pos = false;
+                        }
                     }
                     let vk = input::ramen2vk(key);
                     io.set_key(usize::from(vk), state);
@@ -1058,6 +1070,7 @@ impl UIState<'_> {
             instance_reports: &mut self.instance_reports,
 
             clean_state: &mut self.clean_state,
+            run_until_frame: &mut self.run_until_frame,
 
             startup_successful: &self.startup_successful,
             ui_renderer_state: &self.ui_renderer_state,
