@@ -41,6 +41,7 @@ pub struct InputEditWindow {
     scroll_to_current_frame: bool,
 
     setting_mouse_pos_for_frame: Option<usize>,
+    setting_mouse_pos_end_frame: Option<usize>,
     single_frame_mouse: bool,
 
     is_selecting: MouseSelection,
@@ -97,7 +98,7 @@ impl Window for InputEditWindow {
             if info.config.current_frame <= frame && frame < info.replay.frame_count() {
                 if let Some(new_mouse_pos) = info.new_mouse_pos {
                     // If we have a new mouse position, set it to that
-                    self.update_mouse_position_for_frame(frame, new_mouse_pos.0, new_mouse_pos.1, info.replay);
+                    self.update_mouse_position_for_frame(frame, self.setting_mouse_pos_end_frame, new_mouse_pos.0, new_mouse_pos.1, info.replay);
                 } else {
                     // Otherwise if we pressed Escape to unset the mouse, use the previous frames mouse position
                     let new_mouse_pos = if frame == 0 {
@@ -106,10 +107,11 @@ impl Window for InputEditWindow {
                         let replay_frame = info.replay.get_frame(frame-1).unwrap();
                         (replay_frame.mouse_x, replay_frame.mouse_y)
                     };
-                    self.update_mouse_position_for_frame(frame, new_mouse_pos.0, new_mouse_pos.1, info.replay);
+                    self.update_mouse_position_for_frame(frame, self.setting_mouse_pos_end_frame, new_mouse_pos.0, new_mouse_pos.1, info.replay);
                 }
             }
             self.setting_mouse_pos_for_frame = None;
+            self.setting_mouse_pos_end_frame = None;
             *info.new_mouse_pos = None;
         }
 
@@ -244,6 +246,7 @@ impl InputEditWindow {
             scroll_to_current_frame: false,
 
             setting_mouse_pos_for_frame: None,
+            setting_mouse_pos_end_frame: None,
             single_frame_mouse: false,
 
             is_selecting: MouseSelection::None,
@@ -259,10 +262,10 @@ impl InputEditWindow {
         }
     }
 
-    fn update_mouse_position_for_frame(&mut self, frame: usize, x: i32, y: i32, replay: &mut Replay) {
+    fn update_mouse_position_for_frame(&mut self, frame: usize, end_frame: Option<usize>, x: i32, y: i32, replay: &mut Replay) {
         // If we want to set a new mouse position and aren't setting the mouse position anymore, update the frames accordingly
         if let Some(replay_frame) = replay.get_frame_mut(frame) {
-            if self.single_frame_mouse {
+            if self.single_frame_mouse && end_frame.is_none() {
                 // Update just this frame
                 replay_frame.mouse_x = x;
                 replay_frame.mouse_y = y;
@@ -275,7 +278,9 @@ impl InputEditWindow {
                 
                 let mut current_frame = frame+1;
                 while let Some(next_frame) = replay.get_frame_mut(current_frame) {
-                    if next_frame.mouse_x == old_mouse_x && next_frame.mouse_y == old_mouse_y {
+                    if end_frame.is_some() && current_frame <= end_frame.unwrap()
+                        || end_frame.is_none() && next_frame.mouse_x == old_mouse_x && next_frame.mouse_y == old_mouse_y
+                    {
                         next_frame.mouse_x = x;
                         next_frame.mouse_y = y;
                         current_frame += 1;
@@ -331,6 +336,8 @@ impl InputEditWindow {
         let DisplayInformation {
             frame,
             replay,
+            new_mouse_pos,
+            setting_mouse_pos,
             ..
         } = info;
 
@@ -389,6 +396,18 @@ impl InputEditWindow {
                 let start = usize::min(self.selection_start_index, self.selection_end_index);
                 let end = usize::max(self.selection_start_index, self.selection_end_index);
                 self.delete_frames(replay, start, end);
+                self.context_menu = false;
+            } else if frame.menu_item("Set Mouse") {
+                let start = usize::min(self.selection_start_index, self.selection_end_index);
+                let end = usize::max(self.selection_start_index, self.selection_end_index);
+                
+                if let Some(current_frame) = replay.get_frame(start) {
+                    **setting_mouse_pos = true;
+                    **new_mouse_pos = Some((current_frame.mouse_x, current_frame.mouse_y));
+                    self.setting_mouse_pos_for_frame = Some(start);
+                    self.setting_mouse_pos_end_frame = Some(end);
+                }
+
                 self.context_menu = false;
             }
         }
@@ -679,7 +698,7 @@ impl InputEditWindow {
                     **new_mouse_pos = Some((current_frame.mouse_x, current_frame.mouse_y));
                     self.setting_mouse_pos_for_frame = Some(i);
                 } else if frame.middle_clicked() && mouse_hovered {
-                    self.update_mouse_position_for_frame(i, prev_frame.map(|f| f.mouse_x).unwrap_or(0), prev_frame.map(|f| f.mouse_y).unwrap_or(0), replay);
+                    self.update_mouse_position_for_frame(i, None, prev_frame.map(|f| f.mouse_x).unwrap_or(0), prev_frame.map(|f| f.mouse_y).unwrap_or(0), replay);
                 }
             }
 
