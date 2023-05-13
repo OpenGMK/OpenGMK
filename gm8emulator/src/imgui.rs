@@ -344,6 +344,29 @@ impl Frame<'_> {
         }
     }
 
+    pub fn text_centered_float(&mut self, text: &str, center: Vec2<f32>) {
+        self.cstr_store(text);
+        unsafe {
+            let mut size = std::mem::MaybeUninit::uninit();
+            c::igCalcTextSize(size.as_mut_ptr(), self.cstr(), std::ptr::null(), false, -1.0);
+            let size = size.assume_init();
+            let size = Vec2((size.x+16.0) / 2.0, (size.y+16.0) / 2.0);
+            let pos: c::ImVec2 = (center - size).into();
+            c::igBegin("__float\0".as_ptr() as _, std::ptr::null_mut(), 0b110_0000_0011_1111_1111);
+            c::igSetWindowPosStr(
+                "__float\0".as_ptr() as _,
+                pos,
+                0,
+            );
+            if c::igIsWindowAppearing() {
+                c::igSetWindowFocusNil();
+            }
+            //c::igSetCursorPos();
+            c::igText(self.cstr());
+            c::igEnd();
+        }
+    }
+
     pub fn begin_menu_main_bar(&self) -> bool {
         unsafe { c::igBeginMainMenuBar() }
     }

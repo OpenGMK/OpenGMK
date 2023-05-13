@@ -137,11 +137,14 @@ impl GameWindow {
         if !info.frame.window_collapsed() {
             info.frame.callback(callback, &mut self.callback_data);
             
-            if *info.setting_mouse_pos && !info.config.set_mouse_using_textbox && info.frame.left_clicked() {
-                *info.setting_mouse_pos = false;
+            if *info.setting_mouse_pos && !info.config.set_mouse_using_textbox {
                 let imgui::Vec2(mouse_x, mouse_y) = info.frame.mouse_pos();
-                *info.new_mouse_pos =
-                    Some((-(x + info.win_border_size - mouse_x) as i32, -(y + info.win_frame_height - mouse_y) as i32));
+                let position = (-(x + info.win_border_size - mouse_x) as i32, -(y + info.win_frame_height - mouse_y) as i32);
+                info.frame.text_centered_float(&format!("{}, {}", position.0, position.1), imgui::Vec2(mouse_x, mouse_y-15.0));
+                if info.frame.left_clicked() || info.frame.right_clicked() || info.frame.middle_clicked() {
+                    *info.setting_mouse_pos = false;
+                    *info.new_mouse_pos = Some(position);
+                }
             }
             
             if info.frame.window_hovered() && info.frame.right_clicked() {
