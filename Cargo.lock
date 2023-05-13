@@ -454,7 +454,7 @@ dependencies = [
 [[package]]
 name = "libsoundio-sys"
 version = "0.3.0"
-source = "git+https://github.com/adamcake/udon#7064c583f7e475c73038e8f2e02f794385ae5509"
+source = "git+https://github.com/adamcake/udon#179830a6a143dd4e70b0613f688f1b3b2de78cc1"
 dependencies = [
  "cc",
  "cmake",
@@ -970,7 +970,7 @@ dependencies = [
 [[package]]
 name = "udon"
 version = "0.0.1"
-source = "git+https://github.com/adamcake/udon#7064c583f7e475c73038e8f2e02f794385ae5509"
+source = "git+https://github.com/adamcake/udon#179830a6a143dd4e70b0613f688f1b3b2de78cc1"
 dependencies = [
  "libsoundio-sys",
  "serde",

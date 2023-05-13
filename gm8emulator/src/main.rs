@@ -103,7 +103,7 @@ fn xmain() -> i32 {
 
     if let Some(bin) = &output_bin {
         if bin.extension().and_then(|x| x.to_str()) != Some("bin") {
-            eprintln!("invalid output file for -o: must be a .gmtas file");
+            eprintln!("invalid output file for -o: must be a .bin file");
             return EXIT_FAILURE
         }
     }
