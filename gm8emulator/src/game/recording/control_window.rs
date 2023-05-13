@@ -124,6 +124,16 @@ impl Window for ControlWindow {
             info.config.save();
         }
 
+        let mouse_set_label = match info.config.set_mouse_using_textbox {
+            true => "Set Mouse: textbox###mouse_set_label",
+            false => "Set mouse: clicking###mouse_set_label",
+        };
+        if info.frame.button(mouse_set_label, imgui::Vec2(165.0, 20.0), None) 
+        {
+            info.config.set_mouse_using_textbox = !info.config.set_mouse_using_textbox;
+            info.config.save();
+        }
+
         if info.frame.button(">", imgui::Vec2(18.0, 18.0), Some(imgui::Vec2(160.0, 138.0)))
             || info.keybind_pressed(Binding::NextRand)
         {

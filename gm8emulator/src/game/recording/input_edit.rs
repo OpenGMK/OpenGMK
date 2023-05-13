@@ -527,6 +527,7 @@ impl InputEditWindow {
             replay,
             frame,
             config,
+            new_mouse_pos,
             setting_mouse_pos,
             ..
         } = info;
@@ -668,12 +669,14 @@ impl InputEditWindow {
             if mouse_hovered {
                 any_button_hovered = true;
             }
+
             // If we clicked on a mouse input we haven't reached yet
             if i >= config.current_frame {
                 if (frame.left_clicked() && mouse_hovered) // If we left clicked and are hovering this button
                     || (i == config.current_frame && set_mouse_bind_pressed) // or it's the next frame to be run and we used the keybind
                 {
                     **setting_mouse_pos = true;
+                    **new_mouse_pos = Some((current_frame.mouse_x, current_frame.mouse_y));
                     self.setting_mouse_pos_for_frame = Some(i);
                 } else if frame.middle_clicked() && mouse_hovered {
                     self.update_mouse_position_for_frame(i, prev_frame.map(|f| f.mouse_x).unwrap_or(0), prev_frame.map(|f| f.mouse_y).unwrap_or(0), replay);

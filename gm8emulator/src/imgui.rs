@@ -518,7 +518,6 @@ impl Frame<'_> {
 
     pub fn begin_screen_cover(&mut self) {
         unsafe {
-            c::igSetNextWindowFocus();
             c::igSetNextWindowSize((*c::igGetIO()).DisplaySize, 0);
             c::igSetNextWindowPos(Vec2(0.0, 0.0).into(), 0, Vec2(0.0, 0.0).into());
             c::igBegin("__cover\0".as_ptr() as _, std::ptr::null_mut(), 0b0001_0011_1111);

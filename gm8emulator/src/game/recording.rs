@@ -9,6 +9,7 @@ mod console;
 mod menu_bar;
 mod input_edit;
 mod macro_window;
+mod set_mouse_dialog;
 
 use crate::{
     game::{
@@ -431,6 +432,7 @@ pub struct ProjectConfig {
     config_path: PathBuf,
     is_read_only: bool,
     current_frame: usize,
+    set_mouse_using_textbox: bool
 }
 
 impl ProjectConfig {
@@ -448,6 +450,7 @@ impl ProjectConfig {
             config_path: config_path.clone(),
             is_read_only: false,
             current_frame: 0,
+            set_mouse_using_textbox: false,
         };
         
         let mut config = if config_path.exists() {
@@ -974,7 +977,7 @@ impl UIState<'_> {
             match event {
                 ev @ Event::KeyboardDown(key) | ev @ Event::KeyboardUp(key) => {
                     let state = matches!(ev, Event::KeyboardDown(_));
-                    if state { // Only cancel mouse selection when pressing down a key
+                    if state && !self.config.set_mouse_using_textbox { // Only cancel mouse selection when pressing down a key
                         if key == Key::Escape && self.setting_mouse_pos {
                             // Unset new mouse position if we pressed escape
                             self.new_mouse_pos = None;
