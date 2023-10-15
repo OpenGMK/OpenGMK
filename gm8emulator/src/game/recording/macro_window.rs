@@ -219,9 +219,11 @@ impl MacroWindow {
                         unexpected_token!();
                     }
                     match token.as_str() {
+                        "(N)" => state_change = Some(StateChange::ChangeTo(last_keycode.unwrap(), KeyState::Neutral)),
                         "(R)" => state_change = Some(StateChange::ChangeTo(last_keycode.unwrap(), KeyState::NeutralWillCactus)),
                         "(RP)" => state_change = Some(StateChange::ChangeTo(last_keycode.unwrap(), KeyState::HeldWillDouble)),
                         "(RPR)" => state_change = Some(StateChange::ChangeTo(last_keycode.unwrap(), KeyState::HeldWillTriple)),
+                        "(H)" => state_change = Some(StateChange::ChangeTo(last_keycode.unwrap(), KeyState::Held)),
                         "(P)" => state_change = Some(StateChange::ChangeTo(last_keycode.unwrap(), KeyState::NeutralWillPress)),
                         "(PR)" => state_change = Some(StateChange::ChangeTo(last_keycode.unwrap(), KeyState::NeutralWillDouble)),
                         "(PRP)" => state_change = Some(StateChange::ChangeTo(last_keycode.unwrap(), KeyState::NeutralWillTriple)),
