@@ -8215,13 +8215,27 @@ impl Game {
                     let mut dst_data = self.renderer.dump_sprite(dst_frame.atlas_ref);
                     // TODO: delete sprite when this is safe for sprite fonts
                     // self.renderer.delete_sprite(dst_frame.atlas_ref);
-                    for (dst_row, src_row) in dst_data
-                        .chunks_mut(dst_frame.width as usize * 4)
-                        .zip(src_data.chunks(src_frame.width as usize * 4))
-                    {
-                        for (dst_col, src_col) in dst_row.chunks_mut(4).zip(src_row.chunks(4)) {
-                            dst_col[3] = (src_col[..3].iter().map(|&x| u16::from(x)).sum::<u16>() / 3u16) as u8;
-                        }
+                    match self.gm_version {
+                        Version::GameMaker8_0 => {
+                            for (dst_row, src_row) in dst_data
+                                .chunks_mut(dst_frame.width as usize * 4)
+                                .zip(src_data.chunks(src_frame.width as usize * 4))
+                            {
+                                for (dst_col, src_col) in dst_row.chunks_mut(4).zip(src_row.chunks(4)) {
+                                    dst_col[3] = ((src_col[..3].iter().map(|&x| u32::from(x)).sum::<u32>() * u32::from(dst_col[3])) / (3*255)) as u8;
+                                }
+                            }
+                        },
+                        Version::GameMaker8_1 => {
+                            for (dst_row, src_row) in dst_data
+                                .chunks_mut(dst_frame.width as usize * 4)
+                                .zip(src_data.chunks(src_frame.width as usize * 4))
+                            {
+                                for (dst_col, src_col) in dst_row.chunks_mut(4).zip(src_row.chunks(4)) {
+                                    dst_col[3] = (src_col[..3].iter().map(|&x| u16::from(x)).sum::<u16>() / 3u16) as u8;
+                                }
+                            }
+                        },
                     }
                     dst_frame.atlas_ref = self
                         .renderer
@@ -8773,10 +8787,21 @@ impl Game {
         {
             let mut dst = self.renderer.dump_sprite(*atlas_ref);
             self.renderer.delete_sprite(*atlas_ref);
-            for (dst_row, src_row) in dst.chunks_mut(dst_w as usize * 4).zip(alpha_src.chunks(src_w as usize * 4)) {
-                for (dst_col, src_col) in dst_row.chunks_mut(4).zip(src_row.chunks(4)) {
-                    dst_col[3] = (src_col[..3].iter().map(|&x| u16::from(x)).sum::<u16>() / 3u16) as u8;
-                }
+            match self.gm_version {
+                Version::GameMaker8_0 => {
+                    for (dst_row, src_row) in dst.chunks_mut(dst_w as usize * 4).zip(alpha_src.chunks(src_w as usize * 4)) {
+                        for (dst_col, src_col) in dst_row.chunks_mut(4).zip(src_row.chunks(4)) {
+                            dst_col[3] = ((src_col[..3].iter().map(|&x| u32::from(x)).sum::<u32>() * u32::from(dst_col[3])) / (3*255)) as u8;
+                        }
+                    }
+                },
+                Version::GameMaker8_1 => {
+                    for (dst_row, src_row) in dst.chunks_mut(dst_w as usize * 4).zip(alpha_src.chunks(src_w as usize * 4)) {
+                        for (dst_col, src_col) in dst_row.chunks_mut(4).zip(src_row.chunks(4)) {
+                            dst_col[3] = (src_col[..3].iter().map(|&x| u16::from(x)).sum::<u16>() / 3u16) as u8;
+                        }
+                    }
+                },
             }
             *atlas_ref = self
                 .renderer
