@@ -2,13 +2,10 @@
 exclude = ["gm8emulator-wow64"]
 members = [
     # main projects
-    "gm8emulator",
     "gm8decompiler",
     "gml-parser",
     "gm8exe",
-
-    # bindings
-    "gm8emulator/ffi/cimgui-sys",
+    "hitbox",
 ]
 
 [profile.release]
