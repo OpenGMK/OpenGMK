@@ -53,7 +53,7 @@ fn main() {
             let spr_idx: usize = obj.sprite_index.try_into().unwrap_or_default();
             let collider = get_collider(&assets, spr_idx);
             bruteforcer_object_map.insert((&collider.data, obj.solid), object_name);
-            let mask_idx: usize = obj.mask_index.try_into().unwrap_or_default();
+            let mask_idx: i32 = obj.mask_index;
 
             println!("object name is {}", object_name);
             println!("sprite index is {}", spr_idx);
