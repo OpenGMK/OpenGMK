@@ -48,39 +48,31 @@ fn main() {
 
     let assets = get_assets();
     for obj in &assets.objects {
-        let object_name = obj.as_ref().map_or("no object", |o| pascal_string_to_string(&o.name));
-        if bruteforcer_objects.contains(object_name) {
-            let spr_idx: usize = obj
-                .as_ref()
-                .unwrap_or(&assets.objects[0].as_ref().unwrap())
-                .sprite_index
-                .try_into()
-                .unwrap_or_default();
-            let collider = get_collider(&assets, spr_idx);
-            bruteforcer_object_map.insert(
-                (&collider.data, obj.as_ref().unwrap_or(&assets.objects[0].as_ref().unwrap()).solid),
-                object_name,
-            );
-            let mask_idx: usize =
-                obj.as_ref().unwrap_or(&assets.objects[0].as_ref().unwrap()).mask_index.try_into().unwrap_or_default();
+        if let Some(obj) = obj {
+            let object_name = pascal_string_to_string(&obj.name);
+            if bruteforcer_objects.contains(object_name) {
+                let spr_idx: usize = obj.sprite_index.try_into().unwrap_or_default();
+                let collider = get_collider(&assets, spr_idx);
+                bruteforcer_object_map.insert((&collider.data, obj.solid), object_name);
+                let mask_idx: usize = obj.mask_index.try_into().unwrap_or_default();
 
-            println!("object name is {}", object_name);
-            println!("sprite index is {}", spr_idx);
-            println!("mask index is {}", mask_idx);
-            println!("sprite name is {}", get_sprite_name(&assets, spr_idx));
-            println!("collider is {:?}", collider.data);
-            println!("");
+                println!("object name is {}", object_name);
+                println!("sprite index is {}", spr_idx);
+                println!("mask index is {}", mask_idx);
+                println!("sprite name is {}", get_sprite_name(&assets, spr_idx));
+                println!("collider is {:?}", collider.data);
+                println!("");
+            }
         }
     }
     for obj in &assets.objects {
-        let object_name = obj.as_ref().map_or("no object", |o| pascal_string_to_string(&o.name));
-        let spr_idx: usize =
-            obj.as_ref().unwrap_or(&assets.objects[0].as_ref().unwrap()).sprite_index.try_into().unwrap_or_default();
-        let collider = get_collider(&assets, spr_idx);
-        if let Some(alias) = bruteforcer_object_map
-            .get(&(&collider.data, obj.as_ref().unwrap_or(&assets.objects[0].as_ref().unwrap()).solid))
-        {
-            game_object_map.entry(alias).and_modify(|list| list.push(object_name)).or_insert(vec![object_name]);
+        if let Some(obj) = obj {
+            let object_name = pascal_string_to_string(&obj.name);
+            let spr_idx: usize = obj.sprite_index.try_into().unwrap_or_default();
+            let collider = get_collider(&assets, spr_idx);
+            if let Some(alias) = bruteforcer_object_map.get(&(&collider.data, obj.solid)) {
+                game_object_map.entry(alias).and_modify(|list| list.push(object_name)).or_insert(vec![object_name]);
+            }
         }
     }
     println!("the bruteforcer objects in game {:?}", game_object_map);
