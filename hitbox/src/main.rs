@@ -81,7 +81,7 @@ fn main() {
     existing_objects.sort_unstable_by_key(|obj| {
         let spr_idx: usize = obj.sprite_index.try_into().unwrap_or_default();
         let collider = get_collider(&assets, spr_idx);
-        (&collider.data, obj.solid)
+        (&collider.data, obj.solid, obj.parent_index)
     });
     existing_objects[..]
         .group_by(|obj1, obj2| {
@@ -89,7 +89,7 @@ fn main() {
             let collider1 = get_collider(&assets, spr_idx1);
             let spr_idx2: usize = obj2.sprite_index.try_into().unwrap_or_default();
             let collider2 = get_collider(&assets, spr_idx2);
-            (&collider1.data, obj1.solid) == (&collider2.data, obj2.solid)
+            (&collider1.data, obj1.solid, obj1.parent_index) == (&collider2.data, obj2.solid, obj2.parent_index)
         })
         .for_each(|group| {
             println!();
