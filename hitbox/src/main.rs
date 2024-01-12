@@ -1,9 +1,12 @@
-use gm8exe::asset::sprite::CollisionMap;
-use gm8exe::asset::PascalString;
-use gm8exe::GameAssets;
-use std::collections::{HashMap, HashSet};
-use std::str;
-use std::{fs, process};
+#![feature(slice_group_by)]
+use gm8exe::{
+    asset::{sprite::CollisionMap, Object, PascalString},
+    GameAssets,
+};
+use std::{
+    collections::{HashMap, HashSet},
+    fs, process, str,
+};
 
 fn get_assets() -> GameAssets {
     let in_path = "I just wanna play the Needle game.exe";
@@ -73,4 +76,24 @@ fn main() {
     });
 
     println!("the bruteforcer objects in game {:?}", game_object_map);
+
+    let mut existing_objects = assets.objects.iter().flatten().collect::<Vec<&Box<Object>>>();
+    existing_objects.sort_unstable_by_key(|obj| {
+        let spr_idx: usize = obj.sprite_index.try_into().unwrap_or_default();
+        let collider = get_collider(&assets, spr_idx);
+        (&collider.data, obj.solid)
+    });
+    existing_objects[..]
+        .group_by(|obj1, obj2| {
+            let spr_idx1: usize = obj1.sprite_index.try_into().unwrap_or_default();
+            let collider1 = get_collider(&assets, spr_idx1);
+            let spr_idx2: usize = obj2.sprite_index.try_into().unwrap_or_default();
+            let collider2 = get_collider(&assets, spr_idx2);
+            (&collider1.data, obj1.solid) == (&collider2.data, obj2.solid)
+        })
+        .for_each(|group| {
+            println!();
+            println!();
+            group.iter().for_each(|o| print!("{} ", o.name))
+        });
 }
