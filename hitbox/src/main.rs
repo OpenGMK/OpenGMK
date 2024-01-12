@@ -21,7 +21,7 @@ fn get_sprite_name(assets: &GameAssets, spr_idx: usize) -> String {
     return pascal_string_to_string(&assets.sprites[spr_idx as usize].as_ref().unwrap().name).to_string();
 }
 fn get_collider(assets: &GameAssets, spr_idx: usize) -> &CollisionMap {
-    return &assets.sprites[spr_idx].as_ref().unwrap_or(assets.sprites[0].as_ref().unwrap()).colliders[0];
+    return &assets.sprites[spr_idx].as_ref().unwrap().colliders[0];
 }
 
 fn pascal_string_to_string(s: &PascalString) -> &str {
