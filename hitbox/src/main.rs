@@ -43,7 +43,7 @@ fn main() {
     bruteforcer_objects.insert("deliciousFruit");
     bruteforcer_objects.insert("movingPlatform");
 
-    let mut bruteforcer_object_map: HashMap<&Box<[bool]>, &str> = HashMap::<&Box<[bool]>, &str>::new();
+    let mut bruteforcer_object_map: HashMap<(&Box<[bool]>, bool), &str> = HashMap::<(&Box<[bool]>, bool), &str>::new();
     let mut game_object_map: HashMap<&str, Vec<&str>> = HashMap::<&str, Vec<&str>>::new();
 
     let assets = get_assets();
@@ -57,7 +57,10 @@ fn main() {
                 .try_into()
                 .unwrap_or_default();
             let collider = get_collider(&assets, spr_idx);
-            bruteforcer_object_map.insert(&collider.data, object_name);
+            bruteforcer_object_map.insert(
+                (&collider.data, obj.as_ref().unwrap_or(&assets.objects[0].as_ref().unwrap()).solid),
+                object_name,
+            );
             let mask_idx: usize =
                 obj.as_ref().unwrap_or(&assets.objects[0].as_ref().unwrap()).mask_index.try_into().unwrap_or_default();
 
@@ -74,7 +77,9 @@ fn main() {
         let spr_idx: usize =
             obj.as_ref().unwrap_or(&assets.objects[0].as_ref().unwrap()).sprite_index.try_into().unwrap_or_default();
         let collider = get_collider(&assets, spr_idx);
-        if let Some(alias) = bruteforcer_object_map.get(&collider.data) {
+        if let Some(alias) = bruteforcer_object_map
+            .get(&(&collider.data, obj.as_ref().unwrap_or(&assets.objects[0].as_ref().unwrap()).solid))
+        {
             game_object_map.entry(alias).and_modify(|list| list.push(object_name)).or_insert(vec![object_name]);
         }
     }
