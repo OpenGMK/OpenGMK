@@ -1,3 +1,4 @@
+use gm8exe::asset::sprite::CollisionMap;
 use gm8exe::asset::PascalString;
 use gm8exe::{asset::Object, GameAssets};
 use std::collections::HashSet;
@@ -19,6 +20,9 @@ fn get_assets() -> GameAssets {
 fn get_sprite_name(assets: &GameAssets, spr_idx: usize) -> String {
     return pascal_string_to_string(&assets.sprites[spr_idx as usize].as_ref().unwrap().name).to_string();
 }
+fn get_collider(assets: &GameAssets, spr_idx: usize) -> &CollisionMap {
+    return &assets.sprites[spr_idx].as_ref().unwrap_or(assets.sprites[0].as_ref().unwrap()).colliders[0];
+}
 
 fn pascal_string_to_string(s: &PascalString) -> &str {
     return str::from_utf8(&s.0.as_ref()).unwrap();
@@ -26,6 +30,8 @@ fn pascal_string_to_string(s: &PascalString) -> &str {
 
 fn main() {
     let mut bruteforcer_objects: HashSet<&str> = HashSet::<&str>::new();
+    bruteforcer_objects.insert("block");
+    bruteforcer_objects.insert("warp");
     bruteforcer_objects.insert("spikeUp");
     bruteforcer_objects.insert("spikeDown");
     bruteforcer_objects.insert("spikeLeft");
@@ -42,8 +48,13 @@ fn main() {
                 .sprite_index
                 .try_into()
                 .unwrap_or_default();
+            let mask_idx: usize =
+                obj.as_ref().unwrap_or(&assets.objects[0].as_ref().unwrap()).mask_index.try_into().unwrap_or_default();
             println!("sprite index is {}", spr_idx);
+            println!("mask index is {}", mask_idx);
+            let collider = get_collider(&assets, spr_idx);
             println!("sprite name is {}", get_sprite_name(&assets, spr_idx));
+            println!("collider is {:?}", collider.data);
             println!("");
         }
     }
