@@ -1,6 +1,6 @@
 #![feature(slice_group_by)]
 use gm8exe::{
-    asset::{sprite::CollisionMap, Object, PascalString},
+    asset::{sprite::CollisionMap, Object, PascalString, Sprite},
     GameAssets,
 };
 use std::{
@@ -10,6 +10,7 @@ use std::{
 
 fn get_assets() -> GameAssets {
     let in_path = "I just wanna play the Needle game.exe";
+    let in_path = "Amaranth Needle.exe";
     let file = fs::read(in_path).map_err(|e| format!("Failed to read '{}': {}", in_path, e)).unwrap();
     let verbose = false;
     let logger = if verbose { Some(|msg: &str| println!("{}", msg)) } else { None };
@@ -77,6 +78,7 @@ fn main() {
 
     println!("the bruteforcer objects in game {:?}", game_object_map);
 
+    println!("the objects ingame clustered");
     let mut existing_objects = assets.objects.iter().flatten().collect::<Vec<&Box<Object>>>();
     existing_objects.sort_unstable_by_key(|obj| {
         let spr_idx: usize = obj.sprite_index.try_into().unwrap_or_default();
@@ -95,5 +97,21 @@ fn main() {
             println!();
             println!();
             group.iter().for_each(|o| print!("{} ", o.name))
+        });
+    println!("the sprites ingame clustered");
+    let mut existing_sprites =
+        assets.sprites.iter().flatten().filter(|s| s.colliders.first().is_some()).collect::<Vec<&Box<Sprite>>>();
+    existing_sprites.sort_unstable_by_key(|sprite| &sprite.colliders[0].data);
+    existing_sprites[..]
+        .group_by(|sprite1, sprite2| {
+            let collider1 = &sprite1.colliders[0];
+
+            let collider2 = &sprite2.colliders[0];
+            &collider1.data == &collider2.data
+        })
+        .for_each(|group| {
+            println!();
+            println!();
+            group.iter().for_each(|s| print!("{} ", s.name))
         });
 }
