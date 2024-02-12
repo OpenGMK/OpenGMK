@@ -170,7 +170,7 @@ where
 
     // decryption: first pass
     //   in reverse, data[i-1] = rev[data[i-1]] - (data[i-2] + (i - (pos+1)))
-    for i in (pos..=pos + len).rev() {
+    for i in ((pos + 2)..=(pos + len)).rev() {
         data[i - 1] =
             reverse_table[data[i - 1] as usize].wrapping_sub(data[i - 2].wrapping_add((i.wrapping_sub(pos + 1)) as u8));
     }
