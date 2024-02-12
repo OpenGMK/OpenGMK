@@ -38,7 +38,7 @@ pub struct Room {
     /// Whether to fill the drawing region with window colour.
     pub clear_region: bool,
 
-    /// The GML source executed when the room is created,
+    /// The GML source executed when the room is created.
     pub creation_code: PascalString,
 
     pub backgrounds: Vec<Background>,
@@ -50,6 +50,9 @@ pub struct Room {
     pub instances: Vec<Instance>,
 
     pub tiles: Vec<Tile>,
+
+    pub uses_810_features: bool,
+    pub uses_811_features: bool,
 }
 
 pub struct Background {
@@ -126,6 +129,9 @@ impl Asset for Room {
             assert_ver_multiple(entry_version, &[VERSION, 810, 811])?;
         }
 
+        let uses_810_features = entry_version >= 810;
+        let uses_811_features = entry_version >= 811;
+
         let caption = reader.read_pas_string()?;
         let width = reader.read_u32::<LE>()?;
         let height = reader.read_u32::<LE>()?;
@@ -190,10 +196,10 @@ impl Asset for Room {
                     object: reader.read_i32::<LE>()?,
                     id: reader.read_i32::<LE>()?,
                     creation_code: reader.read_pas_string()?,
-                    xscale: if entry_version >= 810 { reader.read_f64::<LE>()? } else { 1.0 },
-                    yscale: if entry_version >= 810 { reader.read_f64::<LE>()? } else { 1.0 },
-                    blend: if entry_version >= 810 { reader.read_u32::<LE>()? } else { u32::MAX },
-                    angle: if entry_version >= 811 { reader.read_f64::<LE>()? } else { 0.0 },
+                    xscale: if uses_810_features { reader.read_f64::<LE>()? } else { 1.0 },
+                    yscale: if uses_810_features { reader.read_f64::<LE>()? } else { 1.0 },
+                    blend: if uses_810_features { reader.read_u32::<LE>()? } else { u32::MAX },
+                    angle: if uses_811_features { reader.read_f64::<LE>()? } else { 0.0 },
                 })
             })
             .collect::<io::Result<_>>()?;
@@ -211,9 +217,9 @@ impl Asset for Room {
                     height: reader.read_u32::<LE>()?,
                     depth: reader.read_i32::<LE>()?,
                     id: reader.read_i32::<LE>()?,
-                    xscale: if entry_version >= 810 { reader.read_f64::<LE>()? } else { 1.0 },
-                    yscale: if entry_version >= 810 { reader.read_f64::<LE>()? } else { 1.0 },
-                    blend: if entry_version >= 810 { reader.read_u32::<LE>()? } else { u32::MAX },
+                    xscale: if uses_810_features { reader.read_f64::<LE>()? } else { 1.0 },
+                    yscale: if uses_810_features { reader.read_f64::<LE>()? } else { 1.0 },
+                    blend: if uses_810_features { reader.read_u32::<LE>()? } else { u32::MAX },
                 })
             })
             .collect::<io::Result<_>>()?;
@@ -234,6 +240,8 @@ impl Asset for Room {
             views,
             instances,
             tiles,
+            uses_810_features,
+            uses_811_features,
         })
     }
 
