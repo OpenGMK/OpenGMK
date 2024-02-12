@@ -529,7 +529,23 @@ where
     writer.write_u32::<LE>(room.persistent as u32)?;
     writer.write_u32::<LE>(room.bg_colour.into())?;
     writer.write_u32::<LE>(room.clear_screen as u32)?;
-    writer.write_pas_string(&room.creation_code)?;
+
+    let mut compat = String::new();
+    if room.uses_810_features {
+        for tile in &room.tiles {
+            compat += &format!(
+                "{}{}",
+                if tile.xscale != 1.0 || tile.yscale != 1.0 { format!("tile_set_scale({},{},{});\r\n", tile.id, tile.xscale, tile.yscale) } else { String::new() },
+                if tile.blend != u32::MAX { format!("tile_set_blend({},{});\r\n", tile.id, tile.blend) } else { String::new() },
+            );
+        }
+    }
+    if compat.len() == 0 {
+        writer.write_pas_string(&room.creation_code)?;
+    } else {
+        compat = format!("/* gm8.2 compat */\r\n{}/****************/\r\n\r\n{}", compat, room.creation_code);
+        writer.write_pas_string(&PascalString::from(compat.as_str()))?;
+    }
 
     writer.write_u32::<LE>(room.backgrounds.len() as u32)?;
     for background in &room.backgrounds {
@@ -570,7 +586,27 @@ where
         writer.write_i32::<LE>(instance.y)?;
         writer.write_i32::<LE>(instance.object)?;
         writer.write_i32::<LE>(instance.id)?;
-        writer.write_pas_string(&instance.creation_code)?;
+        if room.uses_810_features {
+            let do_write_xscale = instance.xscale != 1.0;
+            let do_write_yscale = instance.yscale != 1.0;
+            let do_write_blend = instance.blend != u32::MAX;
+            let do_write_angle = room.uses_811_features && instance.angle != 0.0;
+            if do_write_xscale || do_write_yscale || do_write_blend || do_write_angle {
+                let creation_code: String = format!(
+                    "/* gm8.2 compat */\r\n{}{}{}{}/****************/\r\n\r\n{}",
+                    if do_write_xscale { format!("image_xscale={};\r\n", instance.xscale) } else { String::new() },
+                    if do_write_yscale { format!("image_yscale={};\r\n", instance.yscale) } else { String::new() },
+                    if do_write_blend { format!("image_blend={};\r\n", instance.blend) } else { String::new() },
+                    if do_write_angle { format!("image_angle={};\r\n", instance.angle) } else { String::new() },
+                    instance.creation_code,
+                );
+                writer.write_pas_string(&PascalString::from(creation_code.as_str()))?;
+            } else {
+                writer.write_pas_string(&instance.creation_code)?;
+            }
+        } else {
+            writer.write_pas_string(&instance.creation_code)?;
+        }
         writer.write_u32::<LE>(false as u32)?; // locked in editor
     }
 
