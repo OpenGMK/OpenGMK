@@ -91,6 +91,11 @@ where
     Ok(false)
 }
 
+/// Converts a GML string into a valid filepath by replacing backslashes with file separators
+pub fn to_path(path: &str) -> std::borrow::Cow<str> {
+    path.replace("\\", std::path::MAIN_SEPARATOR_STR).into()
+}
+
 impl TextHandle {
     pub fn open(path: &str, mode: AccessMode) -> io::Result<Self> {
         #[rustfmt::skip]
