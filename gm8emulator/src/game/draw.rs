@@ -313,12 +313,9 @@ impl Game {
             game.particles.draw_system(id, &mut game.renderer, &game.assets, true);
         }
 
-        // Calculate effective width and height of view, for background tiling purposes
-        let angle_rad = angle.to_radians();
-        let angle_sin = angle_rad.sin().abs();
-        let angle_cos = angle_rad.cos().abs();
-        let tile_end_x = f64::from(src_x) + (f64::from(src_w) * angle_cos) + (f64::from(src_h) * angle_sin);
-        let tile_end_y = f64::from(src_y) + (f64::from(src_w) * angle_sin) + (f64::from(src_h) * angle_cos);
+        // Extent for drawing tiles in case view is rotated
+        let tile_end_x = f64::from(src_x + src_w + src_h / 2);
+        let tile_end_y = f64::from(src_y + src_h + src_w / 2);
     
         // draw backgrounds
         self.renderer.set_depth(12000.0);

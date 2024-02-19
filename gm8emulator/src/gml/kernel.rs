@@ -525,7 +525,7 @@ impl Game {
         let rgba = self.renderer.get_pixels(0, 0, width as _, height as _);
         let mut image = RgbaImage::from_vec(width, height, rgba.into()).unwrap();
         asset::sprite::process_image(&mut image, false, false, true);
-        match file::save_image(fname.as_ref(), image) {
+        match file::save_image(file::to_path(&fname).as_ref(), image) {
             Ok(()) => Ok(Default::default()),
             Err(e) => Err(gml::Error::FunctionError("screen_save".into(), e.to_string())),
         }
@@ -541,7 +541,7 @@ impl Game {
         let rgba = self.renderer.get_pixels(x, y, w, h);
         let mut image = RgbaImage::from_vec(w as _, h as _, rgba.into()).unwrap();
         asset::sprite::process_image(&mut image, false, false, true);
-        match file::save_image(fname.as_ref(), image) {
+        match file::save_image(file::to_path(&fname).as_ref(), image) {
             Ok(()) => Ok(Default::default()),
             Err(e) => Err(gml::Error::FunctionError("screen_save_part".into(), e.to_string())),
         }
@@ -2431,7 +2431,7 @@ impl Game {
             let mut image =
                 RgbaImage::from_vec(surf.width, surf.height, self.renderer.dump_sprite(surf.atlas_ref).into()).unwrap();
             asset::sprite::process_image(&mut image, false, false, true);
-            match file::save_image(fname.as_ref(), image) {
+            match file::save_image(file::to_path(&fname).as_ref(), image) {
                 Ok(()) => Ok(Default::default()),
                 Err(e) => Err(gml::Error::FunctionError("surface_save".into(), e.to_string())),
             }
@@ -2454,7 +2454,7 @@ impl Game {
                 RgbaImage::from_vec(w as _, h as _, self.renderer.dump_sprite_part(surf.atlas_ref, x, y, w, h).into())
                     .unwrap();
             asset::sprite::process_image(&mut image, false, false, true);
-            match file::save_image(fname.as_ref(), image) {
+            match file::save_image(file::to_path(&fname).as_ref(), image) {
                 Ok(()) => Ok(Default::default()),
                 Err(e) => Err(gml::Error::FunctionError("surface_save_part".into(), e.to_string())),
             }
@@ -5719,7 +5719,7 @@ impl Game {
     pub fn game_save(&mut self, args: &[Value]) -> gml::Result<Value> {
         let fname = expect_args!(args, [string])?;
         let save = GMSave::from_game(self);
-        let mut file = std::fs::File::create(fname.as_ref())
+        let mut file = std::fs::File::create(file::to_path(&fname).as_ref())
             .map(std::io::BufWriter::new)
             .map_err(|e| gml::Error::FunctionError("game_save".into(), format!("{}", e)))?;
         // write magic number (0x21c in GM8)
@@ -5842,7 +5842,7 @@ impl Game {
             1 => file::AccessMode::Write,
             2 | _ => file::AccessMode::Special,
         };
-        match self.binary_files.add_from(|| Ok(file::BinaryHandle::open(filename.as_ref(), mode)?)) {
+        match self.binary_files.add_from(|| Ok(file::BinaryHandle::open(file::to_path(&filename).as_ref(), mode)?)) {
             Ok(i) => Ok((i + 1).into()),
             Err(e) => Err(gml::Error::FunctionError("file_bin_open".into(), e.to_string())),
         }
@@ -5920,7 +5920,7 @@ impl Game {
         let filename = expect_args!(args, [string])?;
         use std::error::Error as _; // for .source() trait method
 
-        match self.text_files.add_from(|| Ok(file::TextHandle::open(filename.as_ref(), file::AccessMode::Read)?)) {
+        match self.text_files.add_from(|| Ok(file::TextHandle::open(file::to_path(&filename).as_ref(), file::AccessMode::Read)?)) {
             Ok(i) => Ok((i + 1).into()),
             Err(e)
                 if e.source()
@@ -5935,7 +5935,7 @@ impl Game {
 
     pub fn file_text_open_write(&mut self, args: &[Value]) -> gml::Result<Value> {
         let filename = expect_args!(args, [string])?;
-        match self.text_files.add_from(|| Ok(file::TextHandle::open(filename.as_ref(), file::AccessMode::Write)?)) {
+        match self.text_files.add_from(|| Ok(file::TextHandle::open(file::to_path(&filename).as_ref(), file::AccessMode::Write)?)) {
             Ok(i) => Ok((i + 1).into()),
             Err(e) => Err(gml::Error::FunctionError("file_text_open_write".into(), e.to_string())),
         }
@@ -5943,7 +5943,7 @@ impl Game {
 
     pub fn file_text_open_append(&mut self, args: &[Value]) -> gml::Result<Value> {
         let filename = expect_args!(args, [string])?;
-        match self.text_files.add_from(|| Ok(file::TextHandle::open(filename.as_ref(), file::AccessMode::Special)?)) {
+        match self.text_files.add_from(|| Ok(file::TextHandle::open(file::to_path(&filename).as_ref(), file::AccessMode::Special)?)) {
             Ok(i) => Ok((i + 1).into()),
             Err(e) => Err(gml::Error::FunctionError("file_text_open_append".into(), e.to_string())),
         }
@@ -6041,7 +6041,7 @@ impl Game {
 
     pub fn file_open_read(&mut self, args: &[Value]) -> gml::Result<Value> {
         let filename = expect_args!(args, [string])?;
-        match file::TextHandle::open(filename.as_ref(), file::AccessMode::Read) {
+        match file::TextHandle::open(file::to_path(&filename).as_ref(), file::AccessMode::Read) {
             Ok(f) => {
                 self.open_file.replace(f);
             },
@@ -6057,7 +6057,7 @@ impl Game {
 
     pub fn file_open_write(&mut self, args: &[Value]) -> gml::Result<Value> {
         let filename = expect_args!(args, [string])?;
-        match file::TextHandle::open(filename.as_ref(), file::AccessMode::Write) {
+        match file::TextHandle::open(file::to_path(&filename).as_ref(), file::AccessMode::Write) {
             Ok(f) => {
                 self.open_file.replace(f);
                 Ok(Default::default())
@@ -6071,7 +6071,7 @@ impl Game {
 
     pub fn file_open_append(&mut self, args: &[Value]) -> gml::Result<Value> {
         let filename = expect_args!(args, [string])?;
-        match file::TextHandle::open(filename.as_ref(), file::AccessMode::Special) {
+        match file::TextHandle::open(file::to_path(&filename).as_ref(), file::AccessMode::Special) {
             Ok(f) => {
                 self.open_file.replace(f);
                 Ok(Default::default())
@@ -6160,14 +6160,14 @@ impl Game {
 
     pub fn file_exists(&self, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [any]).map(|x| match x {
-            Value::Str(s) => file::file_exists(&self.decode_str(s.as_ref())).into(),
+            Value::Str(s) => file::file_exists(file::to_path(&self.decode_str(s.as_ref())).as_ref()).into(),
             Value::Real(_) => gml::FALSE.into(),
         })
     }
 
     pub fn file_delete(&self, args: &[Value]) -> gml::Result<Value> {
         let filename = expect_args!(args, [string])?;
-        match file::delete(filename.as_ref()) {
+        match file::delete(file::to_path(&filename).as_ref()) {
             Ok(()) => Ok(Default::default()),
             Err(e) => Err(gml::Error::FunctionError("file_delete".into(), e.to_string())),
         }
@@ -6175,7 +6175,7 @@ impl Game {
 
     pub fn file_rename(&self, args: &[Value]) -> gml::Result<Value> {
         let (from, to) = expect_args!(args, [string, string])?;
-        if file::rename(from.as_ref(), to.as_ref()).is_err() {
+        if file::rename(file::to_path(&from).as_ref(), file::to_path(&to).as_ref()).is_err() {
             // Fail silently
             eprintln!("Warning (file_rename): could not rename {} to {}", from, to);
         }
@@ -6184,7 +6184,7 @@ impl Game {
 
     pub fn file_copy(&self, args: &[Value]) -> gml::Result<Value> {
         let (from, to) = expect_args!(args, [string, string])?;
-        if file::copy(from.as_ref(), to.as_ref()).is_err() {
+        if file::copy(file::to_path(&from).as_ref(), file::to_path(&to).as_ref()).is_err() {
             // Fail silently
             eprintln!("Warning (file_copy): could not copy {} to {}", from, to);
         }
@@ -6193,14 +6193,14 @@ impl Game {
 
     pub fn directory_exists(&self, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [any]).map(|x| match x {
-            Value::Str(s) => file::dir_exists(&self.decode_str(s.as_ref())).into(),
+            Value::Str(s) => file::dir_exists(file::to_path(&self.decode_str(s.as_ref())).as_ref()).into(),
             Value::Real(_) => gml::FALSE.into(),
         })
     }
 
     pub fn directory_create(&self, args: &[Value]) -> gml::Result<Value> {
         let path = expect_args!(args, [string])?;
-        match file::dir_create(path.as_ref()) {
+        match file::dir_create(file::to_path(&path).as_ref()) {
             Ok(()) => Ok(Default::default()),
             Err(e) => Err(gml::Error::FunctionError("directory_create".into(), e.to_string())),
         }
@@ -6521,7 +6521,7 @@ impl Game {
     pub fn ini_open(&mut self, args: &[Value]) -> gml::Result<Value> {
         let name = expect_args!(args, [bytes])?;
         let name_str = self.decode_str(name.as_ref());
-        if file::file_exists(&name_str) {
+        if file::file_exists(&file::to_path(&name_str)) {
             match ini::Ini::load_from_file(name_str.as_ref()) {
                 Ok(ini) => {
                     self.open_ini = Some((ini, name));
@@ -8215,13 +8215,27 @@ impl Game {
                     let mut dst_data = self.renderer.dump_sprite(dst_frame.atlas_ref);
                     // TODO: delete sprite when this is safe for sprite fonts
                     // self.renderer.delete_sprite(dst_frame.atlas_ref);
-                    for (dst_row, src_row) in dst_data
-                        .chunks_mut(dst_frame.width as usize * 4)
-                        .zip(src_data.chunks(src_frame.width as usize * 4))
-                    {
-                        for (dst_col, src_col) in dst_row.chunks_mut(4).zip(src_row.chunks(4)) {
-                            dst_col[3] = (src_col[..3].iter().map(|&x| u16::from(x)).sum::<u16>() / 3u16) as u8;
-                        }
+                    match self.gm_version {
+                        Version::GameMaker8_0 => {
+                            for (dst_row, src_row) in dst_data
+                                .chunks_mut(dst_frame.width as usize * 4)
+                                .zip(src_data.chunks(src_frame.width as usize * 4))
+                            {
+                                for (dst_col, src_col) in dst_row.chunks_mut(4).zip(src_row.chunks(4)) {
+                                    dst_col[3] = ((src_col[..3].iter().map(|&x| u32::from(x)).sum::<u32>() * u32::from(dst_col[3])) / (3*255)) as u8;
+                                }
+                            }
+                        },
+                        Version::GameMaker8_1 => {
+                            for (dst_row, src_row) in dst_data
+                                .chunks_mut(dst_frame.width as usize * 4)
+                                .zip(src_data.chunks(src_frame.width as usize * 4))
+                            {
+                                for (dst_col, src_col) in dst_row.chunks_mut(4).zip(src_row.chunks(4)) {
+                                    dst_col[3] = (src_col[..3].iter().map(|&x| u16::from(x)).sum::<u16>() / 3u16) as u8;
+                                }
+                            }
+                        },
                     }
                     dst_frame.atlas_ref = self
                         .renderer
@@ -8455,7 +8469,7 @@ impl Game {
         let (fname, imgnumb, removeback, smooth, origin_x, origin_y) =
             expect_args!(args, [string, int, bool, bool, int, int])?;
         let imgnumb = imgnumb.max(1) as usize;
-        let mut images = match file::load_animation(fname.as_ref(), imgnumb) {
+        let mut images = match file::load_animation(file::to_path(&fname).as_ref(), imgnumb) {
             Ok(frames) => frames,
             Err(e) => {
                 eprintln!("Warning: sprite_add on {} failed: {}", fname, e);
@@ -8509,7 +8523,7 @@ impl Game {
                 self.renderer.delete_sprite(frame.atlas_ref);
             }
             let imgnumb = imgnumb.max(1) as usize;
-            let mut images = match file::load_animation(fname.as_ref(), imgnumb) {
+            let mut images = match file::load_animation(file::to_path(&fname).as_ref(), imgnumb) {
                 Ok(frames) => frames,
                 Err(e) => {
                     eprintln!("Warning: sprite_replace on {} failed: {}", fname, e);
@@ -8642,7 +8656,7 @@ impl Game {
             if let Some(frame) = sprite.get_frame(image_index) {
                 // get RGBA
                 if let Err(e) = file::save_image(
-                    fname.as_ref(),
+                    file::to_path(&fname).as_ref(),
                     RgbaImage::from_vec(frame.width, frame.height, self.renderer.dump_sprite(frame.atlas_ref).into())
                         .unwrap(),
                 ) {
@@ -8773,10 +8787,21 @@ impl Game {
         {
             let mut dst = self.renderer.dump_sprite(*atlas_ref);
             self.renderer.delete_sprite(*atlas_ref);
-            for (dst_row, src_row) in dst.chunks_mut(dst_w as usize * 4).zip(alpha_src.chunks(src_w as usize * 4)) {
-                for (dst_col, src_col) in dst_row.chunks_mut(4).zip(src_row.chunks(4)) {
-                    dst_col[3] = (src_col[..3].iter().map(|&x| u16::from(x)).sum::<u16>() / 3u16) as u8;
-                }
+            match self.gm_version {
+                Version::GameMaker8_0 => {
+                    for (dst_row, src_row) in dst.chunks_mut(dst_w as usize * 4).zip(alpha_src.chunks(src_w as usize * 4)) {
+                        for (dst_col, src_col) in dst_row.chunks_mut(4).zip(src_row.chunks(4)) {
+                            dst_col[3] = ((src_col[..3].iter().map(|&x| u32::from(x)).sum::<u32>() * u32::from(dst_col[3])) / (3*255)) as u8;
+                        }
+                    }
+                },
+                Version::GameMaker8_1 => {
+                    for (dst_row, src_row) in dst.chunks_mut(dst_w as usize * 4).zip(alpha_src.chunks(src_w as usize * 4)) {
+                        for (dst_col, src_col) in dst_row.chunks_mut(4).zip(src_row.chunks(4)) {
+                            dst_col[3] = (src_col[..3].iter().map(|&x| u16::from(x)).sum::<u16>() / 3u16) as u8;
+                        }
+                    }
+                },
             }
             *atlas_ref = self
                 .renderer
@@ -8867,7 +8892,7 @@ impl Game {
 
     pub fn background_add(&mut self, args: &[Value]) -> gml::Result<Value> {
         let (fname, removeback, smooth) = expect_args!(args, [string, bool, bool])?;
-        let mut image = match file::load_image(fname.as_ref()) {
+        let mut image = match file::load_image(file::to_path(&fname).as_ref()) {
             Ok(im) => im,
             Err(e) => {
                 eprintln!("Warning: background_add on {} failed: {}", fname, e);
@@ -8897,7 +8922,7 @@ impl Game {
             if let Some(atlas_ref) = background.atlas_ref {
                 self.renderer.delete_sprite(atlas_ref);
             }
-            let mut image = match file::load_image(fname.as_ref()) {
+            let mut image = match file::load_image(file::to_path(&fname).as_ref()) {
                 Ok(im) => im,
                 Err(e) => {
                     eprintln!("Warning: background_replace on {} failed: {}", fname, e);
@@ -9013,7 +9038,7 @@ impl Game {
             if let Some(atlas_ref) = background.atlas_ref {
                 // get RGBA
                 if let Err(e) = file::save_image(
-                    fname.as_ref(),
+                    file::to_path(&fname).as_ref(),
                     RgbaImage::from_vec(
                         background.width,
                         background.height,
@@ -13375,7 +13400,7 @@ impl Game {
     pub fn d3d_model_load(&mut self, args: &[Value]) -> gml::Result<Value> {
         let (model_id, fname) = expect_args!(args, [int, string])?;
         fn load_model(fname: &str) -> Result<model::Model, Box<dyn std::error::Error>> {
-            let mut file = std::io::BufReader::new(std::fs::File::open(fname)?);
+            let mut file = std::io::BufReader::new(std::fs::File::open(file::to_path(&fname).as_ref())?);
             let version = file::read_real(&mut file)?;
             if version != 100.0 {
                 return Err("invalid version".into())
@@ -13493,7 +13518,7 @@ impl Game {
     pub fn d3d_model_save(&mut self, args: &[Value]) -> gml::Result<Value> {
         let (model_id, fname) = expect_args!(args, [int, string])?;
         fn save_model(model: &model::Model, fname: &str) -> std::io::Result<()> {
-            let mut file = std::io::BufWriter::new(std::fs::File::create(fname)?);
+            let mut file = std::io::BufWriter::new(std::fs::File::create(file::to_path(&fname).as_ref())?);
             writeln!(&mut file, "100\r\n{}\r", model.commands.len())?;
             for cmd in &model.commands {
                 let (cmd, args) = cmd.to_line();
