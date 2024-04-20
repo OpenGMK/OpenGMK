@@ -1,16 +1,14 @@
 use crate::{
     input::Button,
-    game::{
-        recording::{
+    game::recording::{
             KeyState,
             keybinds::Binding,
             window::{Window, Openable, DisplayInformation},
         },
-    },
 };
 
 pub struct MacroWindow {
-    input_buffer: Vec<u8>,
+    macro_string: String,
     start_frame: usize,
     last_frame: usize,
     info_text: String,
@@ -68,7 +66,7 @@ impl Openable<Self> for MacroWindow {
 impl MacroWindow {
     pub fn new() -> Self {
         MacroWindow {
-            input_buffer: vec![0 as u8; 1024],
+            macro_string: String::with_capacity(256),
             start_frame: 0,
             last_frame: 0,
             info_text: String::from("Not running"),
@@ -100,7 +98,7 @@ impl MacroWindow {
         let window_size = frame.window_size();
         let content_position = frame.content_position();
         frame.set_next_item_width(window_size.0 - content_position.0 * 2.0);
-        frame.input_text(&"##macroinput", self.input_buffer.as_mut_ptr(), self.input_buffer.len(), flags);
+        frame.input_text(&"##macroinput", &mut self.macro_string, flags, None);
         if frame.is_item_focused() {
             keybindings.disable_bindings();
         }
@@ -160,18 +158,10 @@ impl MacroWindow {
         self.last_frame = 0;
         self.input_frames.clear();
 
-        match String::from_utf8(self.input_buffer.iter().take_while(|x| **x != 0u8).copied().collect()) {
-            Ok(macro_string) => {
-                self.parse_macro_string(macro_string);
-            },
-            Err(_) => {
-                self.run_macro = false;
-                self.info_text = String::from("Failed to create string from input");
-            }
-        }
+        self.parse_macro_string();
     }
 
-    fn parse_macro_string(&mut self, macro_string: String) {
+    fn parse_macro_string(&mut self) {
         let mut token = String::new();
         let mut last_keycode: Option<usize> = None;
         let mut changes: Vec<StateChange> = Vec::new();
@@ -192,7 +182,7 @@ impl MacroWindow {
             }};
         }
 
-        let mut chars = macro_string.chars().peekable();
+        let mut chars = self.macro_string.chars().peekable();
         while let Some(next_tt) = self.next_token(&mut chars, &mut token) {
             match next_tt {
                 TokenType::Key => {

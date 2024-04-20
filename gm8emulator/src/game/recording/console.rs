@@ -5,7 +5,7 @@ use crate::{
 };
 
 pub struct ConsoleWindow {
-    input_buffer: Vec<u8>,
+    input_string: String,
     gml_context: Context,
     output: Vec<String>,
 
@@ -81,7 +81,7 @@ impl Window for ConsoleWindow {
                 frame.set_next_item_width(width+58.0+28.0)
             }
 
-            let pressed_enter = frame.input_text(&"##consoleinput", self.input_buffer.as_mut_ptr(), self.input_buffer.len(), cimgui_sys::ImGuiInputTextFlags__ImGuiInputTextFlags_EnterReturnsTrue as _);
+            let pressed_enter = frame.input_text(&"##consoleinput", &mut self.input_string, cimgui_sys::ImGuiInputTextFlags__ImGuiInputTextFlags_EnterReturnsTrue as _, None);
             if pressed_enter {
                 frame.set_keyboard_focus_here(0);
             }
@@ -105,47 +105,39 @@ impl Window for ConsoleWindow {
             }
 
             if run_code {
-                match String::from_utf8(self.input_buffer.iter().take_while(|x| **x != 0u8).copied().collect()) {
-                    Ok(input) => {
-                        if input.starts_with('/') || input.starts_with('.') {
-                            // see if it's a known command
-                            match input.split_at(1).1 {
-                                "clear" => self.output.clear(),
-                                _ => {
-                                    self.run_code = false;
-                                    self.output.push(format!("Unknown command: {}\n", input));
-                                }
-                            }
-                        } else {
-                            // run input as gml code
-                            if !self.run_code {
-                                self.output.push(format!(">>> {}\n", input));
-                            }
-
-                            let mut new_args: [Value; 16] = Default::default();
-                            new_args[0] = input.into();
-                            match game.execute_string(&mut self.gml_context, &new_args) {
-                                Ok(value) => match value {
-                                    Value::Str(string) => if !self.run_code { self.output.push(format!("\"{}\"\n", string)); },
-                                    Value::Real(real) => if !self.run_code { self.output.push(format!("{}\n", real)); },
-                                },
-                                Err(error) => {
-                                    self.run_code = false;
-                                    self.output.push(format!("Error: {}\n", error));
-                                },
-                            }
-
-                            **clean_state = false;
+                if self.input_string.starts_with('/') || self.input_string.starts_with('.') {
+                    // see if it's a known command
+                    match self.input_string.split_at(1).1 {
+                        "clear" => self.output.clear(),
+                        _ => {
+                            self.run_code = false;
+                            self.output.push(format!("Unknown command: {}\n", self.input_string));
                         }
-                    },
-                    Err(error) => {
-                        self.run_code = false;
-                        self.output.push(format!("Error: {}\n", error));
                     }
+                } else {
+                    // run input as gml code
+                    if !self.run_code {
+                        self.output.push(format!(">>> {}\n", self.input_string));
+                    }
+
+                    let mut new_args: [Value; 16] = Default::default();
+                    new_args[0] = self.input_string.clone().into();
+                    match game.execute_string(&mut self.gml_context, &new_args) {
+                        Ok(value) => match value {
+                            Value::Str(string) => if !self.run_code { self.output.push(format!("\"{}\"\n", string)); },
+                            Value::Real(real) => if !self.run_code { self.output.push(format!("{}\n", real)); },
+                        },
+                        Err(error) => {
+                            self.run_code = false;
+                            self.output.push(format!("Error: {}\n", error));
+                        },
+                    }
+
+                    **clean_state = false;
                 }
                 if pressed_enter {
                     // only clear the input buffer if the user pressed enter
-                    self.input_buffer.fill(0);
+                    self.input_string.clear();
                 }
                 self.scroll_to_bottom = true;
             }
@@ -161,7 +153,7 @@ impl Window for ConsoleWindow {
 impl ConsoleWindow {
     pub fn new() -> Self {
         Self {
-            input_buffer: vec![0 as u8; 1024],
+            input_string: String::with_capacity(256),
             gml_context: Context::with_single_instance(0),
             output: Vec::<String>::new(),
 

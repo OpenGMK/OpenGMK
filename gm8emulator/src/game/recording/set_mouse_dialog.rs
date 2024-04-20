@@ -12,12 +12,12 @@ pub enum MouseDialogResult {
     Cancel,
 }
 
-const BUFFER_LENGTH: usize = 15;
+const TEXT_LENGTH: usize = 11; // How long the input string is allowed to be (2^31 in decimal is 10 characters + a potential sign)
 
 pub struct SetMouseDialog {
     is_open: bool,
-    x_text_buffer: Vec<u8>,
-    y_text_buffer: Vec<u8>,
+    x_text: String,
+    y_text: String,
 
     x_valid: bool,
     y_valid: bool,
@@ -43,10 +43,10 @@ impl Window for SetMouseDialog {
         frame.begin_window("Set Mouse", Some(imgui::Vec2(400.0, 105.0)), false, false, Some(&mut self.is_open));
         if self.is_open && !frame.window_collapsed() {
             Self::draw_text_sameline_validated(frame, self.x_valid, &"X Position");
-            frame.input_text(&"##xpos", self.x_text_buffer.as_mut_ptr(), self.x_text_buffer.len(), 0);
+            frame.input_text(&"##xpos", &mut self.x_text, 0, Some(TEXT_LENGTH));
             
             Self::draw_text_sameline_validated(frame, self.y_valid, &"Y Position");
-            frame.input_text(&"##ypos", self.y_text_buffer.as_mut_ptr(), self.y_text_buffer.len(), 0);
+            frame.input_text(&"##ypos", &mut self.y_text, 0, Some(TEXT_LENGTH));
 
             self.update_inputs();
 
@@ -79,8 +79,8 @@ impl SetMouseDialog {
     pub fn new() -> Self {
         Self {
             is_open: false,
-            x_text_buffer: vec![0 as u8; BUFFER_LENGTH],
-            y_text_buffer: vec![0 as u8; BUFFER_LENGTH],
+            x_text: String::with_capacity(TEXT_LENGTH),
+            y_text: String::with_capacity(TEXT_LENGTH),
 
             x_valid: false,
             y_valid: false,
@@ -94,29 +94,19 @@ impl SetMouseDialog {
 
     fn update_inputs(&mut self) {
         // X
-        match String::from_utf8(self.x_text_buffer.iter().take_while(|x| **x != 0u8).copied().collect()) {
-            Ok(x_string) => {
-                match x_string.parse::<i32>() {
-                    Ok(new_x) => {
-                        self.x_valid = true;
-                        self.x = new_x;
-                    },
-                    Err(_) => self.x_valid = false,
-                }
+        match self.x_text.parse::<i32>() {
+            Ok(new_x) => {
+                self.x_valid = true;
+                self.x = new_x;
             },
             Err(_) => self.x_valid = false,
         }
 
         // Y
-        match String::from_utf8(self.y_text_buffer.iter().take_while(|x| **x != 0u8).copied().collect()) {
-            Ok(y_string) => {
-                match y_string.parse::<i32>() {
-                    Ok(new_y) => {
-                        self.y_valid = true;
-                        self.y = new_y;
-                    },
-                    Err(_) => self.y_valid = false,
-                }
+        match self.y_text.parse::<i32>() {
+            Ok(new_y) => {
+                self.y_valid = true;
+                self.y = new_y;
             },
             Err(_) => self.y_valid = false,
         }
@@ -143,19 +133,11 @@ impl SetMouseDialog {
             self.result = None;
 
             // X
-            self.x_text_buffer = self.x.to_string().as_bytes().to_vec();
-            self.x_text_buffer.push(0);
-            while self.x_text_buffer.len() < BUFFER_LENGTH {
-                self.x_text_buffer.push(0);
-            }
+            self.x_text = self.x.to_string();
             self.x_valid = true;
-
+            
             // Y
-            self.y_text_buffer = self.y.to_string().as_bytes().to_vec();
-            self.y_text_buffer.push(0);
-            while self.y_text_buffer.len() < BUFFER_LENGTH {
-                self.y_text_buffer.push(0);
-            }
+            self.y_text = self.y.to_string();
             self.y_valid = true;
         }
     }
