@@ -1,8 +1,8 @@
-use crate::{ 
+use crate::{
     imgui,
     game::{
         Game,
-        recording::{WindowKind, KeyState, ProjectConfig, instance_report::InstanceReport, keybinds::{Keybindings, Binding}},
+        recording::{WindowKind, KeyState, ProjectConfig, instance_report::InstanceReport, keybinds::{Keybindings, Binding}, popup_dialog::Dialog},
         replay::Replay,
         savestate::{self, SaveState},
     },
@@ -44,11 +44,11 @@ pub struct DisplayInformation<'a, 'f> {
 
     pub keybindings: &'a mut Keybindings,
 
-
     // These probably shouldn't be pub. I just don't know how to initialize the struct otherwise.
     pub _clear_context_menu: bool,
     pub _request_context_menu: bool,
     pub _context_menu_requested: bool,
+    pub _modal_dialog: Option<&'static str>,
 }
 
 pub trait WindowType {
@@ -71,6 +71,9 @@ pub trait Window: WindowType {
 
     /// Runs when an open context menu on this window is closed.
     fn context_menu_close(&mut self) { }
+
+    /// Handles potential modal windows that can be opened from this window. Returns true if any of the modal windows are currently open, false otherwise
+    fn handle_modal(&mut self, info: &mut DisplayInformation) -> bool { false }
 }
 impl<T> WindowType for T
     where T: Window + 'static
@@ -263,5 +266,10 @@ impl DisplayInformation<'_, '_> {
     pub fn reset_context_menu_state(&mut self, clear_context_menu: bool) {
         self._clear_context_menu = clear_context_menu;
         self._request_context_menu = false;
+    }
+
+    pub fn request_modal(&mut self, modal: &mut dyn Dialog)  {
+        modal.reset();
+        self._modal_dialog = Some(modal.get_name());
     }
 }

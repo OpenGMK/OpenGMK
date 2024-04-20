@@ -19,12 +19,15 @@ use crate::{
     },
 };
 
+use super::popup_dialog::{string_input::RNGSelect, Dialog, DialogState};
+
 #[derive(PartialEq, Eq)]
 enum MouseSelection {
     None,
     Left,
     //Middle,
     Right,
+    Fixed,
 }
 #[derive(PartialEq, Eq, Copy, Clone)]
 enum TableColor {
@@ -50,8 +53,11 @@ pub struct InputEditWindow {
     selection_end_index: usize,
 
     context_menu: bool,
+    /// The indicies for the context menu. First value contains the frame, second value is the column that was clicked on, if it existed
     context_menu_indicies: (usize, Option<usize>),
     context_menu_keystate: KeyState,
+
+    rng_select: RNGSelect,
 
     last_table_color: TableColor,
 }
@@ -222,6 +228,32 @@ impl Window for InputEditWindow {
         self.context_menu = false;
         self.is_selecting = MouseSelection::None;
     }
+
+    fn handle_modal(&mut self, info: &mut DisplayInformation) -> bool {
+        let mut any_open = false;
+        match self.rng_select.show(info) {
+            DialogState::Submit => {
+                let new_seed = self.rng_select.get_result();
+                let start = usize::min(self.selection_start_index, self.selection_end_index);
+                let end = usize::max(self.selection_start_index, self.selection_end_index);
+
+                assert!(start >= info.config.current_frame);
+                assert!(end < info.replay.frame_count());
+
+                for frame_index in start..(end+1) {
+                    info.replay.get_frame_mut(frame_index).unwrap().new_seed = new_seed.clone();
+                }
+                self.is_selecting = MouseSelection::None; // Once the dialog is submitted, stop displaying the selection
+            },
+            DialogState::Open => {
+                self.is_selecting = MouseSelection::Fixed; // Kind of a hack but the dialog can only be opened with the right-click context menu by selecting certain frames. Closing the context menu hides the selection so we show it again for as long as the dialog is open
+                any_open = true;
+            }
+            _ => self.is_selecting = MouseSelection::None, // Once the dialog is closed, stop displaying the selection (Closed, Cancelled, Invalid, etc)
+        };
+
+        any_open
+    }
 }
 impl Openable<Self> for InputEditWindow {
     fn window_name() -> &'static str {
@@ -257,6 +289,8 @@ impl InputEditWindow {
             context_menu: false,
             context_menu_indicies: (0, None),
             context_menu_keystate: KeyState::Neutral,
+
+            rng_select: RNGSelect::new("Pick RNG"),
 
             last_table_color: TableColor::NONE,
         }
@@ -342,6 +376,7 @@ impl InputEditWindow {
         } = info;
 
         if let Some(key_index) = self.context_menu_indicies.1 {
+            // Context menu is to modify input, show the key context menu
             if self.selection_start_index == self.selection_end_index {
                 if !self.context_menu_keystate.menu(frame) {
                     let frame_index = self.context_menu_indicies.0;
@@ -368,50 +403,44 @@ impl InputEditWindow {
                 }
             }
         } else {
+            // Context menu is not editing input, show general options
+            let start = usize::min(self.selection_start_index, self.selection_end_index);
+            let end = usize::max(self.selection_start_index, self.selection_end_index);
+
             if frame.menu_item("Add 1 frame before") {
-                let start = usize::min(self.selection_start_index, self.selection_end_index);
                 self.add_frames(info.replay, start, 1);
                 self.context_menu = false;
             } else if frame.menu_item("Add 10 frames before") {
-                let start = usize::min(self.selection_start_index, self.selection_end_index);
                 self.add_frames(info.replay, start, 10);
                 self.context_menu = false;
             } else if frame.menu_item("Add 50 frames before") {
-                let start = usize::min(self.selection_start_index, self.selection_end_index);
                 self.add_frames(info.replay, start, 50);
                 self.context_menu = false;
             } else if frame.menu_item("Add 1 frame after") {
-                let start = usize::max(self.selection_start_index, self.selection_end_index)+1;
                 self.add_frames(info.replay, start, 1);
                 self.context_menu = false;
             } else if frame.menu_item("Add 10 frames after") {
-                let start = usize::max(self.selection_start_index, self.selection_end_index)+1;
                 self.add_frames(info.replay, start, 10);
                 self.context_menu = false;
             } else if frame.menu_item("Add 50 frames after") {
-                let start = usize::max(self.selection_start_index, self.selection_end_index)+1;
                 self.add_frames(info.replay, start, 50);
                 self.context_menu = false;
             } else if frame.menu_item("Delete frame(s)") {
-                let start = usize::min(self.selection_start_index, self.selection_end_index);
-                let end = usize::max(self.selection_start_index, self.selection_end_index);
                 self.delete_frames(replay, start, end);
                 self.context_menu = false;
             } else if frame.menu_item("Set Mouse") {
-                let start = usize::min(self.selection_start_index, self.selection_end_index);
-                let end = usize::max(self.selection_start_index, self.selection_end_index);
-                
                 if let Some(current_frame) = replay.get_frame(start) {
                     **setting_mouse_pos = true;
                     **new_mouse_pos = Some((current_frame.mouse_x, current_frame.mouse_y));
                     self.setting_mouse_pos_for_frame = Some(start);
                     self.setting_mouse_pos_end_frame = Some(end);
                 }
-
                 self.context_menu = false;
             } else if frame.menu_item("Run until last selected frame") {
-                let end = usize::max(self.selection_start_index, self.selection_end_index);
                 *info.run_until_frame = Some(end);
+                self.context_menu = false;
+            } else if frame.menu_item("Pick RNG") {
+                info.request_modal(&mut self.rng_select);
                 self.context_menu = false;
             }
         }
@@ -602,7 +631,7 @@ impl InputEditWindow {
                 let mut within_selection = false;
                 // If we are selecting, check if the button falls withing the range of selected items.
                 if self.is_selecting != MouseSelection::None && i >= config.current_frame && j == self.selection_column.unwrap_or(j) {
-                    if !self.context_menu && (hovered || (mouse_pos.1 >= item_rect_min.1 && mouse_pos.1 <= item_rect_min.1 + item_rect_size.1)) {
+                    if self.is_selecting != MouseSelection::Fixed && !self.context_menu && (hovered || (mouse_pos.1 >= item_rect_min.1 && mouse_pos.1 <= item_rect_min.1 + item_rect_size.1)) {
                         // If we don't have a context menu open and the mouse is vertically on this button, mark it as selected
                         within_selection = true;
                         // And set this as the ending index
@@ -716,7 +745,6 @@ impl InputEditWindow {
                     self.selection_column = None;
                 }
             }
-
         }
 
         if float_count - clipped_below > 0.0 {
@@ -751,6 +779,7 @@ impl InputEditWindow {
             MouseSelection::Right => {
                 if info.frame.right_released() {
                     if info.request_context_menu() {
+                        self.is_selecting = MouseSelection::Fixed;
                         self.context_menu = true;
                         self.context_menu_indicies = (self.selection_start_index, self.selection_column);
                         if let Some(index) = self.selection_column {
@@ -759,6 +788,7 @@ impl InputEditWindow {
                     }
                 }
             },
+            MouseSelection::Fixed => {}, // Don't update the selection automatically if the selection was released (i.e. while context menu or popup are open)
             _ => {
                 if !info.frame.mouse_down() {
                     self.is_selecting = MouseSelection::None;

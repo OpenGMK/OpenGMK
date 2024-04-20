@@ -10,6 +10,7 @@ mod menu_bar;
 mod input_edit;
 mod macro_window;
 mod set_mouse_dialog;
+mod popup_dialog;
 
 use crate::{
     game::{
@@ -118,6 +119,9 @@ struct UIState<'g> {
 
     /// Index of the window that currently has control over the context menu
     context_menu_window: Option<usize>,
+
+    /// Index of the window that currently has control over the modal dialog
+    modal_window_handler: Option<usize>,
 
     /// Position of the context menu
     context_menu_pos: imgui::Vec2<f32>,
@@ -826,6 +830,7 @@ impl Game {
             win_border_size: 0.0,
             win_frame_height: 0.0,
             win_padding: imgui::Vec2(0.0, 0.0),
+            modal_window_handler: None,
         }.run(&mut context);
     }
 }
@@ -1087,9 +1092,11 @@ impl UIState<'_> {
             _clear_context_menu: self.clear_context_menu,
             _request_context_menu: false,
             _context_menu_requested: false,
+            _modal_dialog: None,
         };
 
         let mut new_context_menu_window: Option<usize> = self.context_menu_window;
+        let mut new_modal_window: Option<(usize, &'static str)> = None;
 
         for (index, (win, focus)) in self.windows.iter_mut().enumerate() {
             if *focus {
@@ -1107,6 +1114,11 @@ impl UIState<'_> {
                 }
             }
             display_info.reset_context_menu_state(self.clear_context_menu);
+
+            if let Some(modal) = display_info._modal_dialog {
+                new_modal_window = Some((index, modal));
+            }
+            display_info._modal_dialog = None;
         }
 
         if self.clear_context_menu {
@@ -1126,7 +1138,8 @@ impl UIState<'_> {
         }
 
         if self.context_menu_window.is_some() {
-            match self.windows.get_mut(self.context_menu_window.unwrap()) {
+            let index = self.context_menu_window.unwrap();
+            match self.windows.get_mut(index) {
                 Some((win, _)) => {
                     display_info.frame.begin_context_menu(self.context_menu_pos);
                     if !display_info.frame.window_focused() || !win.show_context_menu(&mut display_info) {
@@ -1134,8 +1147,29 @@ impl UIState<'_> {
                         self.context_menu_window = None;
                     }
                     display_info.frame.end();
+
+                    if let Some(modal) = display_info._modal_dialog {
+                        new_modal_window = Some((index, modal));
+                    }
                 },
                 None => self.context_menu_window = None,
+            }
+        }
+
+        if let Some((modal_index, name)) = new_modal_window {
+            // If we have requested a new modal window, set handling window index and open it
+            self.modal_window_handler = Some(modal_index);
+            display_info.frame.open_popup(name);
+        }
+
+        if let Some(index) = self.modal_window_handler {
+            match self.windows.get_mut(index) {
+                Some((win, _)) => {
+                    if !win.handle_modal(&mut display_info) {
+                        self.modal_window_handler = None;
+                    }
+                },
+                None => self.modal_window_handler = None,
             }
         }
 
