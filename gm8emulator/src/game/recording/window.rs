@@ -3,10 +3,9 @@ use crate::{
     game::{
         Game,
         recording::{WindowKind, KeyState, ProjectConfig, instance_report::InstanceReport, keybinds::{Keybindings, Binding}, popup_dialog::Dialog},
-        replay::Replay,
+        replay::{Replay, FrameRng},
         savestate::{self, SaveState},
     },
-    gml::rand::Random,
     render::RendererState,
 };
 use std::path::PathBuf;
@@ -17,7 +16,7 @@ pub struct DisplayInformation<'a, 'f> {
     pub game_running: &'a mut bool,
     pub setting_mouse_pos: &'a mut bool,
     pub new_mouse_pos: &'a mut Option<(i32, i32)>,
-    pub new_rand: &'a mut Option<Random>,
+    pub new_rand: &'a mut Option<FrameRng>,
     pub config: &'a mut ProjectConfig,
     pub err_string: &'a mut Option<String>,
     pub replay: &'a mut Replay,
@@ -73,7 +72,7 @@ pub trait Window: WindowType {
     fn context_menu_close(&mut self) { }
 
     /// Handles potential modal windows that can be opened from this window. Returns true if any of the modal windows are currently open, false otherwise
-    fn handle_modal(&mut self, info: &mut DisplayInformation) -> bool { false }
+    fn handle_modal(&mut self, _info: &mut DisplayInformation) -> bool { false }
 }
 impl<T> WindowType for T
     where T: Window + 'static

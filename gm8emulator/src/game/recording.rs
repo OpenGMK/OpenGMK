@@ -26,7 +26,6 @@ use crate::{
         replay::{self, Replay},
         Game, SceneChange,
     },
-    gml::rand::Random,
     render::{atlas::AtlasRef, PrimitiveType, RendererState},
     types::Colour,
     imgui, input,
@@ -41,6 +40,8 @@ use std::{
     path::PathBuf,
     time::Instant,
 };
+
+use super::replay::FrameRng;
 const GRID_COLOUR_GOOD: Colour = Colour::new(0.25, 0.625, 0.38671875);
 const GRID_COLOUR_BAD: Colour = Colour::new(0.75, 0.359375, 0.0);
 const CLEAR_COLOUR_GOOD: Colour = Colour::new(0.0196, 0.1059, 0.06275);
@@ -148,7 +149,7 @@ struct UIState<'g> {
     grid_colour_background: Colour,
 
     /// New RNG seed selected by the user, if they have changed it, to be taken into use on next frame advance
-    new_rand: Option<Random>,
+    new_rand: Option<FrameRng>,
 
     /// The currently open windows
     windows: Vec<(Box<dyn Window>, bool)>,

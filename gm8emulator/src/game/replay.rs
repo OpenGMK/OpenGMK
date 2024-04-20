@@ -31,6 +31,24 @@ pub enum FrameRng {
     Increment(i32),
 }
 
+impl FrameRng {
+    pub fn increase(&mut self) {
+        *self = match self {
+            FrameRng::Increment(amount) => FrameRng::Increment(*amount+1),
+            FrameRng::Override(seed) => FrameRng::Override(seed.wrapping_add(1))
+        }
+    }
+
+    pub fn decrease(&mut self) -> bool {
+        *self = match self {
+            FrameRng::Increment(amount) => if *amount <= 1 { FrameRng::Increment(0) } else { FrameRng::Increment(*amount-1) }
+            FrameRng::Override(seed) => FrameRng::Override(seed.wrapping_sub(1))
+        };
+
+        !matches!(*self, FrameRng::Increment(0)) // Return false if we would not actually change the seed at all (0 increments). We can't identify this situation for Override since we don't know the original seed
+    }
+}
+
 // Associated data for a single frame of playback
 #[derive(Eq, PartialEq, Clone, Debug, Serialize, Deserialize)]
 pub struct Frame {
