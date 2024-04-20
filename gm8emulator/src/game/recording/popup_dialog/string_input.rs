@@ -5,7 +5,8 @@ use super::{DialogState, Dialog};
 pub struct StringInputPopup {
     name: &'static str,
     input_buffer: String,
-    char_limit: Option<usize>
+    char_limit: Option<usize>,
+    is_open: bool,
 }
 
 pub struct RNGSelect {
@@ -24,6 +25,11 @@ impl Dialog for StringInputPopup {
 
         if frame.begin_popup_modal(&self.name) {
             state = DialogState::Open;
+
+            if !self.is_open {
+                self.is_open = true;
+                frame.set_keyboard_focus_here(0); // Auto-focus textbox if we just opened the dialog
+            }
 
             let submitted = frame.input_text(&"##textinput", &mut self.input_buffer, cimgui_sys::ImGuiInputTextFlags__ImGuiInputTextFlags_EnterReturnsTrue as _, self.char_limit);
             if frame.is_item_focused() {
@@ -50,7 +56,8 @@ impl Dialog for StringInputPopup {
     }
 
     fn reset(&mut self) {
-        self.input_buffer.clear()
+        self.input_buffer.clear();
+        self.is_open = false;
     }
 }
 
@@ -59,7 +66,8 @@ impl StringInputPopup {
         StringInputPopup {
             name,
             input_buffer: String::with_capacity(char_limit.unwrap_or(128)),
-            char_limit
+            char_limit,
+            is_open: false,
         }
     }
 
