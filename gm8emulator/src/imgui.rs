@@ -277,6 +277,17 @@ impl Frame<'_> {
             pos.assume_init().into()
         }
     }
+    pub fn content_position_max(&self) -> Vec2<f32> {
+        unsafe {
+            let mut pos = std::mem::MaybeUninit::uninit();
+            c::igGetWindowContentRegionMax(pos.as_mut_ptr());
+            pos.assume_init().into()
+        }
+    }
+
+    pub fn get_content_size(&self) -> Vec2<f32> {
+        self.content_position_max()-self.content_position()
+    }
 
     pub fn is_item_focused(&self) -> bool {
         unsafe { c::igIsItemFocused() }

@@ -46,7 +46,9 @@ impl Window for ControlWindow {
             false
         };
 
-        if (info.frame.button("Advance", imgui::Vec2(165.0, 20.0), None)
+        let content_width = info.frame.get_content_size().0;
+
+        if (info.frame.button("Advance", imgui::Vec2(content_width, 20.0), None)
             || info.keybind_pressed(Binding::Advance)
             || run_until_frame)
             && *info.game_running
@@ -55,7 +57,7 @@ impl Window for ControlWindow {
             self.advance_frame(info);
         }
 
-        if (info.frame.button("Quick Save", imgui::Vec2(165.0, 20.0), None)
+        if (info.frame.button("Quick Save", imgui::Vec2(content_width, 20.0), None)
             || info.keybind_pressed(Binding::Quicksave))
             && *info.game_running
             && info.err_string.is_none()
@@ -63,7 +65,7 @@ impl Window for ControlWindow {
             info.savestate_save(info.config.quicksave_slot);
         }
 
-        if info.frame.button("Load Quicksave", imgui::Vec2(165.0, 20.0), None)
+        if info.frame.button("Load Quicksave", imgui::Vec2(content_width, 20.0), None)
             || info.keybind_pressed(Binding::Quickload)
         {
             if *info.startup_successful {
@@ -71,7 +73,7 @@ impl Window for ControlWindow {
             }
         }
 
-        if info.frame.button("Export to .gmtas", imgui::Vec2(165.0, 20.0), None)
+        if info.frame.button("Export to .gmtas", imgui::Vec2(content_width, 20.0), None)
             || info.keybind_pressed(Binding::ExportGmtas)
         {
             let mut filepath = info.project_path.clone();
@@ -109,7 +111,7 @@ impl Window for ControlWindow {
         } else {
             "Full Keyboard###KeyboardLayout"
         };
-        if info.frame.button(keyboard_label, imgui::Vec2(165.0, 20.0), None) 
+        if info.frame.button(keyboard_label, imgui::Vec2(content_width, 20.0), None) 
             || info.keybind_pressed(Binding::ToggleKeyboard)
         {
             info.config.full_keyboard = !info.config.full_keyboard;
@@ -120,7 +122,7 @@ impl Window for ControlWindow {
             InputMode::Direct => "Switch to mouse input###InputMethod",
             InputMode::Mouse => "Switch to direct input###InputMethod",
         };
-        if info.frame.button(input_label, imgui::Vec2(165.0, 20.0), None)
+        if info.frame.button(input_label, imgui::Vec2(content_width, 20.0), None)
             || info.keybind_pressed(Binding::ToggleDirect)
         {
             info.config.input_mode = match info.config.input_mode {
@@ -133,7 +135,7 @@ impl Window for ControlWindow {
             true => "Switch to Read/Write###IsReadOnly",
             false => "Switch to Read-Only###IsReadOnly",
         };
-        if info.frame.button(read_only_label, imgui::Vec2(165.0, 20.0), None) 
+        if info.frame.button(read_only_label, imgui::Vec2(content_width, 20.0), None) 
             || info.keybind_pressed(Binding::ToggleReadOnly)
         {
             info.config.is_read_only = !info.config.is_read_only;
@@ -144,13 +146,13 @@ impl Window for ControlWindow {
             true => "Set Mouse: textbox###mouse_set_label",
             false => "Set mouse: clicking###mouse_set_label",
         };
-        if info.frame.button(mouse_set_label, imgui::Vec2(165.0, 20.0), None) 
+        if info.frame.button(mouse_set_label, imgui::Vec2(content_width, 20.0), None) 
         {
             info.config.set_mouse_using_textbox = !info.config.set_mouse_using_textbox;
             info.config.save();
         }
 
-        if info.frame.button(">", imgui::Vec2(18.0, 18.0), Some(imgui::Vec2(160.0, 138.0)))
+        if info.frame.button(">", imgui::Vec2(18.0, 18.0), Some(imgui::Vec2(content_width-18.0, 138.0)))
             || info.keybind_pressed(Binding::NextRand)
         {
             if let Some(rand) = &mut info.new_rand {
