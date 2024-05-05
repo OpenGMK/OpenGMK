@@ -2340,7 +2340,7 @@ impl Game {
             let collider1 = match if sprite1.per_frame_colliders {
                 sprite1
                     .colliders
-                    .get((inst1.image_index.get().floor().to_i32() % sprite1.colliders.len() as i32) as usize)
+                    .get((inst1.image_index.get().floor().to_i32().rem_euclid(sprite1.colliders.len() as i32)) as usize)
             } else {
                 sprite1.colliders.first()
             } {
@@ -2351,7 +2351,7 @@ impl Game {
             let collider2 = match if sprite2.per_frame_colliders {
                 sprite2
                     .colliders
-                    .get((inst2.image_index.get().floor().to_i32() % sprite2.colliders.len() as i32) as usize)
+                    .get((inst2.image_index.get().floor().to_i32().rem_euclid(sprite2.colliders.len() as i32)) as usize)
             } else {
                 sprite2.colliders.first()
             } {
