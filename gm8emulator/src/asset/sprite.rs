@@ -318,8 +318,8 @@ impl Collider {
         let mut x = Real::from(x - inst_x);
         let mut y = Real::from(y - inst_y);
         util::rotate_around_center(x.as_mut_ref(), y.as_mut_ref(), angle_sin, angle_cos);
-        let x = (Real::from(origin_x) + (x / xscale)).round().to_i32();
-        let y = (Real::from(origin_y) + (y / yscale)).round().to_i32();
+        let x = (Real::from(origin_x) + (x / xscale)).floor().to_i32();
+        let y = (Real::from(origin_y) + (y / yscale)).floor().to_i32();
         x >= self.bbox_left as i32
             && y >= self.bbox_top as i32
             && x <= self.bbox_right as i32
