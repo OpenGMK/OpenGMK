@@ -1,4 +1,4 @@
-use crate::{gml, math::Real, render::atlas::AtlasRef};
+use crate::{gml, math::Real, render::atlas::AtlasRef, util};
 use image::{Pixel, RgbaImage};
 use serde::{Deserialize, Serialize};
 
@@ -309,5 +309,21 @@ impl Sprite {
 
     pub fn get_atlas_ref(&self, image_index: i32) -> Option<AtlasRef> {
         Some(self.get_frame(image_index)?.atlas_ref)
+    }
+}
+
+impl Collider {
+    // collision_point but it checks the collider's precise hitbox only, no AABB
+    pub fn check_collision_point_precise(&self, x: i32, y: i32, inst_x: i32, inst_y: i32, origin_x: i32, origin_y: i32, xscale: Real, yscale: Real, angle_sin: f64, angle_cos: f64) -> bool {
+        let mut x = Real::from(x - inst_x);
+        let mut y = Real::from(y - inst_y);
+        util::rotate_around_center(x.as_mut_ref(), y.as_mut_ref(), angle_sin, angle_cos);
+        let x = (Real::from(origin_x) + (x / xscale)).floor().to_i32();
+        let y = (Real::from(origin_y) + (y / yscale)).floor().to_i32();
+        x >= self.bbox_left as i32
+            && y >= self.bbox_top as i32
+            && x <= self.bbox_right as i32
+            && y <= self.bbox_bottom as i32
+            && self.data.get((y as usize * self.width as usize) + x as usize).copied().unwrap_or(false)
     }
 }
