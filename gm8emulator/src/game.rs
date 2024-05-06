@@ -2380,45 +2380,10 @@ impl Game {
             // Go through each pixel in the intersect
             for intersect_y in intersect_top..=intersect_bottom {
                 for intersect_x in intersect_left..=intersect_right {
-                    // Cast the coordinates to doubles, rotate them around inst1, then scale them by inst1; then
-                    // floor them, as GM8 does, to get integer coordinates on the collider relative to the instance.
-                    let mut x = Real::from(intersect_x) - x1.into();
-                    let mut y = Real::from(intersect_y) - y1.into();
-                    util::rotate_around_center(x.as_mut_ref(), y.as_mut_ref(), sin1, cos1);
-                    let x = (Real::from(sprite1.origin_x) + (x / inst1.image_xscale.get()).floor()).to_i32();
-                    let y = (Real::from(sprite1.origin_y) + (y / inst1.image_yscale.get()).floor()).to_i32();
-
-                    // Now look in the collider map to figure out if instance 1 is touching this pixel
-                    if x >= collider1.bbox_left as i32
-                        && y >= collider1.bbox_top as i32
-                        && x <= collider1.bbox_right as i32
-                        && y <= collider1.bbox_bottom as i32
-                        && collider1
-                            .data
-                            .get((y as usize * collider1.width as usize) + x as usize)
-                            .copied()
-                            .unwrap_or(false)
-                    {
-                        // Do all the exact same stuff for inst2 now
-                        let mut x = Real::from(intersect_x) - x2.into();
-                        let mut y = Real::from(intersect_y) - y2.into();
-                        util::rotate_around_center(x.as_mut_ref(), y.as_mut_ref(), sin2, cos2);
-                        let x = (Real::from(sprite2.origin_x) + (x / inst2.image_xscale.get()).floor()).to_i32();
-                        let y = (Real::from(sprite2.origin_y) + (y / inst2.image_yscale.get()).floor()).to_i32();
-
-                        // And finally check if there was a hit here too. If so, we can return true immediately.
-                        if x >= collider2.bbox_left as i32
-                            && y >= collider2.bbox_top as i32
-                            && x <= collider2.bbox_right as i32
-                            && y <= collider2.bbox_bottom as i32
-                            && collider2
-                                .data
-                                .get((y as usize * collider2.width as usize) + x as usize)
-                                .copied()
-                                .unwrap_or(false)
-                        {
-                            return true
-                        }
+                    // check precise collisions for this pixel
+                    if collider1.check_collision_point_precise(intersect_x, intersect_y, x1.to_i32(), y1.to_i32(), sprite1.origin_x, sprite1.origin_y, inst1.image_xscale.get(), inst1.image_yscale.get(), sin1, cos1) &&
+                       collider2.check_collision_point_precise(intersect_x, intersect_y, x2.to_i32(), y2.to_i32(), sprite2.origin_x, sprite2.origin_y, inst2.image_xscale.get(), inst2.image_yscale.get(), sin2, cos2) {
+                        return true
                     }
                 }
             }
@@ -2451,11 +2416,8 @@ impl Game {
 
         // Stop now if precise collision is disabled
         if !precise {
-            return true
-        }
-
-        // Can't collide if no sprite or no associated collider
-        if let Some(sprite) = sprite {
+            true
+        } else if let Some(sprite) = sprite {
             // Get collider
             let collider = match if sprite.per_frame_colliders {
                 sprite.colliders.get(inst.image_index.get().floor().into_inner() as usize % sprite.colliders.len())
@@ -2465,21 +2427,8 @@ impl Game {
                 Some(c) => c,
                 None => return false,
             };
-
-            // Transform point to be relative to collider
             let angle = inst.image_angle.get().to_radians();
-            let mut x = x.round() - inst.x.get(); // round coordinates here because game maker stupid
-            let mut y = y.round() - inst.y.get();
-            util::rotate_around_center(x.as_mut_ref(), y.as_mut_ref(), angle.sin().into(), angle.cos().into());
-            let x = (Real::from(sprite.origin_x) + (x / inst.image_xscale.get())).round().to_i32();
-            let y = (Real::from(sprite.origin_y) + (y / inst.image_yscale.get())).round().to_i32();
-
-            // And finally, look up this point in the collider
-            x >= collider.bbox_left as i32
-                && y >= collider.bbox_top as i32
-                && x <= collider.bbox_right as i32
-                && y <= collider.bbox_bottom as i32
-                && collider.data.get((y as usize * collider.width as usize) + x as usize).copied().unwrap_or(false)
+            collider.check_collision_point_precise(x.round().to_i32(), y.round().to_i32(), inst.x.get().round().to_i32(), inst.y.get().round().to_i32(), sprite.origin_x, sprite.origin_y, inst.image_xscale.get(), inst.image_yscale.get(), angle.sin().into_inner(), angle.cos().into_inner())
         } else {
             false
         }
@@ -2527,8 +2476,8 @@ impl Game {
                 None => return false,
             };
 
-            let inst_x = inst.x.get().round();
-            let inst_y = inst.y.get().round();
+            let inst_x = inst.x.get().round().to_i32();
+            let inst_y = inst.y.get().round().to_i32();
             let angle = inst.image_angle.get().to_radians();
             let sin = angle.sin().into_inner();
             let cos = angle.cos().into_inner();
@@ -2542,24 +2491,7 @@ impl Game {
             // Go through each pixel in the intersect
             for intersect_y in intersect_top..=intersect_bottom {
                 for intersect_x in intersect_left..=intersect_right {
-                    // Transform point to be relative to collider
-                    let mut x = Real::from(intersect_x) - inst_x.into();
-                    let mut y = Real::from(intersect_y) - inst_y.into();
-                    util::rotate_around_center(x.as_mut_ref(), y.as_mut_ref(), sin, cos);
-                    let x = (Real::from(sprite.origin_x) + (x / inst.image_xscale.get()).floor()).to_i32();
-                    let y = (Real::from(sprite.origin_y) + (y / inst.image_yscale.get()).floor()).to_i32();
-
-                    // And finally, look up this point in the collider
-                    if x >= collider.bbox_left as i32
-                        && y >= collider.bbox_top as i32
-                        && x <= collider.bbox_right as i32
-                        && y <= collider.bbox_bottom as i32
-                        && collider
-                            .data
-                            .get((y as usize * collider.width as usize) + x as usize)
-                            .copied()
-                            .unwrap_or(false)
-                    {
+                    if collider.check_collision_point_precise(intersect_x, intersect_y, inst_x, inst_y, sprite.origin_x, sprite.origin_y, inst.image_xscale.get(), inst.image_yscale.get(), sin, cos) {
                         return true
                     }
                 }
@@ -2634,10 +2566,7 @@ impl Game {
         // Stop now if precise collision is disabled
         if !precise {
             return true
-        }
-
-        // Can't collide if no sprite or no associated collider
-        if let Some(sprite) = sprite {
+        } else if let Some(sprite) = sprite {
             // Get collider
             let collider = match if sprite.per_frame_colliders {
                 sprite.colliders.get(inst.image_index.get().floor().into_inner() as usize % sprite.colliders.len())
@@ -2665,27 +2594,9 @@ impl Game {
             for intersect_y in intersect_top..=intersect_bottom {
                 for intersect_x in intersect_left..=intersect_right {
                     // Check if point is in ellipse
-                    if point_in_ellipse(intersect_x.into(), intersect_y.into()) {
-                        // Transform point to be relative to collider
-                        let mut x = Real::from(intersect_x) - inst_x.into();
-                        let mut y = Real::from(intersect_y) - inst_y.into();
-                        util::rotate_around_center(x.as_mut_ref(), y.as_mut_ref(), sin, cos);
-                        let x = (Real::from(sprite.origin_x) + (x / inst.image_xscale.get()).floor()).to_i32();
-                        let y = (Real::from(sprite.origin_y) + (y / inst.image_yscale.get()).floor()).to_i32();
-
-                        // And finally, look up this point in the collider
-                        if x >= collider.bbox_left as i32
-                            && y >= collider.bbox_top as i32
-                            && x <= collider.bbox_right as i32
-                            && y <= collider.bbox_bottom as i32
-                            && collider
-                                .data
-                                .get((y as usize * collider.width as usize) + x as usize)
-                                .copied()
-                                .unwrap_or(false)
-                        {
-                            return true
-                        }
+                    if point_in_ellipse(intersect_x.into(), intersect_y.into()) &&
+                       collider.check_collision_point_precise(intersect_x, intersect_y, inst_x.to_i32(), inst_y.to_i32(), sprite.origin_x, sprite.origin_y, inst.image_xscale.get(), inst.image_yscale.get(), sin, cos) {
+                        return true
                     }
                 }
             }
@@ -2794,6 +2705,8 @@ impl Game {
             };
 
             for i in 0..point_count {
+                // Note this is probably not correct - doesn't use collision_point_precise and x and y are not rounded
+                // as they would be if that function was used - check disasm before doing anything else with this code
                 let (mut x, mut y) = get_point(i);
 
                 // Transform point to be relative to collider
