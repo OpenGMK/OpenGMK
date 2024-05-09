@@ -16,13 +16,13 @@ impl Game {
                 if speed >= Real::from(0.0) {
                     if friction > speed {
                         instance.set_speed(Real::from(0.0));
-                    } else {
+                    } else if speed != Real::from(0.0) {
                         instance.set_speed(speed - friction);
                     }
                 } else {
                     if friction > -speed {
                         instance.set_speed(Real::from(0.0));
-                    } else {
+                    } else if speed != Real::from(0.0) {
                         instance.set_speed(speed + friction);
                     }
                 }
