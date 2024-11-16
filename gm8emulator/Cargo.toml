@@ -4,7 +4,7 @@ version = "0.2.0"
 authors = ["The OpenGMK Project Developers"]
 license = "GPL-2.0-only"
 edition = "2021"
-rust-version = "1.59"
+rust-version = "1.77"
 default-run = "gm8emulator"
 
 [build-dependencies]

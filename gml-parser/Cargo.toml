@@ -3,7 +3,7 @@ name = "gml-parser"
 version = "0.2.0"
 authors = ["The OpenGMK Project Developers"]
 edition = "2021"
-rust-version = "1.59"
+rust-version = "1.77"
 
 [dependencies]
 serde = { version = "1.0", features = ["derive"], optional = true }
