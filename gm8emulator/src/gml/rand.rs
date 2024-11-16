@@ -86,7 +86,8 @@ impl Random {
 
 // Makes a pseudorandom integer. Only used for seeding, such as in randomize().
 fn rand_int() -> i32 {
-    let mut bytes: [u8; 4] = unsafe { std::mem::MaybeUninit::uninit().assume_init() };
-    let _ = getrandom::getrandom(&mut bytes);
-    i32::from_le_bytes(bytes)
+    // TODO: Use uninit_array() and array_assume_init() when stabilized (will require v1.78.X+ tho)
+    let mut bytes = std::mem::MaybeUninit::<[u8; 4]>::uninit();
+    let _ = unsafe { getrandom::getrandom(&mut *bytes.as_mut_ptr()) };
+    i32::from_le_bytes(unsafe { bytes.assume_init() })
 }
