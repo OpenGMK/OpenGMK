@@ -4317,7 +4317,6 @@ impl Game {
             top = (inst.y.get() - inst.bbox_top.get().into()).round().to_i32();
             bottom = (inst.y.get() + bottom.into() - inst.bbox_bottom.get().into()).round().to_i32();
         };
-        drop(inst); // le borrow
         let (mut x, mut y) = Default::default();
         for _ in 0..100 {
             x = Real::from(self.rand.next_int((right - left - 1) as u32) + left);

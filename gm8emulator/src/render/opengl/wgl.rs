@@ -6,6 +6,7 @@ use super::wgl_ffi::*;
 
 use ramen::{connection::Connection, window::Window};
 use std::{
+    cell::UnsafeCell,
     mem::{self, size_of},
     ops::Drop,
     os::raw::{c_char, c_int, c_void},
@@ -44,12 +45,13 @@ pub struct PlatformImpl {
 /// Global buffer to make fucking gl_generator not need one alloc per query.
 /// Don't forget to manually mem::replace & drop as this is global.
 /// Remind me to make a better library.
-static mut GLGEN_BUF: Vec<u8> = Vec::new();
+static mut GLGEN_BUF: UnsafeCell<Vec<u8>> = UnsafeCell::new(Vec::new());
 unsafe fn glgen_loader(name: &str, gl32_dll: HINSTANCE) -> *const c_void {
-    GLGEN_BUF.clear();
-    GLGEN_BUF.extend_from_slice(name.as_bytes());
-    GLGEN_BUF.push(0);
-    load_function(GLGEN_BUF.as_ptr() as *const c_char, gl32_dll as _)
+    let buf = GLGEN_BUF.get_mut();
+    buf.clear();
+    buf.extend_from_slice(name.as_bytes());
+    buf.push(0);
+    load_function(buf.as_ptr() as *const c_char, gl32_dll as _)
 }
 
 /// Configuration for querying device pixel format.
@@ -234,7 +236,7 @@ impl PlatformImpl {
 
     pub unsafe fn clean_function_loader() {
         // don't leak memory
-        let _ = mem::replace(&mut GLGEN_BUF, Vec::new());
+        let _ = mem::take(GLGEN_BUF.get_mut());
     }
 
     pub unsafe fn swap_buffers(&self) {

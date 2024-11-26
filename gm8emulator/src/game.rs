@@ -546,16 +546,14 @@ impl Game {
         let window_icons = !settings.dont_show_buttons;
 
         let connection = ramen::connection::Connection::new()?;
-        let mut visual: u32 = 0;
         #[cfg(unix)]
         unsafe {
             let display = connection.xdisplay();
             let screen = connection.xscreenid();
             crate::render::opengl::glx::glx_init(display, screen);
-            let glx = crate::render::opengl::glx::GLX.as_ref().unwrap();
-            visual = glx.visual;
         }
-        
+
+        #[allow(unused_mut)]
         let mut builder = connection.builder()
             .class_name("OpenGMK")
             .visible(false)
