@@ -182,13 +182,21 @@ unsafe fn create_context_attribs(wgl: &wgl::Wgl, device: HDC) -> Result<HGLRC, S
 /// Loads an OpenGL function pointer.
 /// Only works if there is a current OpenGL context.
 unsafe fn load_function(name: *const c_char, gl32_dll: HMODULE) -> *const c_void {
-    let addr = wglGetProcAddress(name);
-    match addr as isize {
-        // All of these return values mean failure, as much as the docs say it's just NULL.
-        // You load some of them like this, but only if wglGetProcAddress failed.
-        // The ones that would are the 1.1 functions because they're in opengl32.dll.
-        -1 | 0 | 1 | 2 | 3 => GetProcAddress(gl32_dll, name).cast(),
-        _ => addr as *const c_void,
+    let addr = GetProcAddress(gl32_dll, name);
+    if !addr.is_null() {
+        // This is an OpenGL 1.1 function or some WGL routine. Depending on the pixelformat, they're
+        // transparently forwarded to either Installable Client Driver (ICD) of the current context
+        // or the standard Windows software renderer for OpenGL, known as Microsoft GDI Generic.
+        addr
+    } else {
+        // This is probably either a function from a newer OpenGL version, or some routine of an
+        // extension feature. They're provided directly by the context ICD.
+        let addr = wglGetProcAddress(name);
+        match addr as isize {
+            // All of these return values mean failure, as much as the docs say it's just NULL.
+            -1 | 1 | 2 | 3 => ptr::null_mut(),
+            _ => addr.cast(),
+        }
     }
 }
 
