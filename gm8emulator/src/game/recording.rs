@@ -2,7 +2,7 @@ use crate::{
     game::{
         replay::{self, Replay},
         savestate::{self, SaveState},
-        Game, SceneChange,
+        Game, GameClock, SceneChange,
     },
     gml::rand::Random,
     imgui, input,
@@ -83,7 +83,7 @@ struct UIState<'g> {
 
     /// OpenGL state for the UI
     ui_renderer_state: RendererState,
-    
+
     /// A SaveState cached in memory to prevent having to load it from a file
     /// Usually used for whichever savestate is "selected" for quick access
     cached_savestate: SaveState,
@@ -289,7 +289,7 @@ impl Game {
             p.push("project.cfg");
             p
         };
-        
+
         let config = if config_path.exists() {
             match bincode::deserialize_from(File::open(&config_path).expect("Couldn't read project.cfg")) {
                 Ok(config) => config,
@@ -304,7 +304,7 @@ impl Game {
             DEFAULT_CONFIG
         };
 
-        let mut replay = Replay::new(self.spoofed_time_nanos.unwrap_or(0), self.rand.seed());
+        let mut replay = Replay::new(if let GameClock::SpoofedNanos(t) = self.clock {t} else {0}, self.rand.seed());
 
         let mut context = imgui::Context::new();
         context.make_current();
@@ -1112,8 +1112,8 @@ impl UIState<'_> {
             }
 
             // Fake frame limiter stuff (don't actually frame-limit in record mode)
-            if let Some(t) = self.game.spoofed_time_nanos.as_mut() {
-                *t += Duration::new(0, 1_000_000_000u32 / self.game.room.speed).as_nanos();
+            if let GameClock::SpoofedNanos(t) = &mut self.game.clock {
+                *t += 1_000_000_000 / self.game.room.speed as u128;
             }
             if self.game.frame_counter == self.game.room.speed {
                 self.game.fps = self.game.room.speed;
@@ -1415,7 +1415,7 @@ impl UIState<'_> {
                 cur_x += button_width + 1.0;
                 self.render_dummy_button(frame, "=", button_size, cur_x, cur_y);
                 cur_x += button_width + 1.0;
-                self.render_keyboard_button(frame, 
+                self.render_keyboard_button(frame,
                     "Back",
                     imgui::Vec2(left_part_edge - cur_x, button_height),
                     cur_x,
@@ -1430,7 +1430,7 @@ impl UIState<'_> {
                 self.render_keyboard_button(frame, "PgUp", button_size, cur_x, cur_y, Key::PageUp);
                 cur_x = content_min.0;
                 cur_y += button_height + 1.0;
-                self.render_keyboard_button(frame, 
+                self.render_keyboard_button(frame,
                     "Tab",
                     imgui::Vec2((button_width * 1.5).floor(), button_height),
                     cur_x,
@@ -1531,7 +1531,7 @@ impl UIState<'_> {
                 cur_x += button_width + 1.0;
                 self.render_keyboard_button(frame, "Alt", button_size, cur_x, cur_y, Key::LeftAlt);
                 cur_x += button_width + 1.0;
-                self.render_keyboard_button(frame, 
+                self.render_keyboard_button(frame,
                     "Space",
                     imgui::Vec2((left_part_edge - cur_x) - (button_width * 3.5 + 3.0).floor(), button_height),
                     cur_x,
@@ -1578,21 +1578,21 @@ impl UIState<'_> {
                 let arrows_left_bound =
                     content_min.0 + ((content_max.0 - content_min.0) / 2.0 - (button_width * 1.5)).floor();
                 self.render_keyboard_button(frame, "<", button_size, arrows_left_bound, content_max.1 - button_height - 8.0, Key::LeftArrow);
-                self.render_keyboard_button(frame, 
+                self.render_keyboard_button(frame,
                     "v",
                     button_size,
                     arrows_left_bound + button_width + 1.0,
                     content_max.1 - button_height - 8.0,
                     Key::DownArrow
                 );
-                self.render_keyboard_button(frame, 
+                self.render_keyboard_button(frame,
                     ">",
                     button_size,
                     arrows_left_bound + (button_width * 2.0 + 2.0),
                     content_max.1 - button_height - 8.0,
                     Key::RightArrow
                 );
-                self.render_keyboard_button(frame, 
+                self.render_keyboard_button(frame,
                     "^",
                     button_size,
                     arrows_left_bound + button_width + 1.0,
@@ -1602,7 +1602,7 @@ impl UIState<'_> {
                 self.render_keyboard_button(frame, "R", button_size, content_min.0, content_min.1, Key::R);
                 self.render_keyboard_button(frame, "Shift", button_size, content_min.0, content_max.1 - button_height - 8.0, Key::LeftShift);
                 self.render_keyboard_button(frame, "F2", button_size, content_max.0 - button_width, content_min.1, Key::F2);
-                self.render_keyboard_button(frame, 
+                self.render_keyboard_button(frame,
                     "Z",
                     button_size,
                     content_max.0 - button_width,

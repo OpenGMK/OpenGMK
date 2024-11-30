@@ -15,7 +15,7 @@ mod util;
 
 use game::{
     savestate::{self, SaveState},
-    Game, PlayType, Replay,
+    Game, GameClock, PlayType, Replay,
 };
 use std::{
     env, fs,
@@ -80,7 +80,7 @@ fn xmain() -> i32 {
     let multithread = !matches.opt_present("t");
     let spoof_time = !matches.opt_present("r");
     let frame_limit_at = matches.opt_str("l").map(|frame| {
-        match frame.parse::<usize>() 
+        match frame.parse::<usize>()
         {
             Ok(f) => f,
             Err(e) => {
@@ -235,10 +235,10 @@ fn xmain() -> i32 {
             },
         };
 
-    let time_now = gml::datetime::now_as_nanos();
+    let time_now = GameClock::SpoofedNanos(gml::datetime::now_as_nanos());
 
     if let Err(err) = if let Some(path) = project_path {
-        components.spoofed_time_nanos = Some(time_now);
+        components.clock = time_now;
         components.record(path);
         Ok(())
     } else {
@@ -257,7 +257,7 @@ fn xmain() -> i32 {
         let result = if let Some(replay) = replay {
             components.replay(replay, output_bin)
         } else {
-            components.spoofed_time_nanos = if spoof_time { Some(time_now) } else { None };
+            components.clock = if spoof_time { time_now } else { GameClock::StartupEpoch(std::time::Instant::now()) };
             components.run()
         };
         for file in files_to_delete.into_iter() {

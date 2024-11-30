@@ -68,6 +68,53 @@ use std::{
     time::{Duration, Instant},
 };
 
+#[derive(Clone, Serialize, Deserialize)]
+pub enum GameClock {
+    StartupEpoch(#[serde(with = "game_epoch_serde")] Instant),
+    SpoofedNanos(u128),  // use this instead of real time if this is set
+}
+
+impl GameClock {
+    pub fn measure(&self) -> gml::datetime::DateTime {
+        if let Self::SpoofedNanos(t) = self {
+            gml::datetime::DateTime::from_nanos(*t)
+        } else {
+            gml::datetime::DateTime::now()
+        }
+    }
+
+    pub fn as_nanos(&self) -> u128 {
+        if let Self::SpoofedNanos(t) = self {
+            *t
+        } else {
+            gml::datetime::now_as_nanos()
+        }
+    }
+}
+
+// https://github.com/serde-rs/serde/issues/1375#issuecomment-532418773
+mod game_epoch_serde {
+    use super::{Duration, Instant, Serialize, Deserialize};
+
+    pub fn serialize<S>(instant: &Instant, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let duration = instant.elapsed();
+        duration.serialize(serializer)
+    }
+
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<Instant, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let duration = Duration::deserialize(deserializer)?;
+        let now = Instant::now();
+        let instant = now.checked_add(duration).ok_or(serde::de::Error::custom("bad game epoch"))?;
+        Ok(instant)
+    }
+}
+
 /// Structure which contains all the components of a game.
 pub struct Game {
     pub compiler: Compiler,
@@ -160,7 +207,7 @@ pub struct Game {
     pub open_ini: Option<(ini::Ini, gml::String)>, // keep the filename for writing
     pub open_file: Option<file::TextHandle>,       // for legacy file functions from GM <= 5.1
     pub file_finder: Option<Box<dyn Iterator<Item = PathBuf>>>,
-    pub spoofed_time_nanos: Option<u128>, // use this instead of real time if this is set
+    pub clock: GameClock,
     pub parameters: Vec<String>,
     pub encoding: &'static Encoding,
 
@@ -1273,7 +1320,7 @@ impl Game {
             open_ini: None,
             open_file: None,
             file_finder: None,
-            spoofed_time_nanos: None,
+            clock: GameClock::SpoofedNanos(0),  // to avoid accessing the system timer for now
             frame_limiter,
             frame_limit_at,
             fps: 0,
@@ -1690,7 +1737,7 @@ impl Game {
                     // the builtin transitions will run too fast.
                     // This would be hell to emulate, so let's just standardize the framerate and call it a day.
                     // Most of the builtin transitions seem to run at around 120FPS in our tests, so let's go with that.
-                    const FRAME_TIME: Duration = Duration::from_nanos(1_000_000_000u64 / 120);
+                    const FRAME_TIME: Duration = Duration::from_nanos(1_000_000_000 / 120u64);
                     let mut current_time = Instant::now();
                     let perspective = self.renderer.get_perspective();
                     for i in 0..self.transition_steps + 1 {
@@ -1713,7 +1760,7 @@ impl Game {
                                 gml::datetime::sleep(dur);
                             }
                         }
-                        if let Some(t) = &mut self.spoofed_time_nanos {
+                        if let GameClock::SpoofedNanos(t) = &mut self.clock {
                             *t += FRAME_TIME.as_nanos();
                         }
                         current_time += FRAME_TIME;
@@ -2142,8 +2189,8 @@ impl Game {
 
             // frame limiter
             let diff = Instant::now().duration_since(time_now);
-            let duration = Duration::new(0, 1_000_000_000u32 / self.room.speed);
-            if let Some(t) = self.spoofed_time_nanos.as_mut() {
+            let duration = Duration::from_nanos(1_000_000_000 / self.room.speed as u64);
+            if let GameClock::SpoofedNanos(t) = &mut self.clock {
                 *t += duration.as_nanos();
                 self.fps = self.room.speed.into();
             } else {
@@ -2169,7 +2216,7 @@ impl Game {
     pub fn replay(mut self, replay: Replay, output_bin: Option<PathBuf>) -> Result<(), Box<dyn std::error::Error>> {
         let mut frame_count: usize = 0;
         self.rand.set_seed(replay.start_seed);
-        self.spoofed_time_nanos = Some(replay.start_time);
+        self.clock = GameClock::SpoofedNanos(replay.start_time);
 
         // the tas ui creates some sprites, so as a hotfix we need to generate them here too
         // TODO don't
@@ -2206,7 +2253,7 @@ impl Game {
                 }
 
                 if let Some(time) = frame.new_time {
-                    self.spoofed_time_nanos = Some(time);
+                    self.clock = GameClock::SpoofedNanos(time);
                 }
 
                 self.input.mouse_move_to((frame.mouse_x as i32, frame.mouse_y as i32));
@@ -2249,8 +2296,8 @@ impl Game {
 
             // frame limiter
             let diff = Instant::now().duration_since(time_now);
-            let duration = Duration::new(0, 1_000_000_000u32 / self.room.speed);
-            if let Some(t) = self.spoofed_time_nanos.as_mut() {
+            let duration = Duration::from_nanos(1_000_000_000 / self.room.speed as u64);
+            if let GameClock::SpoofedNanos(t) = &mut self.clock {
                 *t += duration.as_nanos();
             }
 

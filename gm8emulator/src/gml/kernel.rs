@@ -6,7 +6,7 @@ use crate::{
     action, asset,
     game::{
         draw, external, gm_save::GMSave, model, particle, pathfinding, platform, replay, surface::Surface,
-        transition::UserTransition, view::View, Game, GetAsset, PlayType, SceneChange, Version,
+        transition::UserTransition, view::View, Game, GameClock, GetAsset, PlayType, SceneChange, Version,
     },
     gml::{
         self,
@@ -5756,8 +5756,8 @@ impl Game {
                     PlayType::Replay => datetime::sleep(duration),
                 }
 
-                if let Some(ns) = self.spoofed_time_nanos.as_mut() {
-                    *ns += (millis as u128) * 1_000_000;
+                if let GameClock::SpoofedNanos(t) = &mut self.clock {
+                    *t += (millis as u128) * 1_000_000;
                 }
             }
         }
@@ -7869,17 +7869,17 @@ impl Game {
 
     pub fn date_current_datetime(&self, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [])?;
-        Ok(DateTime::now_or_nanos(self.spoofed_time_nanos).into())
+        Ok(self.clock.measure().into())
     }
 
     pub fn date_current_date(&self, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [])?;
-        Ok(DateTime::now_or_nanos(self.spoofed_time_nanos).date().into())
+        Ok(self.clock.measure().date().into())
     }
 
     pub fn date_current_time(&self, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [])?;
-        Ok(DateTime::now_or_nanos(self.spoofed_time_nanos).time().into())
+        Ok(self.clock.measure().time().into())
     }
 
     pub fn date_create_datetime(args: &[Value]) -> gml::Result<Value> {
@@ -12393,7 +12393,7 @@ impl Game {
         let sound_id = expect_args!(args, [int])?;
         if let Some(sound) = self.assets.sounds.get_asset(sound_id) {
             use asset::sound::FileType;
-            let nanos = self.spoofed_time_nanos.unwrap_or_else(|| datetime::now_as_nanos());
+            let nanos = self.clock.as_nanos();
             match &sound.handle {
                 FileType::Mp3(handle) => self.audio.play_mp3(handle, nanos),
                 FileType::Wav(handle) => self.audio.play_wav(handle, nanos),
@@ -12433,7 +12433,7 @@ impl Game {
 
     pub fn sound_isplaying(&self, args: &[Value]) -> gml::Result<Value> {
         let sound_id = expect_args!(args, [int])?;
-        let nanos = self.spoofed_time_nanos.unwrap_or_else(|| datetime::now_as_nanos());
+        let nanos = self.clock.as_nanos();
         Ok(self.audio.sound_playing(sound_id, nanos).into())
     }
 
