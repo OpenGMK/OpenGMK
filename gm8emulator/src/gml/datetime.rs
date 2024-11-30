@@ -47,20 +47,16 @@ fn i32_to_month(m: i32) -> Option<time::Month> {
 pub struct DateTime(PrimitiveDateTime);
 
 impl DateTime {
-    pub fn now_or_nanos(nanos: Option<u128>) -> Self {
-        Self(match nanos {
-            Some(nanos) => {
-                // manual unix timestamp because we need a PrimitiveDateTime
-                // also split into seconds and nanos because time::Duration::nanoseconds takes an i64
-                time::macros::date!(1970 - 1 - 1).midnight()
-                    + time::Duration::seconds((nanos / 1_000_000_000) as _)
-                    + time::Duration::nanoseconds((nanos % 1_000_000_000) as _)
-            },
-            None => {
-                let dt = now();
-                dt.date().with_time(dt.time())
-            },
-        })
+    pub fn now() -> Self {
+        let dt = now();
+        Self(dt.date().with_time(dt.time()))
+    }
+
+    pub fn from_nanos(nanos: u128) -> Self {
+        // manual unix timestamp because we need a PrimitiveDateTime
+        // also split into seconds and nanos because time::Duration::nanoseconds takes an i64
+        Self(time::macros::date!(1970 - 1 - 1).midnight()
+            + time::Duration::new((nanos / 1_000_000_000) as _, (nanos % 1_000_000_000) as _))
     }
 
     pub fn date(&self) -> Self {

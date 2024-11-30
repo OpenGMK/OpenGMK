@@ -1,6 +1,6 @@
 use crate::{
     asset,
-    game::{Game, GetAsset, SceneChange, Version},
+    game::{Game, GameClock, GetAsset, SceneChange, Version},
     gml::{
         self,
         datetime::DateTime,
@@ -1146,27 +1146,21 @@ impl Game {
             InstanceVariable::CaptionLives => Ok(self.lives_capt.clone().into()),
             InstanceVariable::CaptionHealth => Ok(self.health_capt.clone().into()),
             InstanceVariable::Fps => Ok(self.fps.into()),
-            InstanceVariable::CurrentTime => {
-                // GM uses GetTickCount, which has a resolution of *roughly* 16ms.
-                if let Some(nanos) = self.spoofed_time_nanos {
-                    // When we spoof, it only goes up once per frame anyway, so we can keep it as is.
-                    Ok(((nanos / 1_000_000) as u32).into())
-                } else {
-                    // In realtime, it's probably more accurate to force it to increase in 16ms increments.
-                    Ok(time::SystemTime::now()
-                        .duration_since(time::UNIX_EPOCH)
-                        .map(|x| x.as_millis() as u32 & 0xFFFFFFF0)
-                        .unwrap_or(0)
-                        .into())
-                }
-            },
-            InstanceVariable::CurrentYear => Ok(DateTime::now_or_nanos(self.spoofed_time_nanos).year().into()),
-            InstanceVariable::CurrentMonth => Ok(DateTime::now_or_nanos(self.spoofed_time_nanos).month().into()),
-            InstanceVariable::CurrentDay => Ok(DateTime::now_or_nanos(self.spoofed_time_nanos).day().into()),
-            InstanceVariable::CurrentWeekday => Ok(DateTime::now_or_nanos(self.spoofed_time_nanos).weekday().into()),
-            InstanceVariable::CurrentHour => Ok(DateTime::now_or_nanos(self.spoofed_time_nanos).hour().into()),
-            InstanceVariable::CurrentMinute => Ok(DateTime::now_or_nanos(self.spoofed_time_nanos).minute().into()),
-            InstanceVariable::CurrentSecond => Ok(DateTime::now_or_nanos(self.spoofed_time_nanos).second().into()),
+            InstanceVariable::CurrentTime => Ok(match self.clock {
+                // When we spoof, it only goes up once per frame anyway, so we can keep it as is.
+                GameClock::SpoofedNanos(t) => ((t / 1_000_000) as u32).into(),
+
+                // GM uses GetTickCount(), which has a resolution of *roughly* 16ms. In realtime,
+                // it's probably more accurate to force it to increase in 16ms increments.
+                GameClock::StartupEpoch(i) => (i.elapsed().as_millis() as u32 & 0xFFFFFFF0).into(),
+            }),
+            InstanceVariable::CurrentYear => Ok(self.clock.measure().year().into()),
+            InstanceVariable::CurrentMonth => Ok(self.clock.measure().month().into()),
+            InstanceVariable::CurrentDay => Ok(self.clock.measure().day().into()),
+            InstanceVariable::CurrentWeekday => Ok(self.clock.measure().weekday().into()),
+            InstanceVariable::CurrentHour => Ok(self.clock.measure().hour().into()),
+            InstanceVariable::CurrentMinute => Ok(self.clock.measure().minute().into()),
+            InstanceVariable::CurrentSecond => Ok(self.clock.measure().second().into()),
             InstanceVariable::EventType => Ok(context.event_type.into()),
             InstanceVariable::EventNumber => Ok(context.event_number.into()),
             InstanceVariable::EventObject => Ok(context.event_object.into()),
