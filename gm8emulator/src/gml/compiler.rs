@@ -384,10 +384,16 @@ impl Compiler {
                     Node::Script { args, script_id }
                 } else if let Some(id) = self.extension_fn_names.get(function.name).copied() {
                     Node::ExtensionFunction { args, id }
-                } else if let Some(function_id) =
-                    str::from_utf8(function.name).ok().and_then(|n| mappings::FUNCTIONS.get_index(n))
+                } else if let Some(function) =
+                    str::from_utf8(function.name).ok().and_then(|n| mappings::FUNCTIONS.get(n))
                 {
-                    Node::Function { args, function_id }
+                    match function {
+                        gml::Function::Runtime(f) => Node::ContextFunction { args, function: gml::FunctionPtr(*f) },
+                        gml::Function::Engine(f) => Node::StateFunction { args, function: gml::FunctionPtr(*f) },
+                        gml::Function::Volatile(f) |
+                        gml::Function::Constant(f) => Node::RoutineFunction { args, function: gml::FunctionPtr(*f) },
+                        gml::Function::Pure(f) => Node::ValueFunction { args, function: gml::FunctionPtr(*f) },
+                    }
                 } else {
                     Node::RuntimeError {
                         error: gml::Error::UnknownFunction(String::from_utf8_lossy(function.name).into()),
