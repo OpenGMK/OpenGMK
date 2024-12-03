@@ -278,27 +278,23 @@ impl fmt::Debug for Node {
             Node::Field { accessor } => write!(f, "<field: {:?}>", accessor),
 
             Node::ContextFunction { args, function } => {
-                let (fn_id, fn_name) = mappings::FUNCTIONS.entries().enumerate()
-                    .find(|(_, (_, &v))| matches!(v, gml::Function::Runtime(x) if x == function.0))
-                    .map_or((0, "*unknown*"), |(i, (k, _))| (i+1, k));
+                let (fn_id, fn_name) = mappings::find_function_by_address(function)
+                    .map(|(i, v)| (i+1, v)).unwrap_or((0, "?unknown?"));
                 write!(f, "<context fn #{}: {}({:?})", fn_id, fn_name, args)
             },
             Node::StateFunction { args, function } => {
-                let (fn_id, fn_name) = mappings::FUNCTIONS.entries().enumerate()
-                    .find(|(_, (_, &v))| matches!(v, gml::Function::Engine(x) if x == function.0))
-                    .map_or((0, "*unknown*"), |(i, (k, _))| (i+1, k));
+                let (fn_id, fn_name) = mappings::find_function_by_address(function)
+                    .map(|(i, v)| (i+1, v)).unwrap_or((0, "?unknown?"));
                 write!(f, "<state fn #{}: {}({:?})", fn_id, fn_name, args)
             },
             Node::RoutineFunction { args, function } => {
-                let (fn_id, fn_name) = mappings::FUNCTIONS.entries().enumerate()
-                    .find(|(_, (_, &v))| matches!(v, gml::Function::Volatile(x) | gml::Function::Constant(x) if x == function.0))
-                    .map_or((0, "*unknown*"), |(i, (k, _))| (i+1, k));
+                let (fn_id, fn_name) = mappings::find_function_by_address(function)
+                    .map(|(i, v)| (i+1, v)).unwrap_or((0, "?unknown?"));
                 write!(f, "<routine fn #{}: {}({:?})", fn_id, fn_name, args)
             },
             Node::ValueFunction { args, function } => {
-                let (fn_id, fn_name) = mappings::FUNCTIONS.entries().enumerate()
-                    .find(|(_, (_, &v))| matches!(v, gml::Function::Pure(x) if x == function.0))
-                    .map_or((0, "*unknown*"), |(i, (k, _))| (i+1, k));
+                let (fn_id, fn_name) = mappings::find_function_by_address(function)
+                    .map(|(i, v)| (i+1, v)).unwrap_or((0, "?unknown?"));
                 write!(f, "<value fn #{}: {}({:?})", fn_id, fn_name, args)
             },
 
