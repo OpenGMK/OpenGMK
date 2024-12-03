@@ -97,27 +97,23 @@ impl std::fmt::Debug for GmlBody {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error> {
         match self {
             GmlBody::ContextFunction(func) => {
-                let (fn_id, fn_name) = mappings::FUNCTIONS.entries().enumerate()
-                    .find(|(_, (_, &v))| matches!(v, gml::Function::Runtime(x) if x == func.0))
-                    .map_or((0, "<unknown>"), |(i, (k, _))| (i+1, k));
+                let (fn_id, fn_name) = mappings::find_function_by_address(func)
+                    .map(|(i, v)| (i+1, v)).unwrap_or((0, "<unknown>"));
                 write!(f, "Body::ContextFunction({}:{})", fn_id, fn_name)
             },
             GmlBody::StateFunction(func) => {
-                let (fn_id, fn_name) = mappings::FUNCTIONS.entries().enumerate()
-                    .find(|(_, (_, &v))| matches!(v, gml::Function::Engine(x) if x == func.0))
-                    .map_or((0, "<unknown>"), |(i, (k, _))| (i+1, k));
+                let (fn_id, fn_name) = mappings::find_function_by_address(func)
+                    .map(|(i, v)| (i+1, v)).unwrap_or((0, "<unknown>"));
                 write!(f, "Body::StateFunction({}:{})", fn_id, fn_name)
             },
             GmlBody::RoutineFunction(func) => {
-                let (fn_id, fn_name) = mappings::FUNCTIONS.entries().enumerate()
-                    .find(|(_, (_, &v))| matches!(v, gml::Function::Volatile(x) | gml::Function::Constant(x) if x == func.0))
-                    .map_or((0, "<unknown>"), |(i, (k, _))| (i+1, k));
+                let (fn_id, fn_name) = mappings::find_function_by_address(func)
+                    .map(|(i, v)| (i+1, v)).unwrap_or((0, "<unknown>"));
                 write!(f, "Body::RoutineFunction({}:{})", fn_id, fn_name)
             },
             GmlBody::ValueFunction(func) => {
-                let (fn_id, fn_name) = mappings::FUNCTIONS.entries().enumerate()
-                    .find(|(_, (_, &v))| matches!(v, gml::Function::Pure(x) if x == func.0))
-                    .map_or((0, "<unknown>"), |(i, (k, _))| (i+1, k));
+                let (fn_id, fn_name) = mappings::find_function_by_address(func)
+                    .map(|(i, v)| (i+1, v)).unwrap_or((0, "<unknown>"));
                 write!(f, "Body::ValueFunction({}:{})", fn_id, fn_name)
             },
             GmlBody::Code(code) => write!(f, "Body::Code({:?})", code),
