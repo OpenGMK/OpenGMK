@@ -24,7 +24,7 @@ use crate::{
             },
         },
         replay::{self, Replay},
-        Game, SceneChange,
+        Game, GameClock, SceneChange,
     },
     render::{atlas::AtlasRef, PrimitiveType, RendererState},
     types::Colour,
@@ -107,7 +107,7 @@ struct UIState<'g> {
 
     /// OpenGL state for the UI
     ui_renderer_state: RendererState,
-    
+
     /// A SaveState cached in memory to prevent having to load it from a file
     /// Usually used for whichever savestate is "selected" for quick access
     cached_savestate: SaveState,
@@ -460,7 +460,7 @@ impl ProjectConfig {
             current_frame: 0,
             set_mouse_using_textbox: false,
         };
-        
+
         let mut config = if config_path.exists() {
             match bincode::deserialize_from(File::open(&config_path).expect("Couldn't read project.cfg")) {
                 Ok(config) => config,
@@ -499,8 +499,7 @@ impl Game {
             p
         };
         let mut config = ProjectConfig::from_file_or_default(&config_path);
-
-        let mut replay = Replay::new(self.spoofed_time_nanos.unwrap_or(0), self.rand.seed());
+        let mut replay = Replay::new(if let GameClock::SpoofedNanos(t) = self.clock {t} else {0}, self.rand.seed());
 
         let mut context = imgui::Context::new();
         context.make_current();
@@ -599,7 +598,7 @@ impl Game {
                         Ok(backup_replay) => {
                             if pause {
                                 self.rand.set_seed(backup_replay.start_seed);
-                                self.spoofed_time_nanos = Some(backup_replay.start_time);
+                                self.clock = GameClock::SpoofedNanos(backup_replay.start_time);
                                 replay.start_seed = backup_replay.start_seed;
                                 replay.start_time = backup_replay.start_time;
                             }

@@ -2,6 +2,7 @@ use crate::{
     imgui,
     game::{
         Game,
+        GameClock,
         SceneChange,
         recording::{
             KeyState,
@@ -326,8 +327,8 @@ impl ControlWindow {
         }
 
         // Fake frame limiter stuff (don't actually frame-limit in record mode)
-        if let Some(t) = info.game.spoofed_time_nanos.as_mut() {
-            *t += Duration::new(0, 1_000_000_000u32 / info.game.room.speed).as_nanos();
+        if let GameClock::SpoofedNanos(t) = &mut info.game.clock {
+            *t += 1_000_000_000 / info.game.room.speed as u128;
         }
         if info.game.frame_counter == info.game.room.speed {
             info.game.fps = info.game.room.speed;

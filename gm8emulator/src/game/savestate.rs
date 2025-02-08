@@ -1,8 +1,8 @@
 use crate::{
     game::{
         audio::AudioState, draw, external, includedfile::IncludedFile, model::Model, particle,
-        pathfinding::PotentialStepSettings, surface::Surface, transition::UserTransition, Assets, Game, Replay,
-        RoomState, Version,
+        pathfinding::PotentialStepSettings, surface::Surface, transition::UserTransition, Assets,
+        Game, GameClock, Replay, RoomState, Version,
     },
     gml::{self, ds, rand::Random, Compiler},
     handleman::HandleList,
@@ -105,7 +105,7 @@ pub struct SaveState {
     pub program_directory: gml::String,
     pub included_files: Vec<IncludedFile>,
     pub gm_version: Version,
-    pub spoofed_time_nanos: Option<u128>,
+    pub clock: GameClock,
 
     pub clean_state: bool,
 
@@ -124,7 +124,7 @@ pub struct SaveState {
 
 impl SaveState {
     /// Creates a new SaveState from the given components.
-    pub fn from(game: &Game, replay: Replay, renderer_state: RendererState, clean_state: bool) -> Self {
+    pub fn from(game: &mut Game, replay: Replay, renderer_state: RendererState, clean_state: bool) -> Self {
         let (window_width, window_height) = game.renderer.stored_size();
         let screenshot = game.renderer.stored_pixels();
         let zbuffer = game.renderer.stored_zbuffer();
@@ -194,7 +194,7 @@ impl SaveState {
             program_directory: game.program_directory.clone(),
             included_files: game.included_files.clone(),
             gm_version: game.gm_version.clone(),
-            spoofed_time_nanos: game.spoofed_time_nanos,
+            clock: game.clock.clone(),
             scaling: game.scaling,
             unscaled_width: game.unscaled_width,
             unscaled_height: game.unscaled_height,
@@ -285,7 +285,7 @@ impl SaveState {
         game.program_directory = self.program_directory;
         game.included_files = self.included_files;
         game.gm_version = self.gm_version;
-        game.spoofed_time_nanos = self.spoofed_time_nanos;
+        game.clock = self.clock;
         game.audio.set_state(self.audio_state);
         game.scaling = self.scaling;
         game.unscaled_width = self.unscaled_width;

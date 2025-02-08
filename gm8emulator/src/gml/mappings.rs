@@ -232,7 +232,8 @@ pub mod constants {
     pub const OTHER: f64 = -2.0;
     pub const PI: f64 = unsafe {
         // 3.141592653589793, but we use the exact bytes from GM8 to avoid any compiler-mangling
-        std::mem::transmute(u64::from_le_bytes([0x18, 0x2D, 0x44, 0x54, 0xFB, 0x21, 0x09, 0x40]))
+        // https://github.com/rust-lang/rust/issues/72447#issuecomment-697126508
+        std::mem::transmute(u64::from_be_bytes([0x40, 0x09, 0x21, 0xFB, 0x54, 0x44, 0x2D, 0x18]))
     };
     pub const PR_LINELIST: f64 = 2.0;
     pub const PR_LINESTRIP: f64 = 3.0;

@@ -6,6 +6,7 @@ use super::wgl_ffi::*;
 
 use ramen::{connection::Connection, window::Window};
 use std::{
+    cell::UnsafeCell,
     mem::{self, size_of},
     ops::Drop,
     os::raw::{c_char, c_int, c_void},
@@ -44,12 +45,13 @@ pub struct PlatformImpl {
 /// Global buffer to make fucking gl_generator not need one alloc per query.
 /// Don't forget to manually mem::replace & drop as this is global.
 /// Remind me to make a better library.
-static mut GLGEN_BUF: Vec<u8> = Vec::new();
+static mut GLGEN_BUF: UnsafeCell<Vec<u8>> = UnsafeCell::new(Vec::new());
 unsafe fn glgen_loader(name: &str, gl32_dll: HINSTANCE) -> *const c_void {
-    GLGEN_BUF.clear();
-    GLGEN_BUF.extend_from_slice(name.as_bytes());
-    GLGEN_BUF.push(0);
-    load_function(GLGEN_BUF.as_ptr() as *const c_char, gl32_dll as _)
+    let buf = GLGEN_BUF.get_mut();
+    buf.clear();
+    buf.extend_from_slice(name.as_bytes());
+    buf.push(0);
+    load_function(buf.as_ptr() as *const c_char, gl32_dll as _)
 }
 
 /// Configuration for querying device pixel format.
@@ -180,13 +182,21 @@ unsafe fn create_context_attribs(wgl: &wgl::Wgl, device: HDC) -> Result<HGLRC, S
 /// Loads an OpenGL function pointer.
 /// Only works if there is a current OpenGL context.
 unsafe fn load_function(name: *const c_char, gl32_dll: HMODULE) -> *const c_void {
-    let addr = wglGetProcAddress(name);
-    match addr as isize {
-        // All of these return values mean failure, as much as the docs say it's just NULL.
-        // You load some of them like this, but only if wglGetProcAddress failed.
-        // The ones that would are the 1.1 functions because they're in opengl32.dll.
-        -1 | 0 | 1 | 2 | 3 => GetProcAddress(gl32_dll, name).cast(),
-        _ => addr as *const c_void,
+    let addr = GetProcAddress(gl32_dll, name);
+    if !addr.is_null() {
+        // This is an OpenGL 1.1 function or some WGL routine. Depending on the pixelformat, they're
+        // transparently forwarded to either Installable Client Driver (ICD) of the current context
+        // or the standard Windows software renderer for OpenGL, known as Microsoft GDI Generic.
+        addr
+    } else {
+        // This is probably either a function from a newer OpenGL version, or some routine of an
+        // extension feature. They're provided directly by the context ICD.
+        let addr = wglGetProcAddress(name);
+        match addr as isize {
+            // All of these return values mean failure, as much as the docs say it's just NULL.
+            -1 | 1 | 2 | 3 => ptr::null_mut(),
+            _ => addr.cast(),
+        }
     }
 }
 
@@ -234,7 +244,7 @@ impl PlatformImpl {
 
     pub unsafe fn clean_function_loader() {
         // don't leak memory
-        let _ = mem::replace(&mut GLGEN_BUF, Vec::new());
+        let _ = mem::take(GLGEN_BUF.get_mut());
     }
 
     pub unsafe fn swap_buffers(&self) {

@@ -69,6 +69,53 @@ use std::{
     time::{Duration, Instant},
 };
 
+#[derive(Clone, Serialize, Deserialize)]
+pub enum GameClock {
+    StartupEpoch(#[serde(with = "game_epoch_serde")] Instant),
+    SpoofedNanos(u128),  // use this instead of real time if this is set
+}
+
+impl GameClock {
+    pub fn measure(&self) -> gml::datetime::DateTime {
+        if let Self::SpoofedNanos(t) = self {
+            gml::datetime::DateTime::from_nanos(*t)
+        } else {
+            gml::datetime::DateTime::now()
+        }
+    }
+
+    pub fn as_nanos(&self) -> u128 {
+        if let Self::SpoofedNanos(t) = self {
+            *t
+        } else {
+            gml::datetime::now_as_nanos()
+        }
+    }
+}
+
+// https://github.com/serde-rs/serde/issues/1375#issuecomment-532418773
+mod game_epoch_serde {
+    use super::{Duration, Instant, Serialize, Deserialize};
+
+    pub fn serialize<S>(instant: &Instant, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let duration = instant.elapsed();
+        duration.serialize(serializer)
+    }
+
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<Instant, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let duration = Duration::deserialize(deserializer)?;
+        let now = Instant::now();
+        let instant = now.checked_add(duration).ok_or(serde::de::Error::custom("bad game epoch"))?;
+        Ok(instant)
+    }
+}
+
 /// Structure which contains all the components of a game.
 pub struct Game {
     pub compiler: Compiler,
@@ -161,7 +208,7 @@ pub struct Game {
     pub open_ini: Option<(ini::Ini, gml::String)>, // keep the filename for writing
     pub open_file: Option<file::TextHandle>,       // for legacy file functions from GM <= 5.1
     pub file_finder: Option<Box<dyn Iterator<Item = PathBuf>>>,
-    pub spoofed_time_nanos: Option<u128>, // use this instead of real time if this is set
+    pub clock: GameClock,
     pub parameters: Vec<String>,
     pub encoding: &'static Encoding,
 
@@ -547,16 +594,14 @@ impl Game {
         let window_icons = !settings.dont_show_buttons;
 
         let connection = ramen::connection::Connection::new()?;
-        let mut visual: u32 = 0;
         #[cfg(unix)]
         unsafe {
             let display = connection.xdisplay();
             let screen = connection.xscreenid();
             crate::render::opengl::glx::glx_init(display, screen);
-            let glx = crate::render::opengl::glx::GLX.as_ref().unwrap();
-            visual = glx.visual;
         }
-        
+
+        #[allow(unused_mut)]
         let mut builder = connection.builder()
             .class_name("OpenGMK")
             .visible(false)
@@ -1276,7 +1321,7 @@ impl Game {
             open_ini: None,
             open_file: None,
             file_finder: None,
-            spoofed_time_nanos: None,
+            clock: GameClock::SpoofedNanos(0),  // to avoid accessing the system timer for now
             frame_limiter,
             frame_limit_at,
             fps: 0,
@@ -1693,7 +1738,7 @@ impl Game {
                     // the builtin transitions will run too fast.
                     // This would be hell to emulate, so let's just standardize the framerate and call it a day.
                     // Most of the builtin transitions seem to run at around 120FPS in our tests, so let's go with that.
-                    const FRAME_TIME: Duration = Duration::from_nanos(1_000_000_000u64 / 120);
+                    const FRAME_TIME: Duration = Duration::from_nanos(1_000_000_000 / 120u64);
                     let mut current_time = Instant::now();
                     let perspective = self.renderer.get_perspective();
                     for i in 0..self.transition_steps + 1 {
@@ -1716,7 +1761,7 @@ impl Game {
                                 gml::datetime::sleep(dur);
                             }
                         }
-                        if let Some(t) = &mut self.spoofed_time_nanos {
+                        if let GameClock::SpoofedNanos(t) = &mut self.clock {
                             *t += FRAME_TIME.as_nanos();
                         }
                         current_time += FRAME_TIME;
@@ -2145,8 +2190,8 @@ impl Game {
 
             // frame limiter
             let diff = Instant::now().duration_since(time_now);
-            let duration = Duration::new(0, 1_000_000_000u32 / self.room.speed);
-            if let Some(t) = self.spoofed_time_nanos.as_mut() {
+            let duration = Duration::from_nanos(1_000_000_000 / self.room.speed as u64);
+            if let GameClock::SpoofedNanos(t) = &mut self.clock {
                 *t += duration.as_nanos();
                 self.fps = self.room.speed.into();
             } else {
@@ -2181,7 +2226,7 @@ impl Game {
         }
 
         if let Some(time) = frame.new_time {
-            self.spoofed_time_nanos = Some(time);
+            self.clock = GameClock::SpoofedNanos(time);
         }
 
         self.input.mouse_move_to((frame.mouse_x as i32, frame.mouse_y as i32));
@@ -2201,7 +2246,7 @@ impl Game {
     pub fn replay(mut self, replay: Replay, output_bin: Option<PathBuf>, start_save_path: Option<&PathBuf>) -> Result<(), Box<dyn std::error::Error>> {
         let mut frame_count: usize = 0;
         self.rand.set_seed(replay.start_seed);
-        self.spoofed_time_nanos = Some(replay.start_time);
+        self.clock = GameClock::SpoofedNanos(replay.start_time);
 
         // the tas ui creates some sprites, so as a hotfix we need to generate them here too
         // TODO don't
@@ -2290,8 +2335,8 @@ impl Game {
 
             // frame limiter
             let diff = Instant::now().duration_since(time_now);
-            let duration = Duration::new(0, 1_000_000_000u32 / self.room.speed);
-            if let Some(t) = self.spoofed_time_nanos.as_mut() {
+            let duration = Duration::from_nanos(1_000_000_000 / self.room.speed as u64);
+            if let GameClock::SpoofedNanos(t) = &mut self.clock {
                 *t += duration.as_nanos();
             }
 
@@ -2379,7 +2424,7 @@ impl Game {
             let collider1 = match if sprite1.per_frame_colliders {
                 sprite1
                     .colliders
-                    .get((inst1.image_index.get().floor().to_i32() % sprite1.colliders.len() as i32) as usize)
+                    .get((inst1.image_index.get().floor().to_i32().rem_euclid(sprite1.colliders.len() as i32)) as usize)
             } else {
                 sprite1.colliders.first()
             } {
@@ -2390,7 +2435,7 @@ impl Game {
             let collider2 = match if sprite2.per_frame_colliders {
                 sprite2
                     .colliders
-                    .get((inst2.image_index.get().floor().to_i32() % sprite2.colliders.len() as i32) as usize)
+                    .get((inst2.image_index.get().floor().to_i32().rem_euclid(sprite2.colliders.len() as i32)) as usize)
             } else {
                 sprite2.colliders.first()
             } {
@@ -2419,45 +2464,10 @@ impl Game {
             // Go through each pixel in the intersect
             for intersect_y in intersect_top..=intersect_bottom {
                 for intersect_x in intersect_left..=intersect_right {
-                    // Cast the coordinates to doubles, rotate them around inst1, then scale them by inst1; then
-                    // floor them, as GM8 does, to get integer coordinates on the collider relative to the instance.
-                    let mut x = Real::from(intersect_x) - x1.into();
-                    let mut y = Real::from(intersect_y) - y1.into();
-                    util::rotate_around_center(x.as_mut_ref(), y.as_mut_ref(), sin1, cos1);
-                    let x = (Real::from(sprite1.origin_x) + (x / inst1.image_xscale.get()).floor()).to_i32();
-                    let y = (Real::from(sprite1.origin_y) + (y / inst1.image_yscale.get()).floor()).to_i32();
-
-                    // Now look in the collider map to figure out if instance 1 is touching this pixel
-                    if x >= collider1.bbox_left as i32
-                        && y >= collider1.bbox_top as i32
-                        && x <= collider1.bbox_right as i32
-                        && y <= collider1.bbox_bottom as i32
-                        && collider1
-                            .data
-                            .get((y as usize * collider1.width as usize) + x as usize)
-                            .copied()
-                            .unwrap_or(false)
-                    {
-                        // Do all the exact same stuff for inst2 now
-                        let mut x = Real::from(intersect_x) - x2.into();
-                        let mut y = Real::from(intersect_y) - y2.into();
-                        util::rotate_around_center(x.as_mut_ref(), y.as_mut_ref(), sin2, cos2);
-                        let x = (Real::from(sprite2.origin_x) + (x / inst2.image_xscale.get()).floor()).to_i32();
-                        let y = (Real::from(sprite2.origin_y) + (y / inst2.image_yscale.get()).floor()).to_i32();
-
-                        // And finally check if there was a hit here too. If so, we can return true immediately.
-                        if x >= collider2.bbox_left as i32
-                            && y >= collider2.bbox_top as i32
-                            && x <= collider2.bbox_right as i32
-                            && y <= collider2.bbox_bottom as i32
-                            && collider2
-                                .data
-                                .get((y as usize * collider2.width as usize) + x as usize)
-                                .copied()
-                                .unwrap_or(false)
-                        {
-                            return true
-                        }
+                    // check precise collisions for this pixel
+                    if collider1.check_collision_point_precise(intersect_x, intersect_y, x1.to_i32(), y1.to_i32(), sprite1.origin_x, sprite1.origin_y, inst1.image_xscale.get(), inst1.image_yscale.get(), sin1, cos1) &&
+                       collider2.check_collision_point_precise(intersect_x, intersect_y, x2.to_i32(), y2.to_i32(), sprite2.origin_x, sprite2.origin_y, inst2.image_xscale.get(), inst2.image_yscale.get(), sin2, cos2) {
+                        return true
                     }
                 }
             }
@@ -2490,11 +2500,8 @@ impl Game {
 
         // Stop now if precise collision is disabled
         if !precise {
-            return true
-        }
-
-        // Can't collide if no sprite or no associated collider
-        if let Some(sprite) = sprite {
+            true
+        } else if let Some(sprite) = sprite {
             // Get collider
             let collider = match if sprite.per_frame_colliders {
                 sprite.colliders.get(inst.image_index.get().floor().into_inner() as usize % sprite.colliders.len())
@@ -2504,21 +2511,8 @@ impl Game {
                 Some(c) => c,
                 None => return false,
             };
-
-            // Transform point to be relative to collider
             let angle = inst.image_angle.get().to_radians();
-            let mut x = x.round() - inst.x.get(); // round coordinates here because game maker stupid
-            let mut y = y.round() - inst.y.get();
-            util::rotate_around_center(x.as_mut_ref(), y.as_mut_ref(), angle.sin().into(), angle.cos().into());
-            let x = (Real::from(sprite.origin_x) + (x / inst.image_xscale.get())).round().to_i32();
-            let y = (Real::from(sprite.origin_y) + (y / inst.image_yscale.get())).round().to_i32();
-
-            // And finally, look up this point in the collider
-            x >= collider.bbox_left as i32
-                && y >= collider.bbox_top as i32
-                && x <= collider.bbox_right as i32
-                && y <= collider.bbox_bottom as i32
-                && collider.data.get((y as usize * collider.width as usize) + x as usize).copied().unwrap_or(false)
+            collider.check_collision_point_precise(x.round().to_i32(), y.round().to_i32(), inst.x.get().round().to_i32(), inst.y.get().round().to_i32(), sprite.origin_x, sprite.origin_y, inst.image_xscale.get(), inst.image_yscale.get(), angle.sin().into_inner(), angle.cos().into_inner())
         } else {
             false
         }
@@ -2566,8 +2560,8 @@ impl Game {
                 None => return false,
             };
 
-            let inst_x = inst.x.get().round();
-            let inst_y = inst.y.get().round();
+            let inst_x = inst.x.get().round().to_i32();
+            let inst_y = inst.y.get().round().to_i32();
             let angle = inst.image_angle.get().to_radians();
             let sin = angle.sin().into_inner();
             let cos = angle.cos().into_inner();
@@ -2581,24 +2575,7 @@ impl Game {
             // Go through each pixel in the intersect
             for intersect_y in intersect_top..=intersect_bottom {
                 for intersect_x in intersect_left..=intersect_right {
-                    // Transform point to be relative to collider
-                    let mut x = Real::from(intersect_x) - inst_x.into();
-                    let mut y = Real::from(intersect_y) - inst_y.into();
-                    util::rotate_around_center(x.as_mut_ref(), y.as_mut_ref(), sin, cos);
-                    let x = (Real::from(sprite.origin_x) + (x / inst.image_xscale.get()).floor()).to_i32();
-                    let y = (Real::from(sprite.origin_y) + (y / inst.image_yscale.get()).floor()).to_i32();
-
-                    // And finally, look up this point in the collider
-                    if x >= collider.bbox_left as i32
-                        && y >= collider.bbox_top as i32
-                        && x <= collider.bbox_right as i32
-                        && y <= collider.bbox_bottom as i32
-                        && collider
-                            .data
-                            .get((y as usize * collider.width as usize) + x as usize)
-                            .copied()
-                            .unwrap_or(false)
-                    {
+                    if collider.check_collision_point_precise(intersect_x, intersect_y, inst_x, inst_y, sprite.origin_x, sprite.origin_y, inst.image_xscale.get(), inst.image_yscale.get(), sin, cos) {
                         return true
                     }
                 }
@@ -2673,10 +2650,7 @@ impl Game {
         // Stop now if precise collision is disabled
         if !precise {
             return true
-        }
-
-        // Can't collide if no sprite or no associated collider
-        if let Some(sprite) = sprite {
+        } else if let Some(sprite) = sprite {
             // Get collider
             let collider = match if sprite.per_frame_colliders {
                 sprite.colliders.get(inst.image_index.get().floor().into_inner() as usize % sprite.colliders.len())
@@ -2704,27 +2678,9 @@ impl Game {
             for intersect_y in intersect_top..=intersect_bottom {
                 for intersect_x in intersect_left..=intersect_right {
                     // Check if point is in ellipse
-                    if point_in_ellipse(intersect_x.into(), intersect_y.into()) {
-                        // Transform point to be relative to collider
-                        let mut x = Real::from(intersect_x) - inst_x.into();
-                        let mut y = Real::from(intersect_y) - inst_y.into();
-                        util::rotate_around_center(x.as_mut_ref(), y.as_mut_ref(), sin, cos);
-                        let x = (Real::from(sprite.origin_x) + (x / inst.image_xscale.get()).floor()).to_i32();
-                        let y = (Real::from(sprite.origin_y) + (y / inst.image_yscale.get()).floor()).to_i32();
-
-                        // And finally, look up this point in the collider
-                        if x >= collider.bbox_left as i32
-                            && y >= collider.bbox_top as i32
-                            && x <= collider.bbox_right as i32
-                            && y <= collider.bbox_bottom as i32
-                            && collider
-                                .data
-                                .get((y as usize * collider.width as usize) + x as usize)
-                                .copied()
-                                .unwrap_or(false)
-                        {
-                            return true
-                        }
+                    if point_in_ellipse(intersect_x.into(), intersect_y.into()) &&
+                       collider.check_collision_point_precise(intersect_x, intersect_y, inst_x.to_i32(), inst_y.to_i32(), sprite.origin_x, sprite.origin_y, inst.image_xscale.get(), inst.image_yscale.get(), sin, cos) {
+                        return true
                     }
                 }
             }
@@ -2833,6 +2789,8 @@ impl Game {
             };
 
             for i in 0..point_count {
+                // Note this is probably not correct - doesn't use collision_point_precise and x and y are not rounded
+                // as they would be if that function was used - check disasm before doing anything else with this code
                 let (mut x, mut y) = get_point(i);
 
                 // Transform point to be relative to collider
