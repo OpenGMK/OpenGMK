@@ -1184,14 +1184,31 @@ impl Game {
         Ok(1.0.into())
     }
 
-    pub fn texture_preload(&mut self, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function texture_preload")
+    pub fn texture_preload(&mut self, args: &[Value]) -> gml::Result<Value> {
+        let _tex_id = expect_args!(args, [int])?;
+        // FIXME: GM uses IDirect3DResource8::PreLoad(). Modern Direct3D also had that before D3D12.
+        // https://stackoverflow.com/questions/68590593/preload-texture-to-gpu-memory-in-d3d11
+        // OpenGL has glMakeTextureHandleResidentARB() from the GL_ARB_bindless_texture extension.
+        // https://www.khronos.org/opengl/wiki/Bindless_Texture#Handle_residency
+        // Pre-3.0 GL also had glAreTexturesResident() and glGetTexParameteriv(GL_TEXTURE_RESIDENT).
+        // How do they do this in modern OpenGL and GLES? glBindTexture() with glActiveTexture()?
+        // https://stackoverflow.com/questions/27345340/how-do-i-render-multiple-textures-in-modern-opengl/27345814#27345814
+        // But we employ atlases, after all.
+        Ok(Default::default())
     }
 
-    pub fn texture_set_priority(&mut self, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function texture_set_priority")
+    pub fn texture_set_priority(&mut self, args: &[Value]) -> gml::Result<Value> {
+        let (_tex_id, _priority) = expect_args!(args, [int, int])?;
+        // FIXME: GM uses IDirect3DResource8::SetPriority(), assuming DWORD priorities.
+        // Pre-3.0 OpenGL had glPrioritizeTextures() and glTexParameterf(GL_TEXTURE_PRIORITY).
+        // How do they do this in modern OpenGL and GLES? Some kind of LRU texture manager?
+        // https://www.khronos.org/opengl/wiki/Texture_Storage#Direct_creation
+        // https://www.khronos.org/opengl/wiki/Buffer_Object#Invalidation
+        // https://stackoverflow.com/questions/4552372/determining-available-video-memory
+        // https://stackoverflow.com/questions/42425281/understanding-binding-activating-texture-performance-penalty-in-opengl
+        // https://gamedev.stackexchange.com/questions/130674/opengl-managing-many-textures-smoothly
+        // https://www.reddit.com/r/opengl/comments/100cksq/how_to_prevent_loading_the_same_texture_for/
+        Ok(Default::default())
     }
 
     pub fn draw_set_font(&mut self, args: &[Value]) -> gml::Result<Value> {
