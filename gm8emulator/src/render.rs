@@ -581,6 +581,10 @@ impl Renderer {
         self.0.delete_sprite(atlas_ref)
     }
 
+    pub fn check_texture_id(&self, id: i32) -> bool {
+        self.0.get_rect(AtlasRef(id)).is_some()
+    }
+
     pub fn set_vsync(&self, vsync: bool) {
         self.0.set_vsync(vsync)
     }

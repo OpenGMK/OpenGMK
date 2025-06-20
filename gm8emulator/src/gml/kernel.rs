@@ -1148,9 +1148,9 @@ impl Game {
         }
     }
 
-    pub fn texture_exists(&self, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function texture_exists")
+    pub fn texture_exists(&self, args: &[Value]) -> gml::Result<Value> {
+        let tex_id = expect_args!(args, [int])?;
+        Ok(self.renderer.check_texture_id(tex_id).into())
     }
 
     pub fn texture_set_interpolation(&mut self, args: &[Value]) -> gml::Result<Value> {
@@ -1171,13 +1171,17 @@ impl Game {
     }
 
     pub fn texture_get_width(args: &[Value]) -> gml::Result<Value> {
-        let _texid = expect_args!(args, [int])?;
-        Ok(1.into()) // we don't pad textures to power-of-2
+        let _tex_id = expect_args!(args, [int])?;
+        // OpenGL supports NPOT since 2.0, so we don't pad texture width to power-of-2.
+        // Also, this is a default value in GM if texture doesn't exist.
+        Ok(1.0.into())
     }
 
     pub fn texture_get_height(args: &[Value]) -> gml::Result<Value> {
-        let _texid = expect_args!(args, [int])?;
-        Ok(1.into()) // see texture_get_width
+        let _tex_id = expect_args!(args, [int])?;
+        // OpenGL supports NPOT since 2.0, so we don't pad texture height to power-of-2.
+        // Also, this is a default value in GM if texture doesn't exist.
+        Ok(1.0.into())
     }
 
     pub fn texture_preload(&mut self, _args: &[Value]) -> gml::Result<Value> {
@@ -1192,11 +1196,7 @@ impl Game {
 
     pub fn draw_set_font(&mut self, args: &[Value]) -> gml::Result<Value> {
         let font_id = expect_args!(args, [int])?;
-        if self.assets.fonts.get_asset(font_id).is_some() {
-            self.draw_font_id = font_id;
-        } else {
-            self.draw_font_id = -1;
-        }
+        self.draw_font_id = if self.assets.fonts.get_asset(font_id).is_some() {font_id} else {-1};
         Ok(Default::default())
     }
 
