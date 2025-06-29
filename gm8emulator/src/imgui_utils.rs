@@ -1,4 +1,4 @@
-use imgui;
+use imgui::{self, ImColor32};
 
 #[derive(Clone, Copy)]
 pub struct Vec2<T>(pub T, pub T);
@@ -53,12 +53,6 @@ where
 use crate::types::Colour;
 
 pub trait UiCustomFunction {
-    fn setup_next_window(
-        &mut self,
-        default_pos: Vec2<f32>,
-        default_size: Option<Vec2<f32>>,
-        min_size: Option<Vec2<f32>>,
-    );
     fn begin_context_menu(&mut self, pos: Vec2<f32>);
     fn end(&self);
     fn button_with_size_and_pos(&self, name: &str, size: Vec2<f32>, position: Vec2<f32>) -> bool;
@@ -82,23 +76,6 @@ pub trait UiCustomFunction {
 use imgui::sys as c;
 
 impl UiCustomFunction for imgui::Ui {
-    fn setup_next_window(
-        &mut self,
-        default_pos: Vec2<f32>,
-        default_size: Option<Vec2<f32>>,
-        min_size: Option<Vec2<f32>>,
-    ) {
-        unsafe {
-            if let Some(min) = min_size {
-                c::igSetNextWindowSizeConstraints(min.into(), (*c::igGetIO()).DisplaySize, None, std::ptr::null_mut());
-            }
-            if let Some(size) = default_size {
-                c::igSetNextWindowSize(size.into(), 4);
-            }
-            c::igSetNextWindowPos(default_pos.into(), 4, c::ImVec2 { x: 0.0, y: 0.0 });
-        }
-    }
-
     fn begin_context_menu(&mut self, pos: Vec2<f32>) {
         unsafe {
             c::igBegin("__popup\0".as_ptr() as _, std::ptr::null_mut(), 0b1_0111_1111);
@@ -160,7 +137,11 @@ impl UiCustomFunction for imgui::Ui {
         data_ptr: &mut T,
     ) {
         unsafe {
-            c::ImDrawList_AddCallback(c::igGetWindowDrawList(), Some(callback), data_ptr as *mut T as *mut _);
+            c::ImDrawList_AddCallback(
+                c::igGetWindowDrawList(), 
+                Some(callback),
+                data_ptr as *mut T as *mut _
+            );
         }
     }
 
@@ -181,30 +162,32 @@ impl UiCustomFunction for imgui::Ui {
     }
 
     fn rect(&self, min: Vec2<f32>, max: Vec2<f32>, colour: Colour, alpha: u8) {
-        unsafe {
-            c::ImDrawList_AddRectFilled(
-                c::igGetWindowDrawList(),
-                min.into(),
-                max.into(),
-                colour.as_decimal() | (u32::from(alpha) << 24),
-                0.0,
-                0,
-            )
-        }
+        let colour: ImColor32 = imgui::ImColor32::from_rgba_f32s(
+            colour.r as f32,
+            colour.g as f32,
+            colour.b as f32,
+            (alpha as f32) / 255.
+        );
+        let min: [f32; 2] = [min.0, min.1];
+        let max: [f32; 2] = [max.0, max.1];
+        self.get_window_draw_list()
+            .add_rect(min, max, colour)
+            .filled(true)
+            .build();
     }
 
     fn rect_outline(&self, min: Vec2<f32>, max: Vec2<f32>, colour: Colour, alpha: u8) {
-        unsafe {
-            c::ImDrawList_AddRect(
-                c::igGetWindowDrawList(),
-                min.into(),
-                max.into(),
-                colour.as_decimal() | (u32::from(alpha) << 24),
-                0.0,
-                0,
-                1.0,
-            )
-        }
+        let colour: ImColor32 = imgui::ImColor32::from_rgba_f32s(
+            colour.r as f32,
+            colour.g as f32,
+            colour.b as f32,
+            (alpha as f32) / 255.
+        );
+        let min: [f32; 2] = [min.0, min.1];
+        let max: [f32; 2] = [max.0, max.1];
+        self.get_window_draw_list()
+            .add_rect(min, max, colour)
+            .build();
     }
 
     fn begin_screen_cover(&mut self) {
@@ -227,7 +210,10 @@ impl UiCustomFunction for imgui::Ui {
                 let screen_size = (*c::igGetIO()).DisplaySize;
                 c::igSetNextWindowFocus();
                 c::igSetNextWindowPos(
-                    Vec2(f32::from(screen_size.x) / 2.0, f32::from(screen_size.y) / 2.0).into(),
+                    Vec2(
+                        f32::from(screen_size.x) / 2.0,
+                        f32::from(screen_size.y) / 2.0
+                    ).into(),
                     0,
                     Vec2(0.5, 0.5).into(),
                 );

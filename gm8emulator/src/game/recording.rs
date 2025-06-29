@@ -943,8 +943,10 @@ impl UIState<'_> {
         }
 
         let (w, h) = self.game.renderer.stored_size();
-        frame.setup_next_window(Vec2(f32::from(self.config.ui_width) - w as f32 - 8.0, 8.0), None, None);
         frame.window(&format!("{}###Game", self.game.get_window_title()))
+            .position([f32::from(self.config.ui_width) - w as f32 - 8.0, 8.0],
+                imgui::Condition::Once
+            )
             .size([
                 w as f32 + (2.0 * win_border_size),
                 h as f32 + win_border_size + win_frame_height,
