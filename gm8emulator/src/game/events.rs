@@ -289,7 +289,7 @@ impl Game {
         }
 
         // Middle button
-        if self.input.mouse_check_button(MouseButton::Left as i8) {
+        if self.input.mouse_check_button(MouseButton::Middle as i8) {
             try_mouse_events!(2);
         }
 
@@ -309,7 +309,7 @@ impl Game {
         }
 
         // Middle button pressed
-        if self.input.mouse_check_button_pressed(MouseButton::Left as i8) {
+        if self.input.mouse_check_button_pressed(MouseButton::Middle as i8) {
             try_mouse_events!(6);
         }
 
@@ -324,7 +324,7 @@ impl Game {
         }
 
         // Middle button released
-        if self.input.mouse_check_button_released(MouseButton::Left as i8) {
+        if self.input.mouse_check_button_released(MouseButton::Middle as i8) {
             try_mouse_events!(9);
         }
 
