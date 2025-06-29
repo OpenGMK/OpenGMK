@@ -3,7 +3,7 @@ mod asset;
 mod game;
 mod gml;
 mod handleman;
-mod imgui;
+mod imgui_utils;
 mod input;
 mod instance;
 mod instancelist;

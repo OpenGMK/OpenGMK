@@ -1,3 +1,0 @@
-[submodule "gm8emulator/ffi/cimgui"]
-	path = gm8emulator/ffi/cimgui
-	url = https://github.com/cimgui/cimgui.git
