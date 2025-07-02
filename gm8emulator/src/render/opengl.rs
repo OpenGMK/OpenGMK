@@ -814,15 +814,15 @@ impl RendererTrait for RendererImpl {
 
     fn push_atlases(&mut self, mut atl: AtlasBuilder) -> Result<(), String> {
         assert!(self.atlas_packers.is_empty(), "atlases should be initialized only once");
+
         let white_pixel_ref =
             atl.texture(1, 1, 0, 0, Box::new([0xFF, 0xFF, 0xFF, 0xFF])).ok_or("Couldn't pack white_pixel")?;
+        let (packers, mut sprites) = atl.into_inner();
+        self.white_pixel = sprites[white_pixel_ref.0 as usize].0;
+
         // update primitive buffers with white pixel
         self.reset_primitive_2d(PrimitiveType::PointList, None);
         self.reset_primitive_3d(PrimitiveType::PointList, None);
-
-        let (packers, mut sprites) = atl.into_inner();
-
-        self.white_pixel = sprites[white_pixel_ref.0 as usize].0;
 
         unsafe {
             let textures: Vec<GLuint> = {
