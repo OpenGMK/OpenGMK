@@ -6,9 +6,6 @@ members = [
     "gm8decompiler",
     "gml-parser",
     "gm8exe",
-
-    # bindings
-    "gm8emulator/ffi/cimgui-sys",
 ]
 
 [profile.release]

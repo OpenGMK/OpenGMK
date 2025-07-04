@@ -2,13 +2,14 @@ use crate::{
     game::{
         replay::{self, Replay},
         savestate::{self, SaveState},
-        Game, GameClock, SceneChange,
+        Game, GameClock, SceneChange
     },
     gml::rand::Random,
-    imgui, input,
+    imgui_utils::*,
+    input,
     instance::Field,
     render::{atlas::AtlasRef, PrimitiveType, Renderer, RendererState},
-    types::Colour,
+    types::Colour
 };
 use ramen::{
     event::Event,
@@ -18,8 +19,9 @@ use serde::{Deserialize, Serialize};
 use std::{
     fs::File,
     path::PathBuf,
-    time::{Duration, Instant},
+    time::Instant
 };
+use imgui::{self, DrawList, DrawCmd, internal::RawWrapper};
 
 const CLEAR_COLOUR: Colour = Colour::new(0.0196, 0.1059, 0.06275);
 const BTN_NEUTRAL_COL: Colour = Colour::new(0.15, 0.15, 0.21);
@@ -175,9 +177,9 @@ impl KeyState {
         };
     }
 
-    fn menu(&mut self, frame: &mut imgui::Frame, pos: imgui::Vec2<f32>) -> bool {
+    fn menu(&mut self, frame: &mut imgui::Ui, pos: Vec2<f32>) -> bool {
         frame.begin_context_menu(pos);
-        let open = if !frame.window_focused() {
+        let open = if !frame.is_window_focused() {
             false
         } else if self.is_held() {
             if frame.menu_item("(Keep Held)") {
@@ -243,10 +245,10 @@ impl KeyState {
 }
 
 enum ContextMenu {
-    Button { pos: imgui::Vec2<f32>, key: Key },
-    MouseButton { pos: imgui::Vec2<f32>, button: i8 },
-    Instances { pos: imgui::Vec2<f32>, options: Vec<(String, i32)> },
-    Seed { pos: imgui::Vec2<f32> },
+    Button { pos: Vec2<f32>, key: Key },
+    MouseButton { pos: Vec2<f32>, button: i8 },
+    Instances { pos: Vec2<f32>, options: Vec<(String, i32)> },
+    Seed { pos: Vec2<f32> },
 }
 
 #[derive(Deserialize, Serialize)]
@@ -306,9 +308,8 @@ impl Game {
 
         let mut replay = Replay::new(if let GameClock::SpoofedNanos(t) = self.clock {t} else {0}, self.rand.seed());
 
-        let mut context = imgui::Context::new();
-        context.make_current();
-        let io = context.io();
+        let mut context = imgui::Context::create();
+        let io = context.io_mut();
 
         let ini_filename = {
             let mut path = project_path.clone();
@@ -316,17 +317,22 @@ impl Game {
             path.into_os_string().into_string().expect("Bad project file path")
         };
         unsafe {
-            (*cimgui_sys::igGetIO()).IniFilename = ini_filename.as_ptr() as _;
+            (*imgui::sys::igGetIO()).IniFilename = ini_filename.as_ptr() as _;
         }
-        io.set_display_size(imgui::Vec2(f32::from(config.ui_width), f32::from(config.ui_height)));
+        io.display_size = [f32::from(config.ui_width), f32::from(config.ui_height)];
 
         // TODO probably don't store these textures in the same places as the game textures
-        let imgui::FontData { data: fdata, size: (fwidth, fheight) } = io.font_data();
-        let mut font = self
+        let fonts = context.fonts();
+        let font_tex = fonts.build_rgba32_texture();
+        let font = self
             .renderer
-            .upload_sprite(fdata.into(), fwidth as _, fheight as _, 0, 0)
+            .upload_sprite(font_tex.data.into(), font_tex.width as _, font_tex.height as _, 0, 0)
             .expect("Failed to upload UI font");
-        io.set_texture_id((&mut font as *mut AtlasRef).cast());
+        if font.0 < 0 {
+            panic!("Failed to upload UI font");
+        } else {
+            fonts.tex_id = imgui::TextureId::new(font.0 as usize);
+        }
 
         let grid = (0i32..(64 * 64 * 4))
             .map(|i| {
@@ -540,8 +546,8 @@ impl UIState<'_> {
             let time_start = Instant::now();
 
             // refresh io state
-            let io = context.io();
-            io.set_mouse_wheel(0.0);
+            let io = context.io_mut();
+            io.mouse_wheel = 0.0;
 
             // poll window events
             if !self.poll_window_events(io) {
@@ -549,11 +555,11 @@ impl UIState<'_> {
             }
 
             // present imgui
-            let fps_text = format!("FPS: {}", io.framerate().round());
-            let win_frame_height = context.frame_height();
-            let win_border_size = context.window_border_size();
-            let win_padding = context.window_padding();
+            let fps_text = format!("FPS: {}", io.framerate.round());
+            let win_border_size = context.style().window_border_size;
+            let win_padding = Vec2::<f32>::from(context.style().window_padding);
             let mut frame = context.new_frame();
+            let win_frame_height = frame.frame_height();
 
             if self.game_running {
                 self.render_game_window(&mut frame, win_frame_height, win_border_size, &mut callback_data);
@@ -562,55 +568,101 @@ impl UIState<'_> {
             }
 
             // Some windows...
-            self.render_control_window(&mut frame, &fps_text);
-            self.render_savestates_window(&mut frame);
-            self.render_keyboard_window(&mut frame, win_frame_height, win_padding);
-            self.render_mouse_window(&mut frame, win_frame_height);
+            frame.window("Control")
+                .position([8.0, 8.0], imgui::Condition::Once)
+                .resizable(true)
+                .build(|| self.render_control_window(&frame, &fps_text));
 
+            frame.window("Savestates")
+                .resizable(true)
+                .position([306.0, 8.0], imgui::Condition::Once)
+                .size([225.0, 330.0], imgui::Condition::Once)
+                .build(|| self.render_savestates_window(&frame));
+
+            frame.window(
+                if self.config.full_keyboard { "Keyboard###FullKeyboard" } else { "Keyboard###SimpleKeyboard" }
+            )
+                .resizable(true)
+                .position(
+                    if self.config.full_keyboard { [8.0, 350.0] } else { [50.0, 354.0] },
+                    imgui::Condition::Once
+                )
+                .size(
+                    if self.config.full_keyboard { [917.0, 362.0] } else { [365.0, 192.0] },
+                    imgui::Condition::Once
+                )
+                .size_constraints(
+                    if self.config.full_keyboard { [440.0, 200.0] } else { [201.0, 122.0] },
+                    [-1.0, -1.0]
+                )
+                .build(|| self.render_keyboard_window(&frame, win_frame_height, win_padding));
+
+            frame.window("Mouse")
+                .size([300.0, 138.0], imgui::Condition::Once)
+                .position([2.0, 210.0], imgui::Condition::Once)
+                .build(|| self.render_mouse_window(&frame, win_frame_height));
+            
             // Instance-watcher windows
             let previous_len = self.config.watched_ids.len();
             self.instance_images.clear();
             self.instance_images.reserve(self.config.watched_ids.len());
             self.config.watched_ids.retain(|id| {
                 let mut open = true;
-                frame.begin_window(&format!("Instance {}", id), None, true, false, Some(&mut open));
-                if let Some((_, Some(report))) = self.instance_reports.iter().find(|(i, _)| i == id) {
-                    frame.text(&report.object_name);
-                    frame.text(&report.id);
-                    frame.text("");
-                    if frame.begin_tree_node("General Variables") {
-                        report.general_vars.iter().for_each(|s| frame.text(s));
-                        frame.pop_tree_node();
-                    }
-                    if frame.begin_tree_node("Physics Variables") {
-                        report.physics_vars.iter().for_each(|s| frame.text(s));
-                        frame.pop_tree_node();
-                    }
-                    if frame.begin_tree_node("Image Variables") {
-                        report.image_vars.iter().for_each(|s| frame.text(s));
-                        frame.pop_tree_node();
-                    }
-                    if frame.begin_tree_node("Timeline Variables") {
-                        report.timeline_vars.iter().for_each(|s| frame.text(s));
-                        frame.pop_tree_node();
-                    }
-                    if frame.begin_tree_node("Alarms") {
-                        report.alarms.iter().for_each(|s| frame.text(s));
-                        frame.pop_tree_node();
-                    }
-                    if frame.begin_tree_node("Fields") {
-                        report.fields.iter().for_each(|f| match f {
-                            ReportField::Single(s) => frame.text(s),
-                            ReportField::Array(label, array) => {
-                                if frame.begin_tree_node(label) {
-                                    array.iter().for_each(|s| frame.text(s));
-                                    frame.pop_tree_node();
-                                }
-                            },
-                        });
-                        frame.pop_tree_node();
-                    }
-                    if let Some(handle) = self.game.room.instance_list.get_by_instid(*id) {
+                frame.window(&format!("Instance {}", id))
+                    .resizable(true)
+                    .opened(&mut open)
+                    .build(|| {
+                        let report = 
+                            if let Some((_, Some(report))) = self.instance_reports.iter().find(|(i, _)| i == id) {
+                                report
+                            } else {
+                                frame.text_centered("<deleted instance>", Vec2(160.0, 35.0));
+                                return;
+                            };
+
+                        frame.text(&report.object_name);
+                        frame.text(&report.id);
+                        frame.text("");
+                        if let Some(node) = frame.tree_node("General Variables") {
+                            report.general_vars.iter().for_each(|s| frame.text(s));
+                            node.pop();
+                        }
+                        if let Some(node) = frame.tree_node("Physics Variables") {
+                            report.physics_vars.iter().for_each(|s| frame.text(s));
+                            node.pop();
+                        }
+                        if let Some(node) = frame.tree_node("Image Variables") {
+                            report.image_vars.iter().for_each(|s| frame.text(s));
+                            node.pop();
+                        }
+                        if let Some(node) = frame.tree_node("Timeline Variables") {
+                            report.timeline_vars.iter().for_each(|s| frame.text(s));
+                            node.pop();
+                        }
+                        if let Some(node) = frame.tree_node("Alarms") {
+                            report.alarms.iter().for_each(|s| frame.text(s));
+                            node.pop();
+                        }
+                        if let Some(node) = frame.tree_node("Fields") {
+                            report.fields.iter().for_each(|f| match f {
+                                ReportField::Single(s) => frame.text(s),
+                                ReportField::Array(label, array) => {
+                                    if let Some(node) = frame.tree_node(label) {
+                                        array.iter().for_each(|s| frame.text(s));
+                                        node.pop();
+                                    }
+                                },
+                            });
+                            node.pop();
+                        }
+
+                        let handle = 
+                            if let Some(handle) = self.game.room.instance_list.get_by_instid(*id) {
+                                handle
+                            } else {
+                                return;
+                            };
+
                         use crate::game::GetAsset;
                         let instance = self.game.room.instance_list.get(handle);
                         if let Some((sprite, atlas_ref)) =
@@ -621,36 +673,31 @@ impl UIState<'_> {
                             if sprite.width <= 48 && sprite.height <= 48 {
                                 let i = self.instance_images.len();
                                 self.instance_images.push(atlas_ref);
-                                let imgui::Vec2(win_x, win_y) = frame.window_position();
-                                let win_w = frame.window_size().0;
+                                let [win_x, win_y] = frame.window_pos();
+                                let win_w = frame.window_size()[0];
                                 let center_x = win_x + win_w - 28.0;
                                 let center_y = win_y + 46.0;
                                 let min_x = center_x - (sprite.width / 2) as f32;
                                 let min_y = center_y - (sprite.height / 2) as f32;
                                 unsafe {
-                                    cimgui_sys::ImDrawList_AddImage(
-                                        cimgui_sys::igGetWindowDrawList(),
+                                    imgui::sys::ImDrawList_AddImage(
+                                        imgui::sys::igGetWindowDrawList(),
                                         self.instance_images.as_mut_ptr().add(i) as _,
-                                        cimgui_sys::ImVec2 { x: min_x, y: min_y },
-                                        cimgui_sys::ImVec2 {
+                                        imgui::sys::ImVec2 { x: min_x, y: min_y },
+                                        imgui::sys::ImVec2 {
                                             x: min_x + sprite.width as f32,
                                             y: min_y + sprite.height as f32,
                                         },
-                                        cimgui_sys::ImVec2 { x: 0.0, y: 0.0 },
-                                        cimgui_sys::ImVec2 { x: 1.0, y: 1.0 },
+                                        imgui::sys::ImVec2 { x: 0.0, y: 0.0 },
+                                        imgui::sys::ImVec2 { x: 1.0, y: 1.0 },
                                         instance.image_blend.get() as u32 | 0xFF000000,
                                     );
                                 }
                             }
                         }
-                    }
-                } else {
-                    frame.text_centered("<deleted instance>", imgui::Vec2(160.0, 35.0));
-                }
-                frame.end();
+                    });
                 open
             });
-
             if self.config.watched_ids.len() != previous_len {
                 self.redo_instance_reports();
                 self.save_config();
@@ -672,7 +719,7 @@ impl UIState<'_> {
                 },
                 Some(ContextMenu::Instances { pos, options }) => {
                     frame.begin_context_menu(*pos);
-                    if !frame.window_focused() {
+                    if !frame.is_window_focused() {
                         self.context_menu = None;
                     } else {
                         for (label, id) in options {
@@ -691,7 +738,7 @@ impl UIState<'_> {
                 },
                 Some(ContextMenu::Seed { pos }) => {
                     frame.begin_context_menu(*pos);
-                    if !frame.window_focused() {
+                    if !frame.is_window_focused() {
                         self.context_menu = None;
                     } else {
                         let count;
@@ -748,7 +795,7 @@ impl UIState<'_> {
             }
 
             // Done
-            frame.render();
+            context.render();
 
             // draw imgui
             let start_xy = f64::from(self.grid_start.elapsed().as_millis().rem_euclid(2048) as i16) / -32.0;
@@ -764,57 +811,68 @@ impl UIState<'_> {
                 Some(self.config.ui_height.into()),
             );
 
-            let draw_data = context.draw_data();
-            debug_assert!(draw_data.Valid);
-            let cmd_list_count = usize::try_from(draw_data.CmdListsCount).unwrap_or(0);
-            for list_id in 0..cmd_list_count {
-                let draw_list = unsafe { &**draw_data.CmdLists.add(list_id) };
-                let cmd_count = usize::try_from(draw_list.CmdBuffer.Size).unwrap_or(0);
-                let vertex_buffer = draw_list.VtxBuffer.Data;
-                let index_buffer = draw_list.IdxBuffer.Data;
-                for cmd_id in 0..cmd_count {
-                    let command = unsafe { &*draw_list.CmdBuffer.Data.add(cmd_id) };
-                    let vertex_buffer = unsafe { vertex_buffer.add(command.VtxOffset as usize) };
-                    let index_buffer = unsafe { index_buffer.add(command.IdxOffset as usize) };
-                    if let Some(f) = command.UserCallback {
-                        unsafe { f(draw_list, command) };
-                    } else {
+            let draw_data = context.render();
+            for draw_list in draw_data.draw_lists() {
+                let draw_list: &DrawList = draw_list;
+                let vertex_buffer = draw_list.vtx_buffer();
+                let index_buffer = draw_list.idx_buffer();
+                for cmd in draw_list.commands() {
+                    match cmd {
+                    DrawCmd::Elements {
+                        count,
+                        cmd_params
+                    } => {
                         // TODO: don't use the primitive builder for this, it allocates a lot and
                         // also doesn't do instanced drawing I think?
                         self.game.renderer.reset_primitive_2d(
                             PrimitiveType::TriList,
-                            if command.TextureId.is_null() {
+                            if cmd_params.texture_id.id() == 0 {
                                 None
                             } else {
-                                Some(unsafe { *(command.TextureId as *mut AtlasRef) })
+                                Some(unsafe { AtlasRef(cmd_params.texture_id.id() as i32) })
                             },
                         );
 
-                        for i in 0..(command.ElemCount as usize) {
-                            let vert = unsafe { *(vertex_buffer.add(usize::from(*index_buffer.add(i)))) };
+                        for i in 0 .. count {
+                            let vert: imgui::DrawVert = vertex_buffer[
+                                cmd_params.vtx_offset +
+                                usize::from(index_buffer[i + cmd_params.idx_offset])
+                            ];
                             self.game.renderer.vertex_2d(
-                                f64::from(vert.pos.x) - 0.5,
-                                f64::from(vert.pos.y) - 0.5,
-                                vert.uv.x.into(),
-                                vert.uv.y.into(),
-                                (vert.col & 0xFFFFFF) as _,
-                                f64::from(vert.col >> 24) / 255.0,
+                                f64::from(vert.pos[0]) - 0.5,
+                                f64::from(vert.pos[1]) - 0.5,
+                                vert.uv[0].into(),
+                                vert.uv[1].into(),
+                                i32::from(vert.col[0]) |
+                                (i32::from(vert.col[1]) << 8) |
+                                (i32::from(vert.col[2]) << 16),
+                                f64::from(vert.col[3]) / 255.0,
                             );
                         }
 
-                        let clip_x = command.ClipRect.x as i32;
-                        let clip_y = command.ClipRect.y as i32;
-                        let clip_w = (command.ClipRect.z - command.ClipRect.x) as i32 + 1;
-                        let clip_h = (command.ClipRect.w - command.ClipRect.y) as i32 + 1;
+                        let clip_x = cmd_params.clip_rect[0] as i32;
+                        let clip_y = cmd_params.clip_rect[1] as i32;
+                        let clip_w = (cmd_params.clip_rect[2] - cmd_params.clip_rect[0]) as i32 + 1;
+                        let clip_h = (cmd_params.clip_rect[3] - cmd_params.clip_rect[1]) as i32 + 1;
                         self.game.renderer.set_view(clip_x, clip_y, clip_w, clip_h, 0.0, clip_x, clip_y, clip_w, clip_h);
                         self.game.renderer.draw_primitive_2d();
+
                     }
+                    DrawCmd::RawCallback {
+                        callback,
+                        raw_cmd
+                    } => {
+                        unsafe { callback(draw_list.raw(), raw_cmd) };
+                    }
+                    DrawCmd::ResetRenderState => {}
+                    }
+                    
                 }
             }
 
             self.game.renderer.finish(self.config.ui_width.into(), self.config.ui_height.into(), CLEAR_COLOUR);
 
-            context.io().set_delta_time(time_start.elapsed().as_micros() as f32 / 1000000.0);
+            context.io_mut().delta_time = time_start.elapsed().as_micros() as f32 / 1000000.0;
         }
 
         self.save_config();
@@ -825,35 +883,35 @@ impl UIState<'_> {
 
     /// Pulls new window events from operating system and updates config, imgui and renderer accordingly.
     /// Returns false if the program should exit (eg. the 'X' button was pressed), otherwise true.
-    fn poll_window_events(&mut self, io: &mut imgui::IO) -> bool {
+    fn poll_window_events(&mut self, io: &mut imgui::Io) -> bool {
         self.game.window.poll_events();
         for event in self.game.window.events().into_iter().copied() {
             match event {
                 ev @ Event::KeyboardDown(key) | ev @ Event::KeyboardUp(key) => {
                     self.setting_mouse_pos = false;
                     let state = matches!(ev, Event::KeyboardDown(_));
-                    io.set_key(usize::from(input::ramen2vk(key)), state);
+                    io.keys_down[usize::from(input::ramen2vk(key))] = state;
                     match key {
-                        Key::LeftShift | Key::RightShift => io.set_shift(state),
-                        Key::LeftControl | Key::RightControl => io.set_ctrl(state),
-                        Key::LeftAlt | Key::RightAlt => io.set_alt(state),
+                        Key::LeftShift | Key::RightShift => io.key_shift = state,
+                        Key::LeftControl | Key::RightControl => io.key_ctrl = state,
+                        Key::LeftAlt | Key::RightAlt => io.key_alt = state,
                         _ => (),
                     }
                 },
                 Event::MouseMove((x, y)) => {
-                    io.set_mouse(imgui::Vec2(x as f32, y as f32));
+                    io.mouse_pos = [x as f32, y as f32];
                 },
                 ev @ Event::MouseDown(btn) | ev @ Event::MouseUp(btn) => usize::try_from(input::ramen2mb(btn))
                     .ok()
                     .and_then(|x| x.checked_sub(1))
                     .into_iter()
-                    .for_each(|x| io.set_mouse_button(x, matches!(ev, Event::MouseDown(_)))),
-                Event::ScrollUp => io.set_mouse_wheel(1.0),
-                Event::ScrollDown => io.set_mouse_wheel(-1.0),
+                    .for_each(|x| io.mouse_down[x] = matches!(ev, Event::MouseDown(_))),
+                Event::ScrollUp => io.mouse_wheel = 1.0,
+                Event::ScrollDown => io.mouse_wheel = -1.0,
                 Event::Resize((width, height)) => {
                     self.config.ui_width = u16::try_from(width).unwrap_or(u16::MAX);
                     self.config.ui_height = u16::try_from(height).unwrap_or(u16::MAX);
-                    io.set_display_size(imgui::Vec2(f32::from(width), f32::from(height)));
+                    io.display_size = [f32::from(width), f32::from(height)];
                     self.game.renderer.resize_framebuffer(u32::from(width), u32::from(height), false);
                     self.context_menu = None;
                 },
@@ -873,97 +931,97 @@ impl UIState<'_> {
     }
 
     /// Draws the game view into an imgui window
-    fn render_game_window(&mut self, frame: &mut imgui::Frame, win_frame_height: f32, win_border_size: f32, callback_data: &mut GameViewData) {
+    fn render_game_window(&mut self, frame: &mut imgui::Ui, win_frame_height: f32, win_border_size: f32, callback_data: &mut GameViewData) {
         if self.setting_mouse_pos {
             frame.begin_screen_cover();
             frame.end();
+            
             unsafe {
-                cimgui_sys::igSetNextWindowCollapsed(false, 0);
-                cimgui_sys::igSetNextWindowFocus();
+                imgui::sys::igSetNextWindowCollapsed(false, 0);
+                imgui::sys::igSetNextWindowFocus();
             }
         }
 
         let (w, h) = self.game.renderer.stored_size();
-        frame.setup_next_window(imgui::Vec2(f32::from(self.config.ui_width) - w as f32 - 8.0, 8.0), None, None);
-        frame.begin_window(
-            &format!("{}###Game", self.game.get_window_title()),
-            Some(imgui::Vec2(
+        frame.window(&format!("{}###Game", self.game.get_window_title()))
+            .position([f32::from(self.config.ui_width) - w as f32 - 8.0, 8.0],
+                imgui::Condition::Once
+            )
+            .size([
                 w as f32 + (2.0 * win_border_size),
                 h as f32 + win_border_size + win_frame_height,
-            )),
-            false,
-            false,
-            None,
-        );
-        let imgui::Vec2(x, y) = frame.window_position();
-        *callback_data = GameViewData {
-            renderer: (&mut self.game.renderer) as *mut _,
-            x: (x + win_border_size) as i32,
-            y: (y + win_frame_height) as i32,
-            w: w,
-            h: h,
-        };
+            ], imgui::Condition::Once)
+            .resizable(false)
+            .menu_bar(false)
+            .build(|| {
+                let [x, y] = frame.window_pos();
+                *callback_data = GameViewData {
+                    renderer: (&mut self.game.renderer) as *mut _,
+                    x: (x + win_border_size) as i32,
+                    y: (y + win_frame_height) as i32,
+                    w: w,
+                    h: h,
+                };
 
-        unsafe extern "C" fn callback(
-            _draw_list: *const cimgui_sys::ImDrawList,
-            ptr: *const cimgui_sys::ImDrawCmd,
-        ) {
-            let data = &*((*ptr).UserCallbackData as *mut GameViewData);
-            (*data.renderer).draw_stored(data.x, data.y, data.w, data.h);
-        }
-
-        if !frame.window_collapsed() {
-            frame.callback(callback, callback_data);
-
-            if self.setting_mouse_pos && frame.left_clicked() {
-                self.setting_mouse_pos = false;
-                let imgui::Vec2(mouse_x, mouse_y) = frame.mouse_pos();
-                self.new_mouse_pos =
-                    Some((-(x + win_border_size - mouse_x) as i32, -(y + win_frame_height - mouse_y) as i32));
-            }
-
-            if frame.window_hovered() && frame.right_clicked() {
-                unsafe {
-                    cimgui_sys::igSetWindowFocusNil();
+                unsafe extern "C" fn callback(
+                    _draw_list: *const imgui::sys::ImDrawList,
+                    ptr: *const imgui::sys::ImDrawCmd,
+                ) {
+                    let data = &*((*ptr).UserCallbackData as *mut GameViewData);
+                    (*data.renderer).draw_stored(data.x, data.y, data.w, data.h);
                 }
-                let offset = frame.window_position() + imgui::Vec2(win_border_size, win_frame_height);
-                let imgui::Vec2(x, y) = frame.mouse_pos() - offset;
-                let (x, y) = self.game.translate_screen_to_room(x as _, y as _);
 
-                let mut options: Vec<(String, i32)> = Vec::new();
-                let mut iter = self.game.room.instance_list.iter_by_drawing();
-                while let Some(handle) = iter.next(&self.game.room.instance_list) {
-                    let instance = self.game.room.instance_list.get(handle);
-                    instance.update_bbox(self.game.get_instance_mask_sprite(handle));
-                    if x >= instance.bbox_left.get()
-                        && x <= instance.bbox_right.get()
-                        && y >= instance.bbox_top.get()
-                        && y <= instance.bbox_bottom.get()
-                    {
-                        use crate::game::GetAsset;
-                        let id = instance.id.get();
-                        let description = match self.game.assets.objects.get_asset(instance.object_index.get()) {
-                            Some(obj) => format!("{} ({})", obj.name, id.to_string()),
-                            None => format!("<deleted object> ({})", id.to_string()),
-                        };
-                        options.push((description, id));
+                if frame.is_window_collapsed() {
+                    return;
+                }
+                
+                frame.callback(callback, callback_data);
+                    
+                if self.setting_mouse_pos && frame.is_mouse_clicked(imgui::MouseButton::Left) {
+                    self.setting_mouse_pos = false;
+                    let Vec2(mouse_x, mouse_y) = frame.mouse_pos();
+                    self.new_mouse_pos =
+                        Some((-(x + win_border_size - mouse_x) as i32, -(y + win_frame_height - mouse_y) as i32));
+                }
+
+                if frame.is_window_hovered() && frame.is_mouse_clicked(imgui::MouseButton::Right) {
+                    unsafe {
+                        imgui::sys::igSetWindowFocus_Nil();
+                    }
+                    let offset = Vec2::from(frame.window_pos()) + Vec2(win_border_size, win_frame_height);
+                    let Vec2(x, y) = frame.mouse_pos() - offset;
+                    let (x, y) = self.game.translate_screen_to_room(x as _, y as _);
+
+                    let mut options: Vec<(String, i32)> = Vec::new();
+                    let mut iter = self.game.room.instance_list.iter_by_drawing();
+                    while let Some(handle) = iter.next(&self.game.room.instance_list) {
+                        let instance = self.game.room.instance_list.get(handle);
+                        instance.update_bbox(self.game.get_instance_mask_sprite(handle));
+                        if x >= instance.bbox_left.get()
+                            && x <= instance.bbox_right.get()
+                            && y >= instance.bbox_top.get()
+                            && y <= instance.bbox_bottom.get()
+                        {
+                            use crate::game::GetAsset;
+                            let id = instance.id.get();
+                            let description = match self.game.assets.objects.get_asset(instance.object_index.get()) {
+                                Some(obj) => format!("{} ({})", obj.name, id.to_string()),
+                                None => format!("<deleted object> ({})", id.to_string()),
+                            };
+                            options.push((description, id));
+                        }
+                    }
+
+                    if options.len() > 0 {
+                        self.context_menu = Some(ContextMenu::Instances { pos: frame.mouse_pos(), options });
                     }
                 }
-
-                if options.len() > 0 {
-                    self.context_menu = Some(ContextMenu::Instances { pos: frame.mouse_pos(), options });
-                }
-            }
-        }
-
-        frame.end();
+            });
     }
 
     /// Draws an imgui window with the main controls and some project info in it
-    fn render_control_window(&mut self, frame: &mut imgui::Frame, fps_text: &str) {
-        frame.setup_next_window(imgui::Vec2(8.0, 8.0), None, None);
-        frame.begin_window("Control", None, true, false, None);
-        if (frame.button("Advance (Space)", imgui::Vec2(165.0, 20.0), None)
+    fn render_control_window(&mut self, frame: &imgui::Ui, fps_text: &str) {
+        if (frame.button_with_size("Advance (Space)", [165.0, 20.0])
             || frame.key_pressed(input::ramen2vk(Key::Space)))
             && self.game_running
             && self.err_string.is_none()
@@ -1145,7 +1203,7 @@ impl UIState<'_> {
             self.redo_instance_reports();
         }
 
-        if (frame.button("Quick Save (Q)", imgui::Vec2(165.0, 20.0), None)
+        if (frame.button_with_size("Quick Save (Q)", [165.0, 20.0])
             || frame.key_pressed(input::ramen2vk(Key::Q)))
             && self.game_running
             && self.err_string.is_none()
@@ -1163,7 +1221,7 @@ impl UIState<'_> {
             self.context_menu = None;
         }
 
-        if frame.button("Load Quicksave (W)", imgui::Vec2(165.0, 20.0), None)
+        if frame.button_with_size("Load Quicksave (W)", [165.0, 20.0])
             || frame.key_pressed(input::ramen2vk(Key::W))
         {
             if self.startup_successful {
@@ -1172,7 +1230,7 @@ impl UIState<'_> {
             }
         }
 
-        if frame.button("Export to .gmtas", imgui::Vec2(165.0, 20.0), None) {
+        if frame.button_with_size("Export to .gmtas", [165.0, 20.0]) {
             let mut filepath = self.project_path.clone();
             filepath.push("save.gmtas");
             match self.replay.to_file(&filepath) {
@@ -1203,7 +1261,7 @@ impl UIState<'_> {
         } else {
             "Full Keyboard###KeyboardLayout"
         };
-        if frame.button(keyboard_label, imgui::Vec2(165.0, 20.0), None) {
+        if frame.button_with_size(keyboard_label, [165.0, 20.0]) {
             self.config.full_keyboard = !self.config.full_keyboard;
             let _ = File::create(&self.config_path).map(|f| bincode::serialize_into(f, &self.config));
         }
@@ -1212,14 +1270,14 @@ impl UIState<'_> {
             InputMode::Direct => "Switch to mouse input###InputMethod",
             InputMode::Mouse => "Switch to direct input###InputMethod",
         };
-        if frame.button(input_label, imgui::Vec2(165.0, 20.0), None) {
+        if frame.button_with_size(input_label, [165.0, 20.0]) {
             self.config.input_mode = match self.config.input_mode {
                 InputMode::Mouse => InputMode::Direct,
                 InputMode::Direct => InputMode::Mouse,
             }
         }
 
-        if frame.button(">", imgui::Vec2(18.0, 18.0), Some(imgui::Vec2(160.0, 138.0))) {
+        if frame.button_with_size_and_pos(">", Vec2(18.0, 18.0), Vec2(160.0, 138.0)) {
             if let Some(rand) = &mut self.new_rand {
                 rand.cycle();
                 self.seed_text = format!("Seed: {}*", rand.seed());
@@ -1230,45 +1288,39 @@ impl UIState<'_> {
                 self.new_rand = Some(rand);
             }
         }
-        if frame.item_hovered() && frame.right_clicked() {
+        if frame.is_item_hovered() && frame.is_mouse_clicked(imgui::MouseButton::Right) {
             self.context_menu = Some(ContextMenu::Seed { pos: frame.mouse_pos() });
         }
-        frame.end();
     }
 
     /// Renders the savestate menu into an imgui window
-    fn render_savestates_window(&mut self, frame: &mut imgui::Frame) {
-        frame.setup_next_window(imgui::Vec2(306.0, 8.0), Some(imgui::Vec2(225.0, 330.0)), None);
-        frame.begin_window("Savestates", None, true, false, None);
-        let rect_size = imgui::Vec2(frame.window_size().0, 24.0);
-        let pos = frame.window_position() + frame.content_position() - imgui::Vec2(8.0, 8.0);
+    fn render_savestates_window(&mut self, frame: &imgui::Ui) {
+        let rect_size = Vec2(frame.window_size()[0], 24.0);
+        let pos = Vec2::from(frame.window_pos()) + Vec2::from(frame.window_content_region_min()) - Vec2::new(8.0, 8.0);
         for i in 0..8 {
-            let min = imgui::Vec2(0.0, ((i * 2 + 1) * 24) as f32);
+            let min = Vec2(0.0, ((i * 2 + 1) * 24) as f32);
             frame.rect(min + pos, min + rect_size + pos, Colour::new(1.0, 1.0, 1.0), 15);
         }
         for i in 0..16 {
             unsafe {
-                cimgui_sys::igPushStyleColorVec4(cimgui_sys::ImGuiCol__ImGuiCol_Button as _, cimgui_sys::ImVec4 {
-                    x: 0.98,
-                    y: 0.59,
-                    z: 0.26,
-                    w: 0.4,
-                });
-                cimgui_sys::igPushStyleColorVec4(
-                    cimgui_sys::ImGuiCol__ImGuiCol_ButtonHovered as _,
-                    cimgui_sys::ImVec4 { x: 0.98, y: 0.59, z: 0.26, w: 1.0 },
+                imgui::sys::igPushStyleColor_Vec4(
+                    imgui::sys::ImGuiCol_Button as _,
+                    imgui::sys::ImVec4 { x: 0.98, y: 0.59, z: 0.26, w: 0.4 });
+                imgui::sys::igPushStyleColor_Vec4(
+                    imgui::sys::ImGuiCol_ButtonHovered as _,
+                    imgui::sys::ImVec4 { x: 0.98, y: 0.59, z: 0.26, w: 1.0 },
                 );
-                cimgui_sys::igPushStyleColorVec4(
-                    cimgui_sys::ImGuiCol__ImGuiCol_ButtonActive as _,
-                    cimgui_sys::ImVec4 { x: 0.98, y: 0.53, z: 0.06, w: 1.0 },
+                imgui::sys::igPushStyleColor_Vec4(
+                    imgui::sys::ImGuiCol_ButtonActive as _,
+                    imgui::sys::ImVec4 { x: 0.98, y: 0.53, z: 0.06, w: 1.0 },
                 );
             }
             let y = (24 * i + 21) as f32;
             if i == self.config.quicksave_slot {
-                let min = imgui::Vec2(0.0, (i * 24) as f32);
+                let min = Vec2(0.0, (i * 24) as f32);
                 frame.rect(min + pos, min + rect_size + pos, Colour::new(0.1, 0.4, 0.2), 255);
             }
-            if frame.button(&self.save_text[i], imgui::Vec2(60.0, 20.0), Some(imgui::Vec2(4.0, y))) && self.game_running {
+            if frame.button_with_size_and_pos(&self.save_text[i], Vec2(60.0, 20.0), Vec2(4.0, y)) && self.game_running {
                 let state = SaveState::from(&mut self.game, self.replay.clone(), self.game_renderer_state.clone());
                 match state.save_to_file(&self.save_paths[i], &mut self.lz4_buffer) {
                     Ok(()) => (),
@@ -1284,11 +1336,11 @@ impl UIState<'_> {
                 }
             }
             unsafe {
-                cimgui_sys::igPopStyleColor(3);
+                imgui::sys::igPopStyleColor(3);
             }
 
             if self.save_paths[i].exists() {
-                if frame.button(&self.load_text[i], imgui::Vec2(60.0, 20.0), Some(imgui::Vec2(75.0, y)))
+                if frame.button_with_size_and_pos(&self.load_text[i], Vec2(60.0, 20.0), Vec2(75.0, y))
                     && self.startup_successful
                 {
                     match SaveState::from_file(&self.save_paths[i], &mut self.lz4_buffer) {
@@ -1310,7 +1362,7 @@ impl UIState<'_> {
                     }
                 }
 
-                if frame.button(&self.select_text[i], imgui::Vec2(60.0, 20.0), Some(imgui::Vec2(146.0, y)))
+                if frame.button_with_size_and_pos(&self.select_text[i], Vec2(60.0, 20.0), Vec2(146.0, y))
                     && self.config.quicksave_slot != i
                 {
                     match SaveState::from_file(&self.save_paths[i], &mut self.lz4_buffer) {
@@ -1328,333 +1380,316 @@ impl UIState<'_> {
                 }
             }
         }
-        frame.end();
     }
 
     /// Renders the keyboard state menu into an imgui window
-    fn render_keyboard_window(&mut self, frame: &mut imgui::Frame, win_frame_height: f32, win_padding: imgui::Vec2<f32>) {
-        if self.config.full_keyboard {
-            frame.setup_next_window(
-                imgui::Vec2(8.0, 350.0),
-                Some(imgui::Vec2(917.0, 362.0)),
-                Some(imgui::Vec2(440.0, 200.0)),
-            );
-            frame.begin_window("Keyboard###FullKeyboard", None, true, false, None);
-            if !frame.window_collapsed() {
-                frame.rect(
-                    imgui::Vec2(0.0, win_frame_height) + frame.window_position(),
-                    imgui::Vec2(frame.window_size().0, win_frame_height + 20.0) + frame.window_position(),
-                    Colour::new(0.14, 0.14, 0.14),
-                    255,
-                );
-                let content_min = win_padding + imgui::Vec2(0.0, win_frame_height * 2.0);
-                let content_max = frame.window_size() - win_padding;
-
-                let mut cur_x = content_min.0;
-                let mut cur_y = content_min.1;
-                let left_part_edge = ((content_max.0 - content_min.0) * (15.0 / 18.5)).floor();
-                let button_width = ((left_part_edge - content_min.0 - 14.0) / 15.0).floor();
-                let button_height = ((content_max.1 - content_min.1 - 4.0 - (win_padding.1 * 2.0)) / 6.5).floor();
-                let button_size = imgui::Vec2(button_width, button_height);
-                self.render_keyboard_button(frame, "Esc", imgui::Vec2((button_width * 1.5).floor(), button_height), cur_x, cur_y, Key::Escape);
-                cur_x = left_part_edge - (button_width * 12.0 + 11.0);
-                self.render_keyboard_button(frame, "F1", button_size, cur_x, cur_y, Key::F1);
-                cur_x += button_width + 1.0;
-                self.render_keyboard_button(frame, "F2", button_size, cur_x, cur_y, Key::F2);
-                cur_x += button_width + 1.0;
-                self.render_keyboard_button(frame, "F3", button_size, cur_x, cur_y, Key::F3);
-                cur_x += button_width + 1.0;
-                self.render_keyboard_button(frame, "F4", button_size, cur_x, cur_y, Key::F4);
-                cur_x += button_width + 1.0;
-                self.render_keyboard_button(frame, "F5", button_size, cur_x, cur_y, Key::F5);
-                cur_x += button_width + 1.0;
-                self.render_keyboard_button(frame, "F6", button_size, cur_x, cur_y, Key::F6);
-                cur_x += button_width + 1.0;
-                self.render_keyboard_button(frame, "F7", button_size, cur_x, cur_y, Key::F7);
-                cur_x += button_width + 1.0;
-                self.render_keyboard_button(frame, "F8", button_size, cur_x, cur_y, Key::F8);
-                cur_x += button_width + 1.0;
-                self.render_keyboard_button(frame, "F9", button_size, cur_x, cur_y, Key::F9);
-                cur_x += button_width + 1.0;
-                self.render_keyboard_button(frame, "F10", button_size, cur_x, cur_y, Key::F10);
-                cur_x += button_width + 1.0;
-                self.render_keyboard_button(frame, "F11", button_size, cur_x, cur_y, Key::F11);
-                cur_x += button_width + 1.0;
-                self.render_keyboard_button(frame, "F12", button_size, cur_x, cur_y, Key::F12);
-                cur_x = content_max.0 - (button_width * 3.0 + 2.0);
-                self.render_keyboard_button(frame, "PrSc", button_size, cur_x, cur_y, Key::PrintScreen);
-                cur_x += button_width + 1.0;
-                self.render_keyboard_button(frame, "ScrLk", button_size, cur_x, cur_y, Key::ScrollLock);
-                cur_x += button_width + 1.0;
-                self.render_keyboard_button(frame, "Pause", button_size, cur_x, cur_y, Key::Pause);
-                cur_x = content_min.0;
-                cur_y = (content_max.1 - (win_padding.1 * 2.0)).ceil() - (button_height * 5.0 + 4.0);
-                self.render_dummy_button(frame, "`", button_size, cur_x, cur_y);
-                cur_x += button_width + 1.0;
-                self.render_keyboard_button(frame, "1", button_size, cur_x, cur_y, Key::Alpha1);
-                cur_x += button_width + 1.0;
-                self.render_keyboard_button(frame, "2", button_size, cur_x, cur_y, Key::Alpha2);
-                cur_x += button_width + 1.0;
-                self.render_keyboard_button(frame, "3", button_size, cur_x, cur_y, Key::Alpha3);
-                cur_x += button_width + 1.0;
-                self.render_keyboard_button(frame, "4", button_size, cur_x, cur_y, Key::Alpha4);
-                cur_x += button_width + 1.0;
-                self.render_keyboard_button(frame, "5", button_size, cur_x, cur_y, Key::Alpha5);
-                cur_x += button_width + 1.0;
-                self.render_keyboard_button(frame, "6", button_size, cur_x, cur_y, Key::Alpha6);
-                cur_x += button_width + 1.0;
-                self.render_keyboard_button(frame, "7", button_size, cur_x, cur_y, Key::Alpha7);
-                cur_x += button_width + 1.0;
-                self.render_keyboard_button(frame, "8", button_size, cur_x, cur_y, Key::Alpha8);
-                cur_x += button_width + 1.0;
-                self.render_keyboard_button(frame, "9", button_size, cur_x, cur_y, Key::Alpha9);
-                cur_x += button_width + 1.0;
-                self.render_keyboard_button(frame, "0", button_size, cur_x, cur_y, Key::Alpha0);
-                cur_x += button_width + 1.0;
-                self.render_keyboard_button(frame, "-", button_size, cur_x, cur_y, Key::Minus);
-                cur_x += button_width + 1.0;
-                self.render_dummy_button(frame, "=", button_size, cur_x, cur_y);
-                cur_x += button_width + 1.0;
-                self.render_keyboard_button(frame,
-                    "Back",
-                    imgui::Vec2(left_part_edge - cur_x, button_height),
-                    cur_x,
-                    cur_y,
-                    Key::Backspace
-                );
-                cur_x = content_max.0 - (button_width * 3.0 + 2.0);
-                self.render_keyboard_button(frame, "Ins", button_size, cur_x, cur_y, Key::Insert);
-                cur_x += button_width + 1.0;
-                self.render_keyboard_button(frame, "Home", button_size, cur_x, cur_y, Key::Home);
-                cur_x += button_width + 1.0;
-                self.render_keyboard_button(frame, "PgUp", button_size, cur_x, cur_y, Key::PageUp);
-                cur_x = content_min.0;
-                cur_y += button_height + 1.0;
-                self.render_keyboard_button(frame,
-                    "Tab",
-                    imgui::Vec2((button_width * 1.5).floor(), button_height),
-                    cur_x,
-                    cur_y,
-                    Key::Tab
-                );
-                cur_x += (button_width * 1.5).floor() + 1.0;
-                self.render_keyboard_button(frame, "Q", button_size, cur_x, cur_y, Key::Q);
-                cur_x += button_width + 1.0;
-                self.render_keyboard_button(frame, "W", button_size, cur_x, cur_y, Key::W);
-                cur_x += button_width + 1.0;
-                self.render_keyboard_button(frame, "E", button_size, cur_x, cur_y, Key::E);
-                cur_x += button_width + 1.0;
-                self.render_keyboard_button(frame, "R", button_size, cur_x, cur_y, Key::R);
-                cur_x += button_width + 1.0;
-                self.render_keyboard_button(frame, "T", button_size, cur_x, cur_y, Key::T);
-                cur_x += button_width + 1.0;
-                self.render_keyboard_button(frame, "Y", button_size, cur_x, cur_y, Key::Y);
-                cur_x += button_width + 1.0;
-                self.render_keyboard_button(frame, "U", button_size, cur_x, cur_y, Key::U);
-                cur_x += button_width + 1.0;
-                self.render_keyboard_button(frame, "I", button_size, cur_x, cur_y, Key::I);
-                cur_x += button_width + 1.0;
-                self.render_keyboard_button(frame, "O", button_size, cur_x, cur_y, Key::O);
-                cur_x += button_width + 1.0;
-                self.render_keyboard_button(frame, "P", button_size, cur_x, cur_y, Key::P);
-                cur_x += button_width + 1.0;
-                self.render_dummy_button(frame, "[", button_size, cur_x, cur_y);
-                cur_x += button_width + 1.0;
-                self.render_dummy_button(frame, "]", button_size, cur_x, cur_y);
-                cur_x += button_width + 1.0;
-                self.render_keyboard_button(frame, "Enter", imgui::Vec2(left_part_edge - cur_x, button_height * 2.0 + 1.0), cur_x, cur_y, Key::Return);
-                cur_x = content_max.0 - (button_width * 3.0 + 2.0);
-                self.render_keyboard_button(frame, "Del", button_size, cur_x, cur_y, Key::Delete);
-                cur_x += button_width + 1.0;
-                self.render_keyboard_button(frame, "End", button_size, cur_x, cur_y, Key::End);
-                cur_x += button_width + 1.0;
-                self.render_keyboard_button(frame, "PgDn", button_size, cur_x, cur_y, Key::PageDown);
-                cur_x = content_min.0;
-                cur_y += button_height + 1.0;
-                self.render_keyboard_button(frame, "Caps", imgui::Vec2((button_width * 1.5).floor(), button_height), cur_x, cur_y, Key::CapsLock);
-                cur_x += (button_width * 1.5).floor() + 1.0;
-                self.render_keyboard_button(frame, "A", button_size, cur_x, cur_y, Key::A);
-                cur_x += button_width + 1.0;
-                self.render_keyboard_button(frame, "S", button_size, cur_x, cur_y, Key::S);
-                cur_x += button_width + 1.0;
-                self.render_keyboard_button(frame, "D", button_size, cur_x, cur_y, Key::D);
-                cur_x += button_width + 1.0;
-                self.render_keyboard_button(frame, "F", button_size, cur_x, cur_y, Key::F);
-                cur_x += button_width + 1.0;
-                self.render_keyboard_button(frame, "G", button_size, cur_x, cur_y, Key::G);
-                cur_x += button_width + 1.0;
-                self.render_keyboard_button(frame, "H", button_size, cur_x, cur_y, Key::H);
-                cur_x += button_width + 1.0;
-                self.render_keyboard_button(frame, "J", button_size, cur_x, cur_y, Key::J);
-                cur_x += button_width + 1.0;
-                self.render_keyboard_button(frame, "K", button_size, cur_x, cur_y, Key::K);
-                cur_x += button_width + 1.0;
-                self.render_keyboard_button(frame, "L", button_size, cur_x, cur_y, Key::L);
-                cur_x += button_width + 1.0;
-                self.render_dummy_button(frame, ";", button_size, cur_x, cur_y);
-                cur_x += button_width + 1.0;
-                self.render_dummy_button(frame, "'", button_size, cur_x, cur_y);
-                cur_x += button_width + 1.0;
-                self.render_dummy_button(frame, "#", button_size, cur_x, cur_y);
-                cur_x = content_min.0;
-                cur_y += button_height + 1.0;
-                self.render_keyboard_button(frame, "Shift", imgui::Vec2(button_width * 2.0, button_height), cur_x, cur_y, Key::LeftShift);
-                cur_x += button_width * 2.0 + 1.0;
-                self.render_dummy_button(frame, "\\", button_size, cur_x, cur_y);
-                cur_x += button_width + 1.0;
-                self.render_keyboard_button(frame, "Z", button_size, cur_x, cur_y, Key::Z);
-                cur_x += button_width + 1.0;
-                self.render_keyboard_button(frame, "X", button_size, cur_x, cur_y, Key::X);
-                cur_x += button_width + 1.0;
-                self.render_keyboard_button(frame, "C", button_size, cur_x, cur_y, Key::C);
-                cur_x += button_width + 1.0;
-                self.render_keyboard_button(frame, "V", button_size, cur_x, cur_y, Key::V);
-                cur_x += button_width + 1.0;
-                self.render_keyboard_button(frame, "B", button_size, cur_x, cur_y, Key::B);
-                cur_x += button_width + 1.0;
-                self.render_keyboard_button(frame, "N", button_size, cur_x, cur_y, Key::N);
-                cur_x += button_width + 1.0;
-                self.render_keyboard_button(frame, "M", button_size, cur_x, cur_y, Key::M);
-                cur_x += button_width + 1.0;
-                self.render_keyboard_button(frame, ",", button_size, cur_x, cur_y, Key::Comma);
-                cur_x += button_width + 1.0;
-                self.render_keyboard_button(frame, ".", button_size, cur_x, cur_y, Key::Period);
-                cur_x += button_width + 1.0;
-                self.render_dummy_button(frame, "/", button_size, cur_x, cur_y);
-                cur_x += button_width + 1.0;
-                self.render_keyboard_button(frame, "RShift", imgui::Vec2(left_part_edge - cur_x, button_height), cur_x, cur_y, Key::RightShift);
-                cur_x = content_min.0;
-                cur_y += button_height + 1.0;
-                self.render_keyboard_button(frame, "Ctrl", imgui::Vec2((button_width * 1.5).floor(), button_height), cur_x, cur_y, Key::LeftControl);
-                cur_x += (button_width * 1.5).floor() + 1.0;
-                self.render_keyboard_button(frame, "Win", button_size, cur_x, cur_y, Key::LeftSuper);
-                cur_x += button_width + 1.0;
-                self.render_keyboard_button(frame, "Alt", button_size, cur_x, cur_y, Key::LeftAlt);
-                cur_x += button_width + 1.0;
-                self.render_keyboard_button(frame,
-                    "Space",
-                    imgui::Vec2((left_part_edge - cur_x) - (button_width * 3.5 + 3.0).floor(), button_height),
-                    cur_x,
-                    cur_y,
-                    Key::Space
-                );
-                cur_x = left_part_edge - (button_width * 3.5 + 2.0).floor();
-                self.render_keyboard_button(frame, "RAlt", button_size, cur_x, cur_y, Key::RightAlt);
-                cur_x += button_width + 1.0;
-                self.render_keyboard_button(frame, "Pg", button_size, cur_x, cur_y, Key::Applications);
-                cur_x += button_width + 1.0;
-                self.render_keyboard_button(frame, "RCtrl", imgui::Vec2(left_part_edge - cur_x, button_height), cur_x, cur_y, Key::RightControl);
-                cur_x = content_max.0 - (button_width * 3.0 + 2.0);
-                self.render_keyboard_button(frame, "<", button_size, cur_x, cur_y, Key::LeftArrow);
-                cur_x += button_width + 1.0;
-                self.render_keyboard_button(frame, "v", button_size, cur_x, cur_y, Key::DownArrow);
-                cur_y -= button_height + 1.0;
-                self.render_keyboard_button(frame, "^", button_size, cur_x, cur_y, Key::UpArrow);
-                cur_x += button_width + 1.0;
-                cur_y += button_height + 1.0;
-                self.render_keyboard_button(frame, ">", button_size, cur_x, cur_y, Key::RightArrow);
-            }
-            frame.end();
-        } else {
-            frame.setup_next_window(
-                imgui::Vec2(50.0, 354.0),
-                Some(imgui::Vec2(365.0, 192.0)),
-                Some(imgui::Vec2(201.0, 122.0)),
-            );
-            frame.begin_window("Keyboard###SimpleKeyboard", None, true, false, None);
-            if !frame.window_collapsed() {
-                frame.rect(
-                    imgui::Vec2(0.0, win_frame_height) + frame.window_position(),
-                    imgui::Vec2(frame.window_size().0, win_frame_height + 20.0) + frame.window_position(),
-                    Colour::new(0.14, 0.14, 0.14),
-                    255,
-                );
-                let content_min = win_padding + imgui::Vec2(0.0, win_frame_height * 2.0);
-                let content_max = frame.window_size() - win_padding;
-
-                let button_width = (((content_max.0 - content_min.0) - 2.0) / 6.0).floor();
-                let button_height = ((content_max.1 - content_min.1) / 2.5).floor();
-                let button_size = imgui::Vec2(button_width, button_height);
-                let arrows_left_bound =
-                    content_min.0 + ((content_max.0 - content_min.0) / 2.0 - (button_width * 1.5)).floor();
-                self.render_keyboard_button(frame, "<", button_size, arrows_left_bound, content_max.1 - button_height - 8.0, Key::LeftArrow);
-                self.render_keyboard_button(frame,
-                    "v",
-                    button_size,
-                    arrows_left_bound + button_width + 1.0,
-                    content_max.1 - button_height - 8.0,
-                    Key::DownArrow
-                );
-                self.render_keyboard_button(frame,
-                    ">",
-                    button_size,
-                    arrows_left_bound + (button_width * 2.0 + 2.0),
-                    content_max.1 - button_height - 8.0,
-                    Key::RightArrow
-                );
-                self.render_keyboard_button(frame,
-                    "^",
-                    button_size,
-                    arrows_left_bound + button_width + 1.0,
-                    content_max.1 - (button_height * 2.0) - 9.0,
-                    Key::UpArrow
-                );
-                self.render_keyboard_button(frame, "R", button_size, content_min.0, content_min.1, Key::R);
-                self.render_keyboard_button(frame, "Shift", button_size, content_min.0, content_max.1 - button_height - 8.0, Key::LeftShift);
-                self.render_keyboard_button(frame, "F2", button_size, content_max.0 - button_width, content_min.1, Key::F2);
-                self.render_keyboard_button(frame,
-                    "Z",
-                    button_size,
-                    content_max.0 - button_width,
-                    content_max.1 - button_height - 8.0,
-                    Key::Z
-                );
-            }
-            frame.end();
+    fn render_keyboard_window(&mut self, frame: &imgui::Ui, win_frame_height: f32, win_padding: Vec2<f32>) {
+        if frame.is_window_collapsed() {
+            return;
         }
-    }
 
-    fn render_mouse_window(&mut self, frame: &mut imgui::Frame, win_frame_height: f32) {
-        frame.setup_next_window(imgui::Vec2(2.0, 210.0), None, None);
-        frame.begin_window("Mouse", Some(imgui::Vec2(300.0, 138.0)), false, false, None);
-        if !frame.window_collapsed() {
+        if self.config.full_keyboard {
             frame.rect(
-                imgui::Vec2(0.0, win_frame_height) + frame.window_position(),
-                imgui::Vec2(frame.window_size().0, win_frame_height + 20.0) + frame.window_position(),
+                Vec2(0.0, win_frame_height) + Vec2::from(frame.window_pos()),
+                Vec2(frame.window_size()[0], win_frame_height + 20.0) + Vec2::from(frame.window_pos()),
                 Colour::new(0.14, 0.14, 0.14),
                 255,
             );
+            let content_min = win_padding + Vec2(0.0, win_frame_height * 2.0);
+            let content_max = Vec2::from(frame.window_size()) - win_padding;
 
-            let button_size = imgui::Vec2(40.0, 40.0);
-            self.render_mouse_button(frame, "Left", button_size, 4.0, 65.0, 0);
-            self.render_mouse_button(frame, "Middle", button_size, 48.0, 65.0, 2);
-            self.render_mouse_button(frame, "Right", button_size, 92.0, 65.0, 1);
-            if frame.button("Set Mouse", imgui::Vec2(150.0, 20.0), Some(imgui::Vec2(150.0, 50.0))) {
-                if self.game_running {
-                    self.setting_mouse_pos = true;
-                } else {
-                    self.err_string = Some("The game is not running. Please load a savestate.".into());
-                }
-            }
+            let mut cur_x = content_min.0;
+            let mut cur_y = content_min.1;
+            let left_part_edge = ((content_max.0 - content_min.0) * (15.0 / 18.5)).floor();
+            let button_width = ((left_part_edge - content_min.0 - 14.0) / 15.0).floor();
+            let button_height = ((content_max.1 - content_min.1 - 4.0 - (win_padding.1 * 2.0)) / 6.5).floor();
+            let button_size = Vec2(button_width, button_height);
+            self.render_keyboard_button(frame, "Esc", Vec2((button_width * 1.5).floor(), button_height), cur_x, cur_y, Key::Escape);
+            cur_x = left_part_edge - (button_width * 12.0 + 11.0);
+            self.render_keyboard_button(frame, "F1", button_size, cur_x, cur_y, Key::F1);
+            cur_x += button_width + 1.0;
+            self.render_keyboard_button(frame, "F2", button_size, cur_x, cur_y, Key::F2);
+            cur_x += button_width + 1.0;
+            self.render_keyboard_button(frame, "F3", button_size, cur_x, cur_y, Key::F3);
+            cur_x += button_width + 1.0;
+            self.render_keyboard_button(frame, "F4", button_size, cur_x, cur_y, Key::F4);
+            cur_x += button_width + 1.0;
+            self.render_keyboard_button(frame, "F5", button_size, cur_x, cur_y, Key::F5);
+            cur_x += button_width + 1.0;
+            self.render_keyboard_button(frame, "F6", button_size, cur_x, cur_y, Key::F6);
+            cur_x += button_width + 1.0;
+            self.render_keyboard_button(frame, "F7", button_size, cur_x, cur_y, Key::F7);
+            cur_x += button_width + 1.0;
+            self.render_keyboard_button(frame, "F8", button_size, cur_x, cur_y, Key::F8);
+            cur_x += button_width + 1.0;
+            self.render_keyboard_button(frame, "F9", button_size, cur_x, cur_y, Key::F9);
+            cur_x += button_width + 1.0;
+            self.render_keyboard_button(frame, "F10", button_size, cur_x, cur_y, Key::F10);
+            cur_x += button_width + 1.0;
+            self.render_keyboard_button(frame, "F11", button_size, cur_x, cur_y, Key::F11);
+            cur_x += button_width + 1.0;
+            self.render_keyboard_button(frame, "F12", button_size, cur_x, cur_y, Key::F12);
+            cur_x = content_max.0 - (button_width * 3.0 + 2.0);
+            self.render_keyboard_button(frame, "PrSc", button_size, cur_x, cur_y, Key::PrintScreen);
+            cur_x += button_width + 1.0;
+            self.render_keyboard_button(frame, "ScrLk", button_size, cur_x, cur_y, Key::ScrollLock);
+            cur_x += button_width + 1.0;
+            self.render_keyboard_button(frame, "Pause", button_size, cur_x, cur_y, Key::Pause);
+            cur_x = content_min.0;
+            cur_y = (content_max.1 - (win_padding.1 * 2.0)).ceil() - (button_height * 5.0 + 4.0);
+            self.render_dummy_button(frame, "`", button_size, cur_x, cur_y);
+            cur_x += button_width + 1.0;
+            self.render_keyboard_button(frame, "1", button_size, cur_x, cur_y, Key::Alpha1);
+            cur_x += button_width + 1.0;
+            self.render_keyboard_button(frame, "2", button_size, cur_x, cur_y, Key::Alpha2);
+            cur_x += button_width + 1.0;
+            self.render_keyboard_button(frame, "3", button_size, cur_x, cur_y, Key::Alpha3);
+            cur_x += button_width + 1.0;
+            self.render_keyboard_button(frame, "4", button_size, cur_x, cur_y, Key::Alpha4);
+            cur_x += button_width + 1.0;
+            self.render_keyboard_button(frame, "5", button_size, cur_x, cur_y, Key::Alpha5);
+            cur_x += button_width + 1.0;
+            self.render_keyboard_button(frame, "6", button_size, cur_x, cur_y, Key::Alpha6);
+            cur_x += button_width + 1.0;
+            self.render_keyboard_button(frame, "7", button_size, cur_x, cur_y, Key::Alpha7);
+            cur_x += button_width + 1.0;
+            self.render_keyboard_button(frame, "8", button_size, cur_x, cur_y, Key::Alpha8);
+            cur_x += button_width + 1.0;
+            self.render_keyboard_button(frame, "9", button_size, cur_x, cur_y, Key::Alpha9);
+            cur_x += button_width + 1.0;
+            self.render_keyboard_button(frame, "0", button_size, cur_x, cur_y, Key::Alpha0);
+            cur_x += button_width + 1.0;
+            self.render_keyboard_button(frame, "-", button_size, cur_x, cur_y, Key::Minus);
+            cur_x += button_width + 1.0;
+            self.render_dummy_button(frame, "=", button_size, cur_x, cur_y);
+            cur_x += button_width + 1.0;
+            self.render_keyboard_button(frame,
+                "Back",
+                Vec2(left_part_edge - cur_x, button_height),
+                cur_x,
+                cur_y,
+                Key::Backspace
+            );
+            cur_x = content_max.0 - (button_width * 3.0 + 2.0);
+            self.render_keyboard_button(frame, "Ins", button_size, cur_x, cur_y, Key::Insert);
+            cur_x += button_width + 1.0;
+            self.render_keyboard_button(frame, "Home", button_size, cur_x, cur_y, Key::Home);
+            cur_x += button_width + 1.0;
+            self.render_keyboard_button(frame, "PgUp", button_size, cur_x, cur_y, Key::PageUp);
+            cur_x = content_min.0;
+            cur_y += button_height + 1.0;
+            self.render_keyboard_button(frame,
+                "Tab",
+                Vec2((button_width * 1.5).floor(), button_height),
+                cur_x,
+                cur_y,
+                Key::Tab
+            );
+            cur_x += (button_width * 1.5).floor() + 1.0;
+            self.render_keyboard_button(frame, "Q", button_size, cur_x, cur_y, Key::Q);
+            cur_x += button_width + 1.0;
+            self.render_keyboard_button(frame, "W", button_size, cur_x, cur_y, Key::W);
+            cur_x += button_width + 1.0;
+            self.render_keyboard_button(frame, "E", button_size, cur_x, cur_y, Key::E);
+            cur_x += button_width + 1.0;
+            self.render_keyboard_button(frame, "R", button_size, cur_x, cur_y, Key::R);
+            cur_x += button_width + 1.0;
+            self.render_keyboard_button(frame, "T", button_size, cur_x, cur_y, Key::T);
+            cur_x += button_width + 1.0;
+            self.render_keyboard_button(frame, "Y", button_size, cur_x, cur_y, Key::Y);
+            cur_x += button_width + 1.0;
+            self.render_keyboard_button(frame, "U", button_size, cur_x, cur_y, Key::U);
+            cur_x += button_width + 1.0;
+            self.render_keyboard_button(frame, "I", button_size, cur_x, cur_y, Key::I);
+            cur_x += button_width + 1.0;
+            self.render_keyboard_button(frame, "O", button_size, cur_x, cur_y, Key::O);
+            cur_x += button_width + 1.0;
+            self.render_keyboard_button(frame, "P", button_size, cur_x, cur_y, Key::P);
+            cur_x += button_width + 1.0;
+            self.render_dummy_button(frame, "[", button_size, cur_x, cur_y);
+            cur_x += button_width + 1.0;
+            self.render_dummy_button(frame, "]", button_size, cur_x, cur_y);
+            cur_x += button_width + 1.0;
+            self.render_keyboard_button(frame, "Enter", Vec2(left_part_edge - cur_x, button_height * 2.0 + 1.0), cur_x, cur_y, Key::Return);
+            cur_x = content_max.0 - (button_width * 3.0 + 2.0);
+            self.render_keyboard_button(frame, "Del", button_size, cur_x, cur_y, Key::Delete);
+            cur_x += button_width + 1.0;
+            self.render_keyboard_button(frame, "End", button_size, cur_x, cur_y, Key::End);
+            cur_x += button_width + 1.0;
+            self.render_keyboard_button(frame, "PgDn", button_size, cur_x, cur_y, Key::PageDown);
+            cur_x = content_min.0;
+            cur_y += button_height + 1.0;
+            self.render_keyboard_button(frame, "Caps", Vec2((button_width * 1.5).floor(), button_height), cur_x, cur_y, Key::CapsLock);
+            cur_x += (button_width * 1.5).floor() + 1.0;
+            self.render_keyboard_button(frame, "A", button_size, cur_x, cur_y, Key::A);
+            cur_x += button_width + 1.0;
+            self.render_keyboard_button(frame, "S", button_size, cur_x, cur_y, Key::S);
+            cur_x += button_width + 1.0;
+            self.render_keyboard_button(frame, "D", button_size, cur_x, cur_y, Key::D);
+            cur_x += button_width + 1.0;
+            self.render_keyboard_button(frame, "F", button_size, cur_x, cur_y, Key::F);
+            cur_x += button_width + 1.0;
+            self.render_keyboard_button(frame, "G", button_size, cur_x, cur_y, Key::G);
+            cur_x += button_width + 1.0;
+            self.render_keyboard_button(frame, "H", button_size, cur_x, cur_y, Key::H);
+            cur_x += button_width + 1.0;
+            self.render_keyboard_button(frame, "J", button_size, cur_x, cur_y, Key::J);
+            cur_x += button_width + 1.0;
+            self.render_keyboard_button(frame, "K", button_size, cur_x, cur_y, Key::K);
+            cur_x += button_width + 1.0;
+            self.render_keyboard_button(frame, "L", button_size, cur_x, cur_y, Key::L);
+            cur_x += button_width + 1.0;
+            self.render_dummy_button(frame, ";", button_size, cur_x, cur_y);
+            cur_x += button_width + 1.0;
+            self.render_dummy_button(frame, "'", button_size, cur_x, cur_y);
+            cur_x += button_width + 1.0;
+            self.render_dummy_button(frame, "#", button_size, cur_x, cur_y);
+            cur_x = content_min.0;
+            cur_y += button_height + 1.0;
+            self.render_keyboard_button(frame, "Shift", Vec2(button_width * 2.0, button_height), cur_x, cur_y, Key::LeftShift);
+            cur_x += button_width * 2.0 + 1.0;
+            self.render_dummy_button(frame, "\\", button_size, cur_x, cur_y);
+            cur_x += button_width + 1.0;
+            self.render_keyboard_button(frame, "Z", button_size, cur_x, cur_y, Key::Z);
+            cur_x += button_width + 1.0;
+            self.render_keyboard_button(frame, "X", button_size, cur_x, cur_y, Key::X);
+            cur_x += button_width + 1.0;
+            self.render_keyboard_button(frame, "C", button_size, cur_x, cur_y, Key::C);
+            cur_x += button_width + 1.0;
+            self.render_keyboard_button(frame, "V", button_size, cur_x, cur_y, Key::V);
+            cur_x += button_width + 1.0;
+            self.render_keyboard_button(frame, "B", button_size, cur_x, cur_y, Key::B);
+            cur_x += button_width + 1.0;
+            self.render_keyboard_button(frame, "N", button_size, cur_x, cur_y, Key::N);
+            cur_x += button_width + 1.0;
+            self.render_keyboard_button(frame, "M", button_size, cur_x, cur_y, Key::M);
+            cur_x += button_width + 1.0;
+            self.render_keyboard_button(frame, ",", button_size, cur_x, cur_y, Key::Comma);
+            cur_x += button_width + 1.0;
+            self.render_keyboard_button(frame, ".", button_size, cur_x, cur_y, Key::Period);
+            cur_x += button_width + 1.0;
+            self.render_dummy_button(frame, "/", button_size, cur_x, cur_y);
+            cur_x += button_width + 1.0;
+            self.render_keyboard_button(frame, "RShift", Vec2(left_part_edge - cur_x, button_height), cur_x, cur_y, Key::RightShift);
+            cur_x = content_min.0;
+            cur_y += button_height + 1.0;
+            self.render_keyboard_button(frame, "Ctrl", Vec2((button_width * 1.5).floor(), button_height), cur_x, cur_y, Key::LeftControl);
+            cur_x += (button_width * 1.5).floor() + 1.0;
+            self.render_keyboard_button(frame, "Win", button_size, cur_x, cur_y, Key::LeftSuper);
+            cur_x += button_width + 1.0;
+            self.render_keyboard_button(frame, "Alt", button_size, cur_x, cur_y, Key::LeftAlt);
+            cur_x += button_width + 1.0;
+            self.render_keyboard_button(frame,
+                "Space",
+                Vec2((left_part_edge - cur_x) - (button_width * 3.5 + 3.0).floor(), button_height),
+                cur_x,
+                cur_y,
+                Key::Space
+            );
+            cur_x = left_part_edge - (button_width * 3.5 + 2.0).floor();
+            self.render_keyboard_button(frame, "RAlt", button_size, cur_x, cur_y, Key::RightAlt);
+            cur_x += button_width + 1.0;
+            self.render_keyboard_button(frame, "Pg", button_size, cur_x, cur_y, Key::Applications);
+            cur_x += button_width + 1.0;
+            self.render_keyboard_button(frame, "RCtrl", Vec2(left_part_edge - cur_x, button_height), cur_x, cur_y, Key::RightControl);
+            cur_x = content_max.0 - (button_width * 3.0 + 2.0);
+            self.render_keyboard_button(frame, "<", button_size, cur_x, cur_y, Key::LeftArrow);
+            cur_x += button_width + 1.0;
+            self.render_keyboard_button(frame, "v", button_size, cur_x, cur_y, Key::DownArrow);
+            cur_y -= button_height + 1.0;
+            self.render_keyboard_button(frame, "^", button_size, cur_x, cur_y, Key::UpArrow);
+            cur_x += button_width + 1.0;
+            cur_y += button_height + 1.0;
+            self.render_keyboard_button(frame, ">", button_size, cur_x, cur_y, Key::RightArrow);
+        } else {
+            frame.rect(
+                Vec2(0.0, win_frame_height) + Vec2::from(frame.window_pos()),
+                Vec2(frame.window_size()[0], win_frame_height + 20.0) + Vec2::from(frame.window_pos()),
+                Colour::new(0.14, 0.14, 0.14),
+                255,
+            );
+            let content_min = win_padding + Vec2(0.0, win_frame_height * 2.0);
+            let content_max = Vec2::from(frame.window_size()) - win_padding;
 
-            if let Some((x, y)) = self.new_mouse_pos {
-                unsafe {
-                    cimgui_sys::igPushStyleColorVec4(
-                        cimgui_sys::ImGuiCol__ImGuiCol_Text as _,
-                        cimgui_sys::ImVec4 { x: 1.0, y: 0.5, z: 0.5, w: 1.0 },
-                    );
-                }
-                frame.text_centered(&format!("x: {}*", x), imgui::Vec2(225.0, 80.0));
-                frame.text_centered(&format!("y: {}*", y), imgui::Vec2(225.0, 96.0));
-                unsafe {
-                    cimgui_sys::igPopStyleColor(1);
-                }
+            let button_width = (((content_max.0 - content_min.0) - 2.0) / 6.0).floor();
+            let button_height = ((content_max.1 - content_min.1) / 2.5).floor();
+            let button_size = Vec2(button_width, button_height);
+            let arrows_left_bound =
+                content_min.0 + ((content_max.0 - content_min.0) / 2.0 - (button_width * 1.5)).floor();
+            self.render_keyboard_button(frame, "<", button_size, arrows_left_bound, content_max.1 - button_height - 8.0, Key::LeftArrow);
+            self.render_keyboard_button(frame,
+                "v",
+                button_size,
+                arrows_left_bound + button_width + 1.0,
+                content_max.1 - button_height - 8.0,
+                Key::DownArrow
+            );
+            self.render_keyboard_button(frame,
+                ">",
+                button_size,
+                arrows_left_bound + (button_width * 2.0 + 2.0),
+                content_max.1 - button_height - 8.0,
+                Key::RightArrow
+            );
+            self.render_keyboard_button(frame,
+                "^",
+                button_size,
+                arrows_left_bound + button_width + 1.0,
+                content_max.1 - (button_height * 2.0) - 9.0,
+                Key::UpArrow
+            );
+            self.render_keyboard_button(frame, "R", button_size, content_min.0, content_min.1, Key::R);
+            self.render_keyboard_button(frame, "Shift", button_size, content_min.0, content_max.1 - button_height - 8.0, Key::LeftShift);
+            self.render_keyboard_button(frame, "F2", button_size, content_max.0 - button_width, content_min.1, Key::F2);
+            self.render_keyboard_button(frame,
+                "Z",
+                button_size,
+                content_max.0 - button_width,
+                content_max.1 - button_height - 8.0,
+                Key::Z
+            );
+        }
+    }
+
+    fn render_mouse_window(&mut self, frame: &imgui::Ui, win_frame_height: f32) {
+        if frame.is_window_collapsed() {
+            return;
+        }
+        frame.rect(
+            Vec2(0.0, win_frame_height) + Vec2::from(frame.window_pos()),
+            Vec2(frame.window_size()[0], win_frame_height + 20.0) + Vec2::from(frame.window_pos()),
+            Colour::new(0.14, 0.14, 0.14),
+            255,
+        );
+
+        let button_size = Vec2(40.0, 40.0);
+        self.render_mouse_button(frame, "Left", button_size, 4.0, 65.0, 0);
+        self.render_mouse_button(frame, "Middle", button_size, 48.0, 65.0, 2);
+        self.render_mouse_button(frame, "Right", button_size, 92.0, 65.0, 1);
+        if frame.button_with_size_and_pos("Set Mouse", Vec2(150.0, 20.0), Vec2(150.0, 50.0)) {
+            if self.game_running {
+                self.setting_mouse_pos = true;
             } else {
-                frame.text_centered(&format!("x: {}", self.game.input.mouse_x()), imgui::Vec2(225.0, 80.0));
-                frame.text_centered(&format!("y: {}", self.game.input.mouse_y()), imgui::Vec2(225.0, 96.0));
+                self.err_string = Some("The game is not running. Please load a savestate.".into());
             }
         }
-        frame.end();
+
+        if let Some((x, y)) = self.new_mouse_pos {
+            unsafe {
+                imgui::sys::igPushStyleColor_Vec4(
+                    imgui::sys::ImGuiCol_Text as _,
+                    imgui::sys::ImVec4 { x: 1.0, y: 0.5, z: 0.5, w: 1.0 },
+                );
+            }
+            frame.text_centered(&format!("x: {}*", x), Vec2(225.0, 80.0));
+            frame.text_centered(&format!("y: {}*", y), Vec2(225.0, 96.0));
+            unsafe {
+                imgui::sys::igPopStyleColor(1);
+            }
+        } else {
+            frame.text_centered(&format!("x: {}", self.game.input.mouse_x()), Vec2(225.0, 80.0));
+            frame.text_centered(&format!("y: {}", self.game.input.mouse_y()), Vec2(225.0, 96.0));
+        }
     }
 
     /// Load a state, reload cached UI stuff, and increase re-record count by 1
@@ -1694,25 +1729,25 @@ impl UIState<'_> {
     }
 
     /// Renders a single keyboard control button
-    fn render_keyboard_button(&mut self, frame: &mut imgui::Frame, name: &str, size: imgui::Vec2<f32>, x: f32, y: f32, code: ramen::input::Key) {
+    fn render_keyboard_button(&mut self, frame: &imgui::Ui, name: &str, size: Vec2<f32>, x: f32, y: f32, code: ramen::input::Key) {
         let vk = input::ramen2vk(code);
         let state = &mut self.keyboard_state[usize::from(vk)];
-        let clicked = frame.invisible_button(name, size, Some(imgui::Vec2(x, y)));
-        let hovered = frame.item_hovered();
+        let clicked = frame.invisible_button_with_size_and_pos(name, size, Vec2(x, y));
+        let hovered = frame.is_item_hovered();
         match self.config.input_mode {
             InputMode::Mouse => {
                 if clicked {
                     state.click();
                 }
-                if frame.right_clicked() && hovered {
+                if frame.is_mouse_clicked(imgui::MouseButton::Right) && hovered {
                     unsafe {
-                        cimgui_sys::igSetWindowFocusNil();
+                        imgui::sys::igSetWindowFocus_Nil();
                     }
                     self.context_menu = Some(ContextMenu::Button { pos: frame.mouse_pos(), key: code });
                 }
-                if frame.middle_clicked() && hovered {
+                if frame.is_mouse_clicked(imgui::MouseButton::Middle) && hovered {
                     unsafe {
-                        cimgui_sys::igSetWindowFocusNil();
+                        imgui::sys::igSetWindowFocus_Nil();
                     }
                     *state = if state.is_held() {
                         KeyState::HeldWillDouble
@@ -1747,57 +1782,57 @@ impl UIState<'_> {
                 }
             },
         }
-        draw_keystate(frame, state, imgui::Vec2(x, y), size);
-        frame.text_centered(name, imgui::Vec2(x, y) + imgui::Vec2(size.0 / 2.0, size.1 / 2.0));
+        draw_keystate(frame, state, Vec2(x, y), size);
+        frame.text_centered(name, Vec2(x, y) + Vec2(size.0 / 2.0, size.1 / 2.0));
         if hovered {
             unsafe {
-                cimgui_sys::igSetCursorPos(cimgui_sys::ImVec2 { x: 8.0, y: 22.0 });
+                imgui::sys::igSetCursorPos(imgui::sys::ImVec2 { x: 8.0, y: 22.0 });
             }
             frame.text(state.repr());
         }
     }
 
     /// Renders a single mouse control button
-    fn render_mouse_button(&mut self, frame: &mut imgui::Frame, name: &str, size: imgui::Vec2<f32>, x: f32, y: f32, button: i8) {
+    fn render_mouse_button(&mut self, frame: &imgui::Ui, name: &str, size: Vec2<f32>, x: f32, y: f32, button: i8) {
         let state: &mut KeyState = &mut self.mouse_state[button as usize];
-        if frame.invisible_button(name, size, Some(imgui::Vec2(x, y))) {
+        if frame.invisible_button_with_size_and_pos(name, size, Vec2(x, y)) {
             state.click();
         }
-        let hovered = frame.item_hovered();
-        if frame.right_clicked() && hovered {
+        let hovered = frame.is_item_hovered();
+        if frame.is_mouse_clicked(imgui::MouseButton::Right) && hovered {
             unsafe {
-                cimgui_sys::igSetWindowFocusNil();
+                imgui::sys::igSetWindowFocus_Nil();
             }
             self.context_menu = Some(ContextMenu::MouseButton { pos: frame.mouse_pos(), button });
         }
-        if frame.middle_clicked() && hovered {
+        if frame.is_mouse_clicked(imgui::MouseButton::Middle) && hovered {
             unsafe {
-                cimgui_sys::igSetWindowFocusNil();
+                imgui::sys::igSetWindowFocus_Nil();
             }
             *state = if state.is_held() { KeyState::HeldWillDouble } else { KeyState::NeutralWillDouble };
         }
-        draw_keystate(frame, state, imgui::Vec2(x, y), size);
-        frame.text_centered(name, imgui::Vec2(x, y) + imgui::Vec2(size.0 / 2.0, size.1 / 2.0));
+        draw_keystate(frame, state, Vec2(x, y), size);
+        frame.text_centered(name, Vec2(x, y) + Vec2(size.0 / 2.0, size.1 / 2.0));
         if hovered {
             unsafe {
-                cimgui_sys::igSetCursorPos(cimgui_sys::ImVec2 { x: 8.0, y: 22.0 });
+                imgui::sys::igSetCursorPos(imgui::sys::ImVec2 { x: 8.0, y: 22.0 });
             }
             frame.text(state.repr());
         }
     }
 
     /// Renders a single "dummy" button which does nothing, used only to fill space on the keyboard layout
-    fn render_dummy_button(&mut self, frame: &mut imgui::Frame, name: &str, size: imgui::Vec2<f32>, x: f32, y: f32) {
-        let pos = frame.window_position();
-        frame.invisible_button(name, size, Some(imgui::Vec2(x, y)));
-        frame.rect(imgui::Vec2(x, y) + pos, imgui::Vec2(x, y) + size + pos, BTN_NEUTRAL_COL, 190);
+    fn render_dummy_button(&mut self, frame: &imgui::Ui, name: &str, size: Vec2<f32>, x: f32, y: f32) {
+        let pos = Vec2::from(frame.window_pos());
+        frame.invisible_button_with_size_and_pos(name, pos, Vec2(x, y));
+        frame.rect(Vec2(x, y) + pos, Vec2(x, y) + size + pos, BTN_NEUTRAL_COL, 190);
         frame.rect_outline(
-            imgui::Vec2(x, y) + pos,
-            imgui::Vec2(x, y) + size + pos,
+            Vec2(x, y) + pos,
+            Vec2(x, y) + size + pos,
             Colour::new(0.4, 0.4, 0.65),
             u8::MAX,
         );
-        frame.text_centered(name, imgui::Vec2(x, y) + imgui::Vec2(size.0 / 2.0, size.1 / 2.0));
+        frame.text_centered(name, Vec2(x, y) + Vec2(size.0 / 2.0, size.1 / 2.0));
     }
 
     /// Remakes all the cached instance reports for watched instances
@@ -1943,12 +1978,12 @@ impl InstanceReport {
 
 // Draws the coloured rectangle according to the current state of the button.
 // Doesn't render any text on it.
-fn draw_keystate(frame: &mut imgui::Frame, state: &KeyState, position: imgui::Vec2<f32>, size: imgui::Vec2<f32>) {
-    let wpos = frame.window_position();
-    let alpha = if frame.item_hovered() { 255 } else { 190 };
+fn draw_keystate(frame: &imgui::Ui, state: &KeyState, position: Vec2<f32>, size: Vec2<f32>) {
+    let wpos = Vec2::from(frame.window_pos());
+    let alpha = if frame.is_item_hovered() { 255 } else { 190 };
     let r1_min = position + wpos;
-    let r1_max = r1_min + imgui::Vec2((size.0 / 2.0).floor(), size.1);
-    let r2_min = imgui::Vec2(position.0 + (size.0 / 2.0).floor(), position.1) + wpos;
+    let r1_max = r1_min + Vec2((size.0 / 2.0).floor(), size.1);
+    let r2_min = Vec2(position.0 + (size.0 / 2.0).floor(), position.1) + wpos;
     let r2_max = position + size + wpos;
     match *state {
         KeyState::Neutral => frame.rect(position + wpos, position + size + wpos, BTN_NEUTRAL_COL, alpha),

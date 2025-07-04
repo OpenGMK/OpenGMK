@@ -16,7 +16,6 @@ winres = "0.1"
 [dependencies]
 bincode = "1.2"
 byteorder = "1"
-cimgui-sys = { path = "ffi/cimgui-sys" }
 encoding_rs = "0.8.23"
 getopts = "0.2.21"
 getrandom = "0.2"
@@ -25,6 +24,7 @@ gm8exe = { path = "../gm8exe" }
 gml-parser = { path = "../gml-parser", features = ["runner-serde-derives"] }
 hex = "0.4.2"
 image = "0.23.6"
+imgui = "0.12.0"
 indexmap = { version = "1.3.2", features = ["serde-1"] }
 lzzzz = "0.8.0"
 memoffset = "0.6.5"
@@ -35,7 +35,7 @@ rmp3 = { version = "0.3", features = ["float"] }
 rust-ini = "0.17"
 serde = { version = "1.0", features = ["derive", "rc"] }
 time = { version = "0.3", features = ["local-offset", "macros"] }
-udon = { git = "https://github.com/adamcake/udon", features = ["serde-derives", "wav"] }
+udon = { git = "https://github.com/Adamcake/udon", features = ["serde-derives", "wav"] }
 
 [target.'cfg(all(target_os = "windows"))'.dependencies]
 crc32fast = "1.2"
