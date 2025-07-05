@@ -5,7 +5,7 @@ pub struct Vec2<T>(pub T, pub T);
 
 impl<T> Vec2<T> {
     pub fn new(x: T, y: T) -> Self {
-        Self (x, y)
+        Self(x, y)
     }
 }
 
@@ -104,23 +104,18 @@ impl UiCustomFunction for imgui::Ui {
         unsafe { c::igEnd() };
     }
 
-    fn button_with_size_and_pos(&self, name: &str, size: Vec2<f32>, position: Vec2<f32>) -> bool
-    {
+    fn button_with_size_and_pos(&self, name: &str, size: Vec2<f32>, position: Vec2<f32>) -> bool {
         self.set_cursor_pos([position.0, position.1]);
         self.button_with_size(name, [size.0, size.1])
     }
-    
-    fn invisible_button_with_size_and_pos(&self, name: &str, size: Vec2<f32>, position: Vec2<f32>) -> bool
-    {
+
+    fn invisible_button_with_size_and_pos(&self, name: &str, size: Vec2<f32>, position: Vec2<f32>) -> bool {
         self.set_cursor_pos([position.0, position.1]);
         self.invisible_button(name, [size.0, size.1])
     }
-    
+
     fn coloured_text(&self, text: &str, col: Colour) {
-        self.text_colored(
-            [col.r as f32, col.g as f32, col.b as f32, 1.0],
-            text
-        )
+        self.text_colored([col.r as f32, col.g as f32, col.b as f32, 1.0], text)
     }
 
     fn text_centered(&self, text: &str, center: Vec2<f32>) {
@@ -137,11 +132,7 @@ impl UiCustomFunction for imgui::Ui {
         data_ptr: &mut T,
     ) {
         unsafe {
-            c::ImDrawList_AddCallback(
-                c::igGetWindowDrawList(), 
-                Some(callback),
-                data_ptr as *mut T as *mut _
-            );
+            c::ImDrawList_AddCallback(c::igGetWindowDrawList(), Some(callback), data_ptr as *mut T as *mut _);
         }
     }
 
@@ -170,10 +161,7 @@ impl UiCustomFunction for imgui::Ui {
         );
         let min: [f32; 2] = [min.0, min.1];
         let max: [f32; 2] = [max.0, max.1];
-        self.get_window_draw_list()
-            .add_rect(min, max, colour)
-            .filled(true)
-            .build();
+        self.get_window_draw_list().add_rect(min, max, colour).filled(true).build();
     }
 
     fn rect_outline(&self, min: Vec2<f32>, max: Vec2<f32>, colour: Colour, alpha: u8) {
@@ -185,9 +173,7 @@ impl UiCustomFunction for imgui::Ui {
         );
         let min: [f32; 2] = [min.0, min.1];
         let max: [f32; 2] = [max.0, max.1];
-        self.get_window_draw_list()
-            .add_rect(min, max, colour)
-            .build();
+        self.get_window_draw_list().add_rect(min, max, colour).build();
     }
 
     fn begin_screen_cover(&mut self) {
@@ -210,10 +196,7 @@ impl UiCustomFunction for imgui::Ui {
                 let screen_size = (*c::igGetIO()).DisplaySize;
                 c::igSetNextWindowFocus();
                 c::igSetNextWindowPos(
-                    Vec2(
-                        f32::from(screen_size.x) / 2.0,
-                        f32::from(screen_size.y) / 2.0
-                    ).into(),
+                    Vec2(f32::from(screen_size.x) / 2.0, f32::from(screen_size.y) / 2.0).into(),
                     0,
                     Vec2(0.5, 0.5).into(),
                 );

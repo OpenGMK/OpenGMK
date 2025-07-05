@@ -2,26 +2,19 @@ use crate::{
     game::{
         replay::{self, Replay},
         savestate::{self, SaveState},
-        Game, GameClock, SceneChange
+        Game, GameClock, SceneChange,
     },
     gml::rand::Random,
     imgui_utils::*,
     input,
     instance::Field,
     render::{atlas::AtlasRef, PrimitiveType, Renderer, RendererState},
-    types::Colour
+    types::Colour,
 };
-use ramen::{
-    event::Event,
-    input::Key,
-};
+use imgui::{self, internal::RawWrapper, DrawCmd, DrawList};
+use ramen::{event::Event, input::Key};
 use serde::{Deserialize, Serialize};
-use std::{
-    fs::File,
-    path::PathBuf,
-    time::Instant
-};
-use imgui::{self, DrawList, DrawCmd, internal::RawWrapper};
+use std::{fs::File, path::PathBuf, time::Instant};
 
 const CLEAR_COLOUR: Colour = Colour::new(0.0196, 0.1059, 0.06275);
 const BTN_NEUTRAL_COL: Colour = Colour::new(0.15, 0.15, 0.21);
@@ -306,7 +299,7 @@ impl Game {
             DEFAULT_CONFIG
         };
 
-        let mut replay = Replay::new(if let GameClock::SpoofedNanos(t) = self.clock {t} else {0}, self.rand.seed());
+        let mut replay = Replay::new(if let GameClock::SpoofedNanos(t) = self.clock { t } else { 0 }, self.rand.seed());
 
         let mut context = imgui::Context::create();
         let io = context.io_mut();
@@ -533,13 +526,15 @@ impl Game {
             save_text: (0..16).map(|i| format!("Save {}", i + 1)).collect::<Vec<_>>(),
             load_text: (0..16).map(|i| format!("Load {}", i + 1)).collect::<Vec<_>>(),
             select_text: (0..16).map(|i| format!("Select###Select{}", i + 1)).collect::<Vec<_>>(),
-        }.run(context)
+        }
+        .run(context)
     }
 }
 
 impl UIState<'_> {
     fn run(mut self, mut context: imgui::Context) {
-        let mut callback_data = GameViewData::uninit(); // Putting this outside the loop makes sure it never goes out of scope
+        // Putting this outside the loop makes sure it never goes out of scope
+        let mut callback_data = GameViewData::uninit();
 
         // Frame loop begins here
         'gui: loop {
@@ -568,134 +563,124 @@ impl UIState<'_> {
             }
 
             // Some windows...
-            frame.window("Control")
+            frame
+                .window("Control")
                 .position([8.0, 8.0], imgui::Condition::Once)
                 .resizable(true)
                 .build(|| self.render_control_window(&frame, &fps_text));
 
-            frame.window("Savestates")
+            frame
+                .window("Savestates")
                 .resizable(true)
                 .position([306.0, 8.0], imgui::Condition::Once)
                 .size([225.0, 330.0], imgui::Condition::Once)
                 .build(|| self.render_savestates_window(&frame));
 
-            frame.window(
-                if self.config.full_keyboard { "Keyboard###FullKeyboard" } else { "Keyboard###SimpleKeyboard" }
-            )
+            frame
+                .window(if self.config.full_keyboard { "Keyboard###FullKeyboard" } else { "Keyboard###SimpleKeyboard" })
                 .resizable(true)
-                .position(
-                    if self.config.full_keyboard { [8.0, 350.0] } else { [50.0, 354.0] },
-                    imgui::Condition::Once
-                )
-                .size(
-                    if self.config.full_keyboard { [917.0, 362.0] } else { [365.0, 192.0] },
-                    imgui::Condition::Once
-                )
-                .size_constraints(
-                    if self.config.full_keyboard { [440.0, 200.0] } else { [201.0, 122.0] },
-                    [-1.0, -1.0]
-                )
+                .position(if self.config.full_keyboard { [8.0, 350.0] } else { [50.0, 354.0] }, imgui::Condition::Once)
+                .size(if self.config.full_keyboard { [917.0, 362.0] } else { [365.0, 192.0] }, imgui::Condition::Once)
+                .size_constraints(if self.config.full_keyboard { [440.0, 200.0] } else { [201.0, 122.0] }, [-1.0, -1.0])
                 .build(|| self.render_keyboard_window(&frame, win_frame_height, win_padding));
 
-            frame.window("Mouse")
+            frame
+                .window("Mouse")
                 .size([300.0, 138.0], imgui::Condition::Once)
                 .position([2.0, 210.0], imgui::Condition::Once)
                 .build(|| self.render_mouse_window(&frame, win_frame_height));
-            
+
             // Instance-watcher windows
             let previous_len = self.config.watched_ids.len();
             self.instance_images.clear();
             self.instance_images.reserve(self.config.watched_ids.len());
             self.config.watched_ids.retain(|id| {
                 let mut open = true;
-                frame.window(&format!("Instance {}", id))
-                    .resizable(true)
-                    .opened(&mut open)
-                    .build(|| {
-                        let report = 
-                            if let Some((_, Some(report))) = self.instance_reports.iter().find(|(i, _)| i == id) {
-                                report
-                            } else {
-                                frame.text_centered("<deleted instance>", Vec2(160.0, 35.0));
-                                return;
-                            };
+                frame.window(&format!("Instance {}", id)).resizable(true).opened(&mut open).build(|| {
+                    let report = if let Some((_, Some(report))) = self.instance_reports.iter().find(|(i, _)| i == id) {
+                        report
+                    } else {
+                        frame.text_centered("<deleted instance>", Vec2(160.0, 35.0));
+                        return;
+                    };
 
-                        frame.text(&report.object_name);
-                        frame.text(&report.id);
-                        frame.text("");
-                        if let Some(node) = frame.tree_node("General Variables") {
-                            report.general_vars.iter().for_each(|s| frame.text(s));
-                            node.pop();
-                        }
-                        if let Some(node) = frame.tree_node("Physics Variables") {
-                            report.physics_vars.iter().for_each(|s| frame.text(s));
-                            node.pop();
-                        }
-                        if let Some(node) = frame.tree_node("Image Variables") {
-                            report.image_vars.iter().for_each(|s| frame.text(s));
-                            node.pop();
-                        }
-                        if let Some(node) = frame.tree_node("Timeline Variables") {
-                            report.timeline_vars.iter().for_each(|s| frame.text(s));
-                            node.pop();
-                        }
-                        if let Some(node) = frame.tree_node("Alarms") {
-                            report.alarms.iter().for_each(|s| frame.text(s));
-                            node.pop();
-                        }
-                        if let Some(node) = frame.tree_node("Fields") {
-                            report.fields.iter().for_each(|f| match f {
-                                ReportField::Single(s) => frame.text(s),
-                                ReportField::Array(label, array) => {
-                                    if let Some(node) = frame.tree_node(label) {
-                                        array.iter().for_each(|s| frame.text(s));
-                                        node.pop();
-                                    }
-                                },
-                            });
-                            node.pop();
-                        }
-
-                        let handle = 
-                            if let Some(handle) = self.game.room.instance_list.get_by_instid(*id) {
-                                handle
-                            } else {
-                                return;
-                            };
-
-                        use crate::game::GetAsset;
-                        let instance = self.game.room.instance_list.get(handle);
-                        if let Some((sprite, atlas_ref)) =
-                            self.game.assets.sprites.get_asset(instance.sprite_index.get()).and_then(|x| {
-                                x.get_atlas_ref(instance.image_index.get().floor().to_i32()).map(|y| (x, y))
-                            })
-                        {
-                            if sprite.width <= 48 && sprite.height <= 48 {
-                                let i = self.instance_images.len();
-                                self.instance_images.push(atlas_ref);
-                                let [win_x, win_y] = frame.window_pos();
-                                let win_w = frame.window_size()[0];
-                                let center_x = win_x + win_w - 28.0;
-                                let center_y = win_y + 46.0;
-                                let min_x = center_x - (sprite.width / 2) as f32;
-                                let min_y = center_y - (sprite.height / 2) as f32;
-                                unsafe {
-                                    imgui::sys::ImDrawList_AddImage(
-                                        imgui::sys::igGetWindowDrawList(),
-                                        self.instance_images.as_mut_ptr().add(i) as _,
-                                        imgui::sys::ImVec2 { x: min_x, y: min_y },
-                                        imgui::sys::ImVec2 {
-                                            x: min_x + sprite.width as f32,
-                                            y: min_y + sprite.height as f32,
-                                        },
-                                        imgui::sys::ImVec2 { x: 0.0, y: 0.0 },
-                                        imgui::sys::ImVec2 { x: 1.0, y: 1.0 },
-                                        instance.image_blend.get() as u32 | 0xFF000000,
-                                    );
+                    frame.text(&report.object_name);
+                    frame.text(&report.id);
+                    frame.text("");
+                    if let Some(node) = frame.tree_node("General Variables") {
+                        report.general_vars.iter().for_each(|s| frame.text(s));
+                        node.pop();
+                    }
+                    if let Some(node) = frame.tree_node("Physics Variables") {
+                        report.physics_vars.iter().for_each(|s| frame.text(s));
+                        node.pop();
+                    }
+                    if let Some(node) = frame.tree_node("Image Variables") {
+                        report.image_vars.iter().for_each(|s| frame.text(s));
+                        node.pop();
+                    }
+                    if let Some(node) = frame.tree_node("Timeline Variables") {
+                        report.timeline_vars.iter().for_each(|s| frame.text(s));
+                        node.pop();
+                    }
+                    if let Some(node) = frame.tree_node("Alarms") {
+                        report.alarms.iter().for_each(|s| frame.text(s));
+                        node.pop();
+                    }
+                    if let Some(node) = frame.tree_node("Fields") {
+                        report.fields.iter().for_each(|f| match f {
+                            ReportField::Single(s) => frame.text(s),
+                            ReportField::Array(label, array) => {
+                                if let Some(node) = frame.tree_node(label) {
+                                    array.iter().for_each(|s| frame.text(s));
+                                    node.pop();
                                 }
+                            },
+                        });
+                        node.pop();
+                    }
+
+                    let handle = if let Some(handle) = self.game.room.instance_list.get_by_instid(*id) {
+                        handle
+                    } else {
+                        return;
+                    };
+
+                    use crate::game::GetAsset;
+                    let instance = self.game.room.instance_list.get(handle);
+                    if let Some((sprite, atlas_ref)) = self
+                        .game
+                        .assets
+                        .sprites
+                        .get_asset(instance.sprite_index.get())
+                        .and_then(|x| x.get_atlas_ref(instance.image_index.get().floor().to_i32()).map(|y| (x, y)))
+                    {
+                        if sprite.width <= 48 && sprite.height <= 48 {
+                            let i = self.instance_images.len();
+                            self.instance_images.push(atlas_ref);
+                            let [win_x, win_y] = frame.window_pos();
+                            let win_w = frame.window_size()[0];
+                            let center_x = win_x + win_w - 28.0;
+                            let center_y = win_y + 46.0;
+                            let min_x = center_x - (sprite.width / 2) as f32;
+                            let min_y = center_y - (sprite.height / 2) as f32;
+                            unsafe {
+                                imgui::sys::ImDrawList_AddImage(
+                                    imgui::sys::igGetWindowDrawList(),
+                                    self.instance_images.as_mut_ptr().add(i) as _,
+                                    imgui::sys::ImVec2 { x: min_x, y: min_y },
+                                    imgui::sys::ImVec2 {
+                                        x: min_x + sprite.width as f32,
+                                        y: min_y + sprite.height as f32,
+                                    },
+                                    imgui::sys::ImVec2 { x: 0.0, y: 0.0 },
+                                    imgui::sys::ImVec2 { x: 1.0, y: 1.0 },
+                                    instance.image_blend.get() as u32 | 0xFF000000,
+                                );
                             }
                         }
-                    });
+                    }
+                });
                 open
             });
             if self.config.watched_ids.len() != previous_len {
@@ -818,55 +803,47 @@ impl UIState<'_> {
                 let index_buffer = draw_list.idx_buffer();
                 for cmd in draw_list.commands() {
                     match cmd {
-                    DrawCmd::Elements {
-                        count,
-                        cmd_params
-                    } => {
-                        // TODO: don't use the primitive builder for this, it allocates a lot and
-                        // also doesn't do instanced drawing I think?
-                        self.game.renderer.reset_primitive_2d(
-                            PrimitiveType::TriList,
-                            if cmd_params.texture_id.id() == 0 {
-                                None
-                            } else {
-                                Some(unsafe { AtlasRef(cmd_params.texture_id.id() as i32) })
-                            },
-                        );
-
-                        for i in 0 .. count {
-                            let vert: imgui::DrawVert = vertex_buffer[
-                                cmd_params.vtx_offset +
-                                usize::from(index_buffer[i + cmd_params.idx_offset])
-                            ];
-                            self.game.renderer.vertex_2d(
-                                f64::from(vert.pos[0]) - 0.5,
-                                f64::from(vert.pos[1]) - 0.5,
-                                vert.uv[0].into(),
-                                vert.uv[1].into(),
-                                i32::from(vert.col[0]) |
-                                (i32::from(vert.col[1]) << 8) |
-                                (i32::from(vert.col[2]) << 16),
-                                f64::from(vert.col[3]) / 255.0,
+                        DrawCmd::Elements { count, cmd_params } => {
+                            // TODO: don't use the primitive builder for this, it allocates a lot and
+                            // also doesn't do instanced drawing I think?
+                            self.game.renderer.reset_primitive_2d(
+                                PrimitiveType::TriList,
+                                if cmd_params.texture_id.id() == 0 {
+                                    None
+                                } else {
+                                    Some(unsafe { AtlasRef(cmd_params.texture_id.id() as i32) })
+                                },
                             );
-                        }
 
-                        let clip_x = cmd_params.clip_rect[0] as i32;
-                        let clip_y = cmd_params.clip_rect[1] as i32;
-                        let clip_w = (cmd_params.clip_rect[2] - cmd_params.clip_rect[0]) as i32 + 1;
-                        let clip_h = (cmd_params.clip_rect[3] - cmd_params.clip_rect[1]) as i32 + 1;
-                        self.game.renderer.set_view(clip_x, clip_y, clip_w, clip_h, 0.0, clip_x, clip_y, clip_w, clip_h);
-                        self.game.renderer.draw_primitive_2d();
+                            for i in 0..count {
+                                let vert: imgui::DrawVert = vertex_buffer
+                                    [cmd_params.vtx_offset + usize::from(index_buffer[i + cmd_params.idx_offset])];
+                                self.game.renderer.vertex_2d(
+                                    f64::from(vert.pos[0]) - 0.5,
+                                    f64::from(vert.pos[1]) - 0.5,
+                                    vert.uv[0].into(),
+                                    vert.uv[1].into(),
+                                    i32::from(vert.col[0])
+                                        | (i32::from(vert.col[1]) << 8)
+                                        | (i32::from(vert.col[2]) << 16),
+                                    f64::from(vert.col[3]) / 255.0,
+                                );
+                            }
 
+                            let clip_x = cmd_params.clip_rect[0] as i32;
+                            let clip_y = cmd_params.clip_rect[1] as i32;
+                            let clip_w = (cmd_params.clip_rect[2] - cmd_params.clip_rect[0]) as i32 + 1;
+                            let clip_h = (cmd_params.clip_rect[3] - cmd_params.clip_rect[1]) as i32 + 1;
+                            self.game
+                                .renderer
+                                .set_view(clip_x, clip_y, clip_w, clip_h, 0.0, clip_x, clip_y, clip_w, clip_h);
+                            self.game.renderer.draw_primitive_2d();
+                        },
+                        DrawCmd::RawCallback { callback, raw_cmd } => {
+                            unsafe { callback(draw_list.raw(), raw_cmd) };
+                        },
+                        DrawCmd::ResetRenderState => {},
                     }
-                    DrawCmd::RawCallback {
-                        callback,
-                        raw_cmd
-                    } => {
-                        unsafe { callback(draw_list.raw(), raw_cmd) };
-                    }
-                    DrawCmd::ResetRenderState => {}
-                    }
-                    
                 }
             }
 
@@ -922,7 +899,7 @@ impl UIState<'_> {
                 Event::Maximise(b) => {
                     self.config.ui_maximised = b;
                     self.context_menu = None;
-                }
+                },
                 Event::CloseRequest => return false,
                 _ => (),
             }
@@ -931,11 +908,17 @@ impl UIState<'_> {
     }
 
     /// Draws the game view into an imgui window
-    fn render_game_window(&mut self, frame: &mut imgui::Ui, win_frame_height: f32, win_border_size: f32, callback_data: &mut GameViewData) {
+    fn render_game_window(
+        &mut self,
+        frame: &mut imgui::Ui,
+        win_frame_height: f32,
+        win_border_size: f32,
+        callback_data: &mut GameViewData,
+    ) {
         if self.setting_mouse_pos {
             frame.begin_screen_cover();
             frame.end();
-            
+
             unsafe {
                 imgui::sys::igSetNextWindowCollapsed(false, 0);
                 imgui::sys::igSetNextWindowFocus();
@@ -943,14 +926,13 @@ impl UIState<'_> {
         }
 
         let (w, h) = self.game.renderer.stored_size();
-        frame.window(&format!("{}###Game", self.game.get_window_title()))
-            .position([f32::from(self.config.ui_width) - w as f32 - 8.0, 8.0],
-                imgui::Condition::Once
+        frame
+            .window(&format!("{}###Game", self.game.get_window_title()))
+            .position([f32::from(self.config.ui_width) - w as f32 - 8.0, 8.0], imgui::Condition::Once)
+            .size(
+                [w as f32 + (2.0 * win_border_size), h as f32 + win_border_size + win_frame_height],
+                imgui::Condition::Once,
             )
-            .size([
-                w as f32 + (2.0 * win_border_size),
-                h as f32 + win_border_size + win_frame_height,
-            ], imgui::Condition::Once)
             .resizable(false)
             .menu_bar(false)
             .build(|| {
@@ -974,9 +956,9 @@ impl UIState<'_> {
                 if frame.is_window_collapsed() {
                     return;
                 }
-                
+
                 frame.callback(callback, callback_data);
-                    
+
                 if self.setting_mouse_pos && frame.is_mouse_clicked(imgui::MouseButton::Left) {
                     self.setting_mouse_pos = false;
                     let Vec2(mouse_x, mouse_y) = frame.mouse_pos();
@@ -1021,8 +1003,7 @@ impl UIState<'_> {
 
     /// Draws an imgui window with the main controls and some project info in it
     fn render_control_window(&mut self, frame: &imgui::Ui, fps_text: &str) {
-        if (frame.button_with_size("Advance (Space)", [165.0, 20.0])
-            || frame.key_pressed(input::ramen2vk(Key::Space)))
+        if (frame.button_with_size("Advance (Space)", [165.0, 20.0]) || frame.key_pressed(input::ramen2vk(Key::Space)))
             && self.game_running
             && self.err_string.is_none()
         {
@@ -1203,13 +1184,15 @@ impl UIState<'_> {
             self.redo_instance_reports();
         }
 
-        if (frame.button_with_size("Quick Save (Q)", [165.0, 20.0])
-            || frame.key_pressed(input::ramen2vk(Key::Q)))
+        if (frame.button_with_size("Quick Save (Q)", [165.0, 20.0]) || frame.key_pressed(input::ramen2vk(Key::Q)))
             && self.game_running
             && self.err_string.is_none()
         {
-            self.cached_savestate = SaveState::from(&mut self.game, self.replay.clone(), self.game_renderer_state.clone());
-            if let Err(err) = self.cached_savestate.save_to_file(&self.save_paths[self.config.quicksave_slot], &mut self.lz4_buffer) {
+            self.cached_savestate =
+                SaveState::from(&mut self.game, self.replay.clone(), self.game_renderer_state.clone());
+            if let Err(err) =
+                self.cached_savestate.save_to_file(&self.save_paths[self.config.quicksave_slot], &mut self.lz4_buffer)
+            {
                 self.err_string = Some(format!(
                     concat!(
                         "Warning: failed to save quicksave.bin (it has still been saved in memory)\n\n",
@@ -1221,9 +1204,7 @@ impl UIState<'_> {
             self.context_menu = None;
         }
 
-        if frame.button_with_size("Load Quicksave (W)", [165.0, 20.0])
-            || frame.key_pressed(input::ramen2vk(Key::W))
-        {
+        if frame.button_with_size("Load Quicksave (W)", [165.0, 20.0]) || frame.key_pressed(input::ramen2vk(Key::W)) {
             if self.startup_successful {
                 let state = self.cached_savestate.clone();
                 self.load_state(state);
@@ -1404,7 +1385,14 @@ impl UIState<'_> {
             let button_width = ((left_part_edge - content_min.0 - 14.0) / 15.0).floor();
             let button_height = ((content_max.1 - content_min.1 - 4.0 - (win_padding.1 * 2.0)) / 6.5).floor();
             let button_size = Vec2(button_width, button_height);
-            self.render_keyboard_button(frame, "Esc", Vec2((button_width * 1.5).floor(), button_height), cur_x, cur_y, Key::Escape);
+            self.render_keyboard_button(
+                frame,
+                "Esc",
+                Vec2((button_width * 1.5).floor(), button_height),
+                cur_x,
+                cur_y,
+                Key::Escape,
+            );
             cur_x = left_part_edge - (button_width * 12.0 + 11.0);
             self.render_keyboard_button(frame, "F1", button_size, cur_x, cur_y, Key::F1);
             cur_x += button_width + 1.0;
@@ -1463,12 +1451,13 @@ impl UIState<'_> {
             cur_x += button_width + 1.0;
             self.render_dummy_button(frame, "=", button_size, cur_x, cur_y);
             cur_x += button_width + 1.0;
-            self.render_keyboard_button(frame,
+            self.render_keyboard_button(
+                frame,
                 "Back",
                 Vec2(left_part_edge - cur_x, button_height),
                 cur_x,
                 cur_y,
-                Key::Backspace
+                Key::Backspace,
             );
             cur_x = content_max.0 - (button_width * 3.0 + 2.0);
             self.render_keyboard_button(frame, "Ins", button_size, cur_x, cur_y, Key::Insert);
@@ -1478,12 +1467,13 @@ impl UIState<'_> {
             self.render_keyboard_button(frame, "PgUp", button_size, cur_x, cur_y, Key::PageUp);
             cur_x = content_min.0;
             cur_y += button_height + 1.0;
-            self.render_keyboard_button(frame,
+            self.render_keyboard_button(
+                frame,
                 "Tab",
                 Vec2((button_width * 1.5).floor(), button_height),
                 cur_x,
                 cur_y,
-                Key::Tab
+                Key::Tab,
             );
             cur_x += (button_width * 1.5).floor() + 1.0;
             self.render_keyboard_button(frame, "Q", button_size, cur_x, cur_y, Key::Q);
@@ -1510,7 +1500,14 @@ impl UIState<'_> {
             cur_x += button_width + 1.0;
             self.render_dummy_button(frame, "]", button_size, cur_x, cur_y);
             cur_x += button_width + 1.0;
-            self.render_keyboard_button(frame, "Enter", Vec2(left_part_edge - cur_x, button_height * 2.0 + 1.0), cur_x, cur_y, Key::Return);
+            self.render_keyboard_button(
+                frame,
+                "Enter",
+                Vec2(left_part_edge - cur_x, button_height * 2.0 + 1.0),
+                cur_x,
+                cur_y,
+                Key::Return,
+            );
             cur_x = content_max.0 - (button_width * 3.0 + 2.0);
             self.render_keyboard_button(frame, "Del", button_size, cur_x, cur_y, Key::Delete);
             cur_x += button_width + 1.0;
@@ -1519,7 +1516,14 @@ impl UIState<'_> {
             self.render_keyboard_button(frame, "PgDn", button_size, cur_x, cur_y, Key::PageDown);
             cur_x = content_min.0;
             cur_y += button_height + 1.0;
-            self.render_keyboard_button(frame, "Caps", Vec2((button_width * 1.5).floor(), button_height), cur_x, cur_y, Key::CapsLock);
+            self.render_keyboard_button(
+                frame,
+                "Caps",
+                Vec2((button_width * 1.5).floor(), button_height),
+                cur_x,
+                cur_y,
+                Key::CapsLock,
+            );
             cur_x += (button_width * 1.5).floor() + 1.0;
             self.render_keyboard_button(frame, "A", button_size, cur_x, cur_y, Key::A);
             cur_x += button_width + 1.0;
@@ -1546,7 +1550,14 @@ impl UIState<'_> {
             self.render_dummy_button(frame, "#", button_size, cur_x, cur_y);
             cur_x = content_min.0;
             cur_y += button_height + 1.0;
-            self.render_keyboard_button(frame, "Shift", Vec2(button_width * 2.0, button_height), cur_x, cur_y, Key::LeftShift);
+            self.render_keyboard_button(
+                frame,
+                "Shift",
+                Vec2(button_width * 2.0, button_height),
+                cur_x,
+                cur_y,
+                Key::LeftShift,
+            );
             cur_x += button_width * 2.0 + 1.0;
             self.render_dummy_button(frame, "\\", button_size, cur_x, cur_y);
             cur_x += button_width + 1.0;
@@ -1570,28 +1581,50 @@ impl UIState<'_> {
             cur_x += button_width + 1.0;
             self.render_dummy_button(frame, "/", button_size, cur_x, cur_y);
             cur_x += button_width + 1.0;
-            self.render_keyboard_button(frame, "RShift", Vec2(left_part_edge - cur_x, button_height), cur_x, cur_y, Key::RightShift);
+            self.render_keyboard_button(
+                frame,
+                "RShift",
+                Vec2(left_part_edge - cur_x, button_height),
+                cur_x,
+                cur_y,
+                Key::RightShift,
+            );
             cur_x = content_min.0;
             cur_y += button_height + 1.0;
-            self.render_keyboard_button(frame, "Ctrl", Vec2((button_width * 1.5).floor(), button_height), cur_x, cur_y, Key::LeftControl);
+            self.render_keyboard_button(
+                frame,
+                "Ctrl",
+                Vec2((button_width * 1.5).floor(), button_height),
+                cur_x,
+                cur_y,
+                Key::LeftControl,
+            );
             cur_x += (button_width * 1.5).floor() + 1.0;
             self.render_keyboard_button(frame, "Win", button_size, cur_x, cur_y, Key::LeftSuper);
             cur_x += button_width + 1.0;
             self.render_keyboard_button(frame, "Alt", button_size, cur_x, cur_y, Key::LeftAlt);
             cur_x += button_width + 1.0;
-            self.render_keyboard_button(frame,
+            self.render_keyboard_button(
+                frame,
                 "Space",
                 Vec2((left_part_edge - cur_x) - (button_width * 3.5 + 3.0).floor(), button_height),
                 cur_x,
                 cur_y,
-                Key::Space
+                Key::Space,
             );
             cur_x = left_part_edge - (button_width * 3.5 + 2.0).floor();
             self.render_keyboard_button(frame, "RAlt", button_size, cur_x, cur_y, Key::RightAlt);
             cur_x += button_width + 1.0;
             self.render_keyboard_button(frame, "Pg", button_size, cur_x, cur_y, Key::Applications);
             cur_x += button_width + 1.0;
-            self.render_keyboard_button(frame, "RCtrl", Vec2(left_part_edge - cur_x, button_height), cur_x, cur_y, Key::RightControl);
+            self.render_keyboard_button(
+                frame,
+                "RCtrl",
+                Vec2(left_part_edge - cur_x, button_height),
+                cur_x,
+                cur_y,
+                Key::RightControl,
+            );
             cur_x = content_max.0 - (button_width * 3.0 + 2.0);
             self.render_keyboard_button(frame, "<", button_size, cur_x, cur_y, Key::LeftArrow);
             cur_x += button_width + 1.0;
@@ -1616,37 +1649,55 @@ impl UIState<'_> {
             let button_size = Vec2(button_width, button_height);
             let arrows_left_bound =
                 content_min.0 + ((content_max.0 - content_min.0) / 2.0 - (button_width * 1.5)).floor();
-            self.render_keyboard_button(frame, "<", button_size, arrows_left_bound, content_max.1 - button_height - 8.0, Key::LeftArrow);
-            self.render_keyboard_button(frame,
+            self.render_keyboard_button(
+                frame,
+                "<",
+                button_size,
+                arrows_left_bound,
+                content_max.1 - button_height - 8.0,
+                Key::LeftArrow,
+            );
+            self.render_keyboard_button(
+                frame,
                 "v",
                 button_size,
                 arrows_left_bound + button_width + 1.0,
                 content_max.1 - button_height - 8.0,
-                Key::DownArrow
+                Key::DownArrow,
             );
-            self.render_keyboard_button(frame,
+            self.render_keyboard_button(
+                frame,
                 ">",
                 button_size,
                 arrows_left_bound + (button_width * 2.0 + 2.0),
                 content_max.1 - button_height - 8.0,
-                Key::RightArrow
+                Key::RightArrow,
             );
-            self.render_keyboard_button(frame,
+            self.render_keyboard_button(
+                frame,
                 "^",
                 button_size,
                 arrows_left_bound + button_width + 1.0,
                 content_max.1 - (button_height * 2.0) - 9.0,
-                Key::UpArrow
+                Key::UpArrow,
             );
             self.render_keyboard_button(frame, "R", button_size, content_min.0, content_min.1, Key::R);
-            self.render_keyboard_button(frame, "Shift", button_size, content_min.0, content_max.1 - button_height - 8.0, Key::LeftShift);
+            self.render_keyboard_button(
+                frame,
+                "Shift",
+                button_size,
+                content_min.0,
+                content_max.1 - button_height - 8.0,
+                Key::LeftShift,
+            );
             self.render_keyboard_button(frame, "F2", button_size, content_max.0 - button_width, content_min.1, Key::F2);
-            self.render_keyboard_button(frame,
+            self.render_keyboard_button(
+                frame,
                 "Z",
                 button_size,
                 content_max.0 - button_width,
                 content_max.1 - button_height - 8.0,
-                Key::Z
+                Key::Z,
             );
         }
     }
@@ -1699,18 +1750,10 @@ impl UIState<'_> {
         self.game_renderer_state = new_renderer_state;
 
         for (i, state) in self.keyboard_state.iter_mut().enumerate() {
-            *state = if self.game.input.keyboard_check_direct(i as u8) {
-                KeyState::Held
-            } else {
-                KeyState::Neutral
-            };
+            *state = if self.game.input.keyboard_check_direct(i as u8) { KeyState::Held } else { KeyState::Neutral };
         }
         for (i, state) in self.mouse_state.iter_mut().enumerate() {
-            *state = if self.game.input.mouse_check_button(i as i8 + 1) {
-                KeyState::Held
-            } else {
-                KeyState::Neutral
-            };
+            *state = if self.game.input.mouse_check_button(i as i8 + 1) { KeyState::Held } else { KeyState::Neutral };
         }
 
         self.frame_text = format!("Frame: {}", self.replay.frame_count());
@@ -1729,7 +1772,15 @@ impl UIState<'_> {
     }
 
     /// Renders a single keyboard control button
-    fn render_keyboard_button(&mut self, frame: &imgui::Ui, name: &str, size: Vec2<f32>, x: f32, y: f32, code: ramen::input::Key) {
+    fn render_keyboard_button(
+        &mut self,
+        frame: &imgui::Ui,
+        name: &str,
+        size: Vec2<f32>,
+        x: f32,
+        y: f32,
+        code: ramen::input::Key,
+    ) {
         let vk = input::ramen2vk(code);
         let state = &mut self.keyboard_state[usize::from(vk)];
         let clicked = frame.invisible_button_with_size_and_pos(name, size, Vec2(x, y));
@@ -1749,11 +1800,7 @@ impl UIState<'_> {
                     unsafe {
                         imgui::sys::igSetWindowFocus_Nil();
                     }
-                    *state = if state.is_held() {
-                        KeyState::HeldWillDouble
-                    } else {
-                        KeyState::NeutralWillDouble
-                    };
+                    *state = if state.is_held() { KeyState::HeldWillDouble } else { KeyState::NeutralWillDouble };
                 }
             },
             InputMode::Direct => {
@@ -1826,18 +1873,14 @@ impl UIState<'_> {
         let pos = Vec2::from(frame.window_pos());
         frame.invisible_button_with_size_and_pos(name, pos, Vec2(x, y));
         frame.rect(Vec2(x, y) + pos, Vec2(x, y) + size + pos, BTN_NEUTRAL_COL, 190);
-        frame.rect_outline(
-            Vec2(x, y) + pos,
-            Vec2(x, y) + size + pos,
-            Colour::new(0.4, 0.4, 0.65),
-            u8::MAX,
-        );
+        frame.rect_outline(Vec2(x, y) + pos, Vec2(x, y) + size + pos, Colour::new(0.4, 0.4, 0.65), u8::MAX);
         frame.text_centered(name, Vec2(x, y) + Vec2(size.0 / 2.0, size.1 / 2.0));
     }
 
     /// Remakes all the cached instance reports for watched instances
     fn redo_instance_reports(&mut self) {
-        self.instance_reports = self.config.watched_ids.iter().map(|id| (*id, InstanceReport::new(&self.game, *id))).collect();
+        self.instance_reports =
+            self.config.watched_ids.iter().map(|id| (*id, InstanceReport::new(&self.game, *id))).collect();
     }
 
     /// Tries to save the config file, showing the user an error popup if it fails for some reason
@@ -2031,12 +2074,6 @@ struct GameViewData {
 
 impl GameViewData {
     fn uninit() -> Self {
-        Self {
-            renderer: std::ptr::null_mut(),
-            x: 0,
-            y: 0,
-            w: 0,
-            h: 0,
-        }
+        Self { renderer: std::ptr::null_mut(), x: 0, y: 0, w: 0, h: 0 }
     }
 }
