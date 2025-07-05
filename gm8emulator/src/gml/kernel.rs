@@ -1159,9 +1159,10 @@ impl Game {
         Ok(Default::default())
     }
 
-    pub fn texture_set_blending(&mut self, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function texture_set_blending")
+    pub fn texture_set_blending(&mut self, args: &[Value]) -> gml::Result<Value> {
+        let blend = expect_args!(args, [bool])?;
+        self.renderer.set_colour_blending(blend);
+        Ok(Default::default())
     }
 
     pub fn texture_set_repeat(&mut self, args: &[Value]) -> gml::Result<Value> {

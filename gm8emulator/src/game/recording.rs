@@ -359,6 +359,7 @@ impl Game {
         let ui_renderer_state = RendererState {
             model_matrix: self.renderer.get_model_matrix(),
             alpha_blending: true,
+            colour_blending: true,
             blend_mode: self.renderer.get_blend_mode(),
             pixel_interpolation: true,
             texture_repeat: false,

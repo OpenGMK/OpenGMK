@@ -78,6 +78,7 @@ struct RenderState {
     ambient_colour: [f32; 4],
     lighting: GLBool,
     gouraud: GLBool,
+    texture_blend: GLBool, // emulates glTexEnv(): GL_MODULATE if true, GL_REPLACE if false
     // frag shader
     texture_repeat: GLBool,
     interpolate_pixels: GLBool,
@@ -111,6 +112,7 @@ impl Default for RenderState {
             blend_mode: (BlendType::SrcAlpha, BlendType::InvSrcAlpha),
             interpolate_pixels: GLBool::False,
             texture_repeat: GLBool::False,
+            texture_blend: GLBool::True,
             model_matrix: identity_matrix.clone(),
             view_matrix: identity_matrix.clone(),
             proj_matrix: identity_matrix.clone(),
@@ -352,6 +354,7 @@ impl ShapeBuilder {
             primitive: PrimitiveBuilder::new(
                 atlas_ref,
                 if outline { PrimitiveType::LineStrip } else { PrimitiveType::TriFan },
+                false,
             ),
             outline,
             depth,
@@ -575,8 +578,8 @@ impl RendererImpl {
                 using_3d: false,
                 perspective: false,
                 depth: 0.0,
-                primitive_2d: PrimitiveBuilder::new(Default::default(), PrimitiveType::PointList),
-                primitive_3d: PrimitiveBuilder::new(Default::default(), PrimitiveType::PointList),
+                primitive_2d: PrimitiveBuilder::new(Default::default(), PrimitiveType::PointList, false),
+                primitive_3d: PrimitiveBuilder::new(Default::default(), PrimitiveType::PointList, false),
 
                 loc_gm81_normalize: gl.GetUniformLocation(program, b"gm81_normalize\0".as_ptr().cast()),
                 loc_tex: gl.GetUniformLocation(program, b"tex\0".as_ptr().cast()),
@@ -1762,7 +1765,7 @@ impl RendererTrait for RendererImpl {
 
         // push the vertices
         self.push_primitive(
-            PrimitiveBuilder::new(atlas_ref, PrimitiveType::TriFan)
+            PrimitiveBuilder::new(atlas_ref, PrimitiveType::TriFan, true)
                 .push_vertex(rotate(left, top), [tex_left, tex_top], split_colour(col1, alpha), normal)
                 .push_vertex(rotate(right, top), [tex_right, tex_top], split_colour(col2, alpha), normal)
                 .push_vertex(rotate(right, bottom), [tex_right, tex_bottom], split_colour(col3, alpha), normal)
@@ -1802,14 +1805,14 @@ impl RendererTrait for RendererImpl {
         let normal = [0.0, 0.0, 0.0];
         let depth = self.depth;
 
-        //correct for gm offset
+        // correct for gm offset
         let correct = |xoff, yoff| {
             [(xoff-0.5) as f32, (yoff-0.5) as f32, depth]
         };
 
         // push the vertices
         self.push_primitive(
-            PrimitiveBuilder::new(atlas_ref, PrimitiveType::TriFan)
+            PrimitiveBuilder::new(atlas_ref, PrimitiveType::TriFan, true)
                 .push_vertex(correct(x1, y1), [tex_left, tex_top], split_colour(0xffffff, alpha), normal)
                 .push_vertex(correct(x2, y2), [tex_right, tex_top], split_colour(0xffffff, alpha), normal)
                 .push_vertex(correct(x3, y3), [tex_right, tex_bottom], split_colour(0xffffff, alpha), normal)
@@ -1878,7 +1881,7 @@ impl RendererTrait for RendererImpl {
         self.setup_queue(self.white_pixel.atlas_id, PrimitiveShape::Point);
         self.vertex_queue.push(Vertex {
             pos: [x as f32, y as f32, self.depth],
-            tex_coord: [0.0, 0.0],
+            tex_coord: [f32::NAN; 2],
             blend: split_colour(colour, alpha),
             atlas_xywh: self.white_pixel.into(),
             normal: [0.0, 0.0, 0.0],
@@ -1984,9 +1987,11 @@ impl RendererTrait for RendererImpl {
     }
 
     fn reset_primitive_2d(&mut self, ptype: PrimitiveType, atlas_ref: Option<AtlasRef>) {
+        let ar = atlas_ref.and_then(|ar| self.get_rect(ar).copied());
         self.primitive_2d = PrimitiveBuilder::new(
-            atlas_ref.and_then(|ar| self.get_rect(ar).copied()).unwrap_or(self.white_pixel),
+            ar.unwrap_or(self.white_pixel),
             ptype,
+            ar.is_some(),
         );
     }
 
@@ -2014,9 +2019,11 @@ impl RendererTrait for RendererImpl {
     }
 
     fn reset_primitive_3d(&mut self, ptype: PrimitiveType, atlas_ref: Option<AtlasRef>) {
+        let ar = atlas_ref.and_then(|ar| self.get_rect(ar).copied());
         self.primitive_3d = PrimitiveBuilder::new(
-            atlas_ref.and_then(|ar| self.get_rect(ar).copied()).unwrap_or(self.white_pixel),
+            ar.unwrap_or(self.white_pixel),
             ptype,
+            ar.is_some(),
         );
     }
 
@@ -2091,6 +2098,15 @@ impl RendererTrait for RendererImpl {
 
     fn set_alpha_blending(&mut self, alphablend: bool) {
         self.next_render_state.alpha_blending = alphablend;
+        self.render_state_updated = true;
+    }
+
+    fn get_colour_blending(&self) -> bool {
+        self.next_render_state.texture_blend.into()
+    }
+
+    fn set_colour_blending(&mut self, modulate: bool) {
+        self.next_render_state.texture_blend = modulate.into();
         self.render_state_updated = true;
     }
 
