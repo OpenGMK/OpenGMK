@@ -811,7 +811,7 @@ impl UIState<'_> {
                                 if cmd_params.texture_id.id() == 0 {
                                     None
                                 } else {
-                                    Some(unsafe { AtlasRef(cmd_params.texture_id.id() as i32) })
+                                    Some(AtlasRef(cmd_params.texture_id.id() as i32))
                                 },
                             );
 
