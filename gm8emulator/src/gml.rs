@@ -19,38 +19,133 @@ pub use value::Value;
 pub type Result<T> = std::result::Result<T, runtime::Error>;
 pub use runtime::Error;
 
+use serde::{Serialize, Deserialize, ser, de};
+
+#[repr(transparent)]
+#[derive(Clone)]
+pub struct FunctionPtr<T>(pub T);
+
 use crate::game::Game;
+type ContextFunctionPtr = fn(&mut Game, &mut Context, &[Value]) -> Result<Value>;
+type StateFunctionPtr = fn(&mut Game, &[Value]) -> Result<Value>;
+type RoutineFunctionPtr = fn(&Game, &[Value]) -> Result<Value>;
+type ValueFunctionPtr = fn(&[Value]) -> Result<Value>;
+
+pub type ContextFunction = FunctionPtr<ContextFunctionPtr>;
+pub type StateFunction = FunctionPtr<StateFunctionPtr>;
+pub type RoutineFunction = FunctionPtr<RoutineFunctionPtr>;
+pub type ValueFunction = FunctionPtr<ValueFunctionPtr>;
+
 #[derive(Clone, Copy)]
 pub enum Function {
     // accesses and/or changes the program state, depending on the context
-    Runtime(fn(&mut Game, &mut Context, &[Value]) -> Result<Value>),
+    Runtime(ContextFunctionPtr),
 
     // accesses and/or changes the program state
-    Engine(fn(&mut Game, &[Value]) -> Result<Value>),
+    Engine(StateFunctionPtr),
 
     // depends on external state (OS, time etc.) or uses interior mutability
-    Volatile(fn(&Game, &[Value]) -> Result<Value>),
+    Volatile(RoutineFunctionPtr),
 
     // only accesses the program state
-    Constant(fn(&Game, &[Value]) -> Result<Value>),
+    Constant(RoutineFunctionPtr),
 
     // neither uses nor modifies any program state
-    Pure(fn(&[Value]) -> Result<Value>),
+    Pure(ValueFunctionPtr),
 }
+
+use std::ptr;
 
 impl Function {
     pub fn invoke(&self, game: &mut Game, context: &mut Context, args: &[Value]) -> Result<Value> {
         match self {
             Self::Runtime(f) => f(game, context, args),
             Self::Engine(f) => f(game, args),
-            Self::Volatile(f) => f(game, args),
+            Self::Volatile(f) |
             Self::Constant(f) => f(game, args),
             Self::Pure(f) => f(args),
         }
     }
+
+    pub fn addr(&self) -> *const () {
+        match self {
+            Self::Runtime(f) => ptr::from_ref(f) as *const (),
+            Self::Engine(f) => ptr::from_ref(f) as *const (),
+            Self::Volatile(f) |
+            Self::Constant(f) => ptr::from_ref(f) as *const (),
+            Self::Pure(f) => ptr::from_ref(f) as *const (),
+        }
+    }
 }
 
-use serde::{Deserialize, Serialize};
+impl<T> Serialize for FunctionPtr<T> {
+    fn serialize<S>(&self, s: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        s.serialize_u16(mappings::FUNCTIONS.values()
+            .position(|&x| x.addr() == ptr::from_ref(&self.0) as *const ())
+            .ok_or(ser::Error::custom("function doesn't belong to GML API"))?
+            .try_into().or(Err(ser::Error::custom("function index is too big to serialize")))?
+        )
+    }
+}
+
+impl<'de> Deserialize<'de> for ContextFunction {
+    fn deserialize<D>(d: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let i = u16::deserialize(d)?;
+        if let Some((_, Function::Runtime(f))) = mappings::FUNCTIONS.index(i.into()) {
+            Ok(Self(*f))
+        } else {
+            Err(de::Error::custom("deserialized function index is out of range"))
+        }
+    }
+}
+
+impl<'de> Deserialize<'de> for StateFunction {
+    fn deserialize<D>(d: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let i = u16::deserialize(d)?;
+        if let Some((_, Function::Engine(f))) = mappings::FUNCTIONS.index(i.into()) {
+            Ok(Self(*f))
+        } else {
+            Err(de::Error::custom("deserialized function index is out of range"))
+        }
+    }
+}
+
+impl<'de> Deserialize<'de> for RoutineFunction {
+    fn deserialize<D>(d: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let i = u16::deserialize(d)?;
+        if let Some((_, Function::Volatile(f) | Function::Constant(f))) = mappings::FUNCTIONS.index(i.into()) {
+            Ok(Self(*f))
+        } else {
+            Err(de::Error::custom("deserialized function index is out of range"))
+        }
+    }
+}
+
+impl<'de> Deserialize<'de> for ValueFunction {
+    fn deserialize<D>(d: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let i = u16::deserialize(d)?;
+        if let Some((_, Function::Pure(f))) = mappings::FUNCTIONS.index(i.into()) {
+            Ok(Self(*f))
+        } else {
+            Err(de::Error::custom("deserialized function index is out of range"))
+        }
+    }
+}
 
 pub const TRUE: f64 = 1.0;
 pub const FALSE: f64 = 0.0;

@@ -1,6 +1,6 @@
 use crate::{
     game::Game,
-    gml::{Function, InstanceVariable},
+    gml::{self, Function, InstanceVariable},
 };
 use phf::{phf_map, phf_ordered_map};
 
@@ -846,6 +846,7 @@ pub const INSTANCE_VARIABLES: [(&str, InstanceVariable); 166] = [
     ("async_load", InstanceVariable::AsyncLoad),
 ];
 
+#[inline(always)]
 pub fn get_instance_variable_by_name(name: &[u8]) -> Option<&InstanceVariable> {
     std::str::from_utf8(name).ok().and_then(|n| INSTANCE_VARIABLES.iter().find(|(s, _)| *s == n).map(|(_, v)| v))
 }
@@ -2136,3 +2137,10 @@ pub const FUNCTIONS: phf::OrderedMap<&'static str, Function> = phf_ordered_map! 
     "d3d_model_wall" => Function::Engine(Game::d3d_model_wall),
     "d3d_model_floor" => Function::Engine(Game::d3d_model_floor),
 };
+
+#[inline(always)]
+pub fn find_function_by_address<T>(func: &gml::FunctionPtr<T>) -> Option<(usize, &str)> {
+    FUNCTIONS.entries().enumerate()
+        .find(|(_, (_, &v))| v.addr() == std::ptr::from_ref(&func.0) as *const ())
+        .map(|(i, (&k, _))| (i, k))
+}

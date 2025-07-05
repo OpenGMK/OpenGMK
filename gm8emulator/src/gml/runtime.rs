@@ -41,15 +41,33 @@ pub enum Instruction {
 /// Node representing one value in an expression.
 #[derive(Clone, Serialize, Deserialize)]
 pub enum Node {
-    Literal { value: Value },
     Constant { constant_id: usize },
-    Function { args: Box<[Node]>, function_id: usize },
+    Literal { value: Value },
+    Variable { accessor: VariableAccessor },
+    Field { accessor: FieldAccessor },
+
+    ContextFunction {
+        args: Box<[Node]>,
+        function: gml::ContextFunction
+    },
+    StateFunction {
+        args: Box<[Node]>,
+        function: gml::StateFunction
+    },
+    RoutineFunction {
+        args: Box<[Node]>,
+        function: gml::RoutineFunction,
+    },
+    ValueFunction {
+        args: Box<[Node]>,
+        function: gml::ValueFunction
+    },
+
+    Unary { child: Box<Node>, operator: UnaryOperator },
+    Binary { left: Box<Node>, right: Box<Node>, operator: BinaryOperator, type_unsafe: bool },
     Script { args: Box<[Node]>, script_id: usize },
     ExtensionFunction { args: Box<[Node]>, id: usize },
-    Field { accessor: FieldAccessor },
-    Variable { accessor: VariableAccessor },
-    Binary { left: Box<Node>, right: Box<Node>, operator: BinaryOperator, type_unsafe: bool },
-    Unary { child: Box<Node>, operator: UnaryOperator },
+
     RuntimeError { error: Error },
 }
 
@@ -251,22 +269,42 @@ impl fmt::Debug for Instruction {
 impl fmt::Debug for Node {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
+            Node::Constant { constant_id } => write!(f, "<constant {:?}>", constant_id),
             Node::Literal { value } => match value {
                 Value::Real(r) => write!(f, "{:?}", r),
                 Value::Str(s) => write!(f, "{:?}", s),
             },
-            Node::Constant { constant_id } => write!(f, "<constant {:?}>", constant_id),
-            Node::Function { args, function_id } => {
-                write!(f, "<function {:?}: {:?}>", mappings::FUNCTIONS.index(*function_id).unwrap().0, args)
-            },
-            Node::Script { args, script_id } => write!(f, "<script {:?}: {:?}>", script_id, args),
-            Node::ExtensionFunction { args, id } => write!(f, "<extfn {:?}: {:?}>", id, args),
-            Node::Field { accessor } => write!(f, "<field: {:?}>", accessor),
             Node::Variable { accessor } => write!(f, "<variable: {:?}>", accessor),
+            Node::Field { accessor } => write!(f, "<field: {:?}>", accessor),
+
+            Node::ContextFunction { args, function } => {
+                let (fn_id, fn_name) = mappings::find_function_by_address(function)
+                    .map(|(i, v)| (i+1, v)).unwrap_or((0, "?unknown?"));
+                write!(f, "<context fn #{}: {}({:?})", fn_id, fn_name, args)
+            },
+            Node::StateFunction { args, function } => {
+                let (fn_id, fn_name) = mappings::find_function_by_address(function)
+                    .map(|(i, v)| (i+1, v)).unwrap_or((0, "?unknown?"));
+                write!(f, "<state fn #{}: {}({:?})", fn_id, fn_name, args)
+            },
+            Node::RoutineFunction { args, function } => {
+                let (fn_id, fn_name) = mappings::find_function_by_address(function)
+                    .map(|(i, v)| (i+1, v)).unwrap_or((0, "?unknown?"));
+                write!(f, "<routine fn #{}: {}({:?})", fn_id, fn_name, args)
+            },
+            Node::ValueFunction { args, function } => {
+                let (fn_id, fn_name) = mappings::find_function_by_address(function)
+                    .map(|(i, v)| (i+1, v)).unwrap_or((0, "?unknown?"));
+                write!(f, "<value fn #{}: {}({:?})", fn_id, fn_name, args)
+            },
+
+            Node::Unary { child, operator } => write!(f, "<unary {:?}: {:?}>", operator, child),
             Node::Binary { left, right, operator, type_unsafe } => {
                 write!(f, "<binary {:?}: {:?}, {:?}, {:?}>", operator, left, right, type_unsafe)
             },
-            Node::Unary { child, operator } => write!(f, "<unary {:?}: {:?}>", operator, child),
+            Node::Script { args, script_id } => write!(f, "<script {:?}: {:?}>", script_id, args),
+            Node::ExtensionFunction { args, id } => write!(f, "<extfn {:?}: {:?}>", id, args),
+
             Node::RuntimeError { error } => write!(f, "<error: {:?}>", error),
         }
     }
@@ -312,10 +350,6 @@ impl UnaryOperator {
 }
 
 impl Game {
-    pub fn invoke(&mut self, function_id: usize, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
-        mappings::FUNCTIONS.index(function_id).unwrap().1.invoke(self, context, args)
-    }
-
     pub fn execute(&mut self, instructions: &[Instruction], context: &mut Context) -> gml::Result<ReturnType> {
         for instruction in instructions.iter() {
             match self.exec_instruction(instruction, context)? {
@@ -579,12 +613,33 @@ impl Game {
                     Err(gml::Error::NonexistentAsset(asset::Type::Constant, *constant_id as i32))
                 }
             },
-            Node::Function { args, function_id } => {
+            Node::ContextFunction { args, function } => {
                 let mut arg_values: [Value; 16] = Default::default();
                 for (src, dest) in args.iter().zip(arg_values.iter_mut()) {
                     *dest = self.eval(src, context)?;
                 }
-                self.invoke(*function_id, context, &arg_values[..args.len()])
+                function.0(self, context, &arg_values[..args.len()])
+            },
+            Node::StateFunction { args, function } => {
+                let mut arg_values: [Value; 16] = Default::default();
+                for (src, dest) in args.iter().zip(arg_values.iter_mut()) {
+                    *dest = self.eval(src, context)?;
+                }
+                function.0(self, &arg_values[..args.len()])
+            },
+            Node::RoutineFunction { args, function } => {
+                let mut arg_values: [Value; 16] = Default::default();
+                for (src, dest) in args.iter().zip(arg_values.iter_mut()) {
+                    *dest = self.eval(src, context)?;
+                }
+                function.0(self, &arg_values[..args.len()])
+            },
+            Node::ValueFunction { args, function } => {
+                let mut arg_values: [Value; 16] = Default::default();
+                for (src, dest) in args.iter().zip(arg_values.iter_mut()) {
+                    *dest = self.eval(src, context)?;
+                }
+                function.0(&arg_values[..args.len()])
             },
             Node::Script { args, script_id } => {
                 if let Some(Some(script)) = self.assets.scripts.get(*script_id) {
