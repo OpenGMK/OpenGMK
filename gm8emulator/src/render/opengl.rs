@@ -35,6 +35,9 @@ macro_rules! shader_file {
     };
 }
 
+// requires at least GL 3.3
+pub const OPENGL_VERSION: (i32, i32) = (3, 3);
+
 #[derive(Clone, Copy, PartialEq)]
 #[repr(u32)]
 enum GLBool {
@@ -396,26 +399,22 @@ impl RendererImpl {
             // debug print
             let ver_str = CStr::from_ptr(gl.GetString(gl::VERSION).cast()).to_str().unwrap();
             let vendor_str = CStr::from_ptr(gl.GetString(gl::VENDOR).cast()).to_str().unwrap();
-            eprintln!("creating graphics context\n  > gl_version: \"{}\"\n  > gl_vendor: \"{}\"", ver_str, vendor_str);
+            eprintln!("creating graphics context\n  > GL_VERSION: \"{}\"\n  > GL_VENDOR: \"{}\"", ver_str, vendor_str);
 
-            // requires at least GL 3.3
             let mut v_maj: GLint = 0;
-            gl.GetIntegerv(gl::MAJOR_VERSION, &mut v_maj);
             let mut v_min: GLint = 0;
+            gl.GetIntegerv(gl::MAJOR_VERSION, &mut v_maj);
             gl.GetIntegerv(gl::MINOR_VERSION, &mut v_min);
             assert!(
-                (v_maj == 3 && v_min >= 3) || v_maj > 3,
-                "OpenGL version 3.3 or later is required, but found version {}.{}",
+                (v_maj == OPENGL_VERSION.0 && v_min >= OPENGL_VERSION.1) || v_maj > OPENGL_VERSION.0,
+                "OpenGL version {}.{} or later is required, but found version {}.{}",
+                OPENGL_VERSION.0,
+                OPENGL_VERSION.1,
                 v_maj,
                 v_min
             );
 
-            if options.vsync {
-                imp.set_swap_interval(1);
-            } else {
-                imp.set_swap_interval(0);
-            }
-
+            imp.set_swap_interval(if options.vsync { 1 } else { 0 });
             let zbuf_format = if options.zbuf_24 { gl::DEPTH_COMPONENT24 } else { gl::DEPTH_COMPONENT16 } as GLint;
 
             // Compile vertex shader

@@ -2,7 +2,7 @@
 
 #![cfg(target_os = "windows")]
 
-use super::wgl_ffi::*;
+use super::{wgl_ffi::*, OPENGL_VERSION};
 
 use ramen::{connection::Connection, window::Window};
 use std::{
@@ -88,8 +88,8 @@ static PIXEL_FORMAT: PIXELFORMATDESCRIPTOR = PIXELFORMATDESCRIPTOR {
 /// Flags for wglCreateContextAttribsARB
 #[rustfmt::skip]
 static WGL_CCTX_ATTR_ARB: &[u32] = &[
-    wgl::CONTEXT_MAJOR_VERSION_ARB, 3,
-    wgl::CONTEXT_MINOR_VERSION_ARB, 3,
+    wgl::CONTEXT_MAJOR_VERSION_ARB, OPENGL_VERSION.0 as _,
+    wgl::CONTEXT_MINOR_VERSION_ARB, OPENGL_VERSION.1 as _,
     wgl::CONTEXT_LAYER_PLANE_ARB,   0,
     wgl::CONTEXT_FLAGS_ARB,         wgl::CONTEXT_FORWARD_COMPATIBLE_BIT_ARB,
     wgl::CONTEXT_PROFILE_MASK_ARB,  wgl::CONTEXT_CORE_PROFILE_BIT_ARB,
@@ -112,8 +112,8 @@ unsafe fn wapi_error_string() -> String {
     let char_count = FormatMessageW(
         FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
         ptr::null(),
-        GetLastError(),
-        MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT).into(),
+        error,
+        0, // not MAKELANGID(0x00=LANG_NEUTRAL, 0x00=SUBLANG_NEUTRAL) because 0 has a special meaning here anyway
         (&mut buf_ptr as *mut *mut WCHAR) as *mut _, // ugh
         0,
         ptr::null_mut(),
@@ -193,7 +193,7 @@ unsafe fn load_function(name: *const c_char, gl32_dll: HMODULE) -> *const c_void
         // extension feature. They're provided directly by the context ICD.
         let addr = wglGetProcAddress(name);
         match addr as isize {
-            // All of these return values mean failure, as much as the docs say it's just NULL.
+            // All of these return values mean failure, as much as the Khronos Wiki says it's just NULL.
             -1 | 1 | 2 | 3 => ptr::null_mut(),
             _ => addr.cast(),
         }

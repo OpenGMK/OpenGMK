@@ -76,6 +76,12 @@ Note that =-l= here means disabling the framelimiter so it goes by faster.
 OpenGMK is made to support /GameMaker Classic/ games. It’s possible the game you are trying to load was actually made with /GameMaker: Studio/, which it does not have support for at the moment. Whether it will in the future is unclear right now.
 #+end_quote
 
+/Loading a game throws "Error code 0xC0072095", a mention of "wgl.CreateContextAttribsARB" or somewhat/
+
+#+begin_quote
+Apparently, your system does not have the necessary version of OpenGL. At the moment, OpenGMK, unfortunately, requires *OpenGL 3.3* with support for GLSL 3.30 shaders - we really hope to /significantly/ soften this over time. Usually this situation occurs when attempting to run on integrated graphics hardware by Intel from the early 2010s and older. You can try updating the drivers (sometimes they add support for newer versions of OpenGL) or, if you also have a discrete GPU or graphics card, set OpenGMK to use it, through the corresponding control panel.
+#+end_quote
+
 /Loading a game or while playing a game, "unimplemented kernel function" or "not yet implemented" or similar/
 
 #+begin_quote
