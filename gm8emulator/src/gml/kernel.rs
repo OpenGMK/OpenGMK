@@ -2481,9 +2481,19 @@ impl Game {
         }
     }
 
-    pub fn surface_getpixel(&mut self, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 3
-        unimplemented!("Called unimplemented kernel function surface_getpixel")
+    pub fn surface_getpixel(&mut self, args: &[Value]) -> gml::Result<Value> {
+        let (surf_id, x, y) = expect_args!(args, [int, int, int])?;
+        if Some(surf_id) == self.surface_target {
+            self.renderer.flush_queue();
+        }
+        if let Some(surf) = self.surfaces.get_asset(surf_id) {
+            let (x, y) = (x.max(0), y.max(0));
+            if (x as u32 >= surf.width) || (y as u32 >= surf.height) { return Ok(Default::default()); }
+            let data = self.renderer.dump_sprite_part(surf.atlas_ref, x, y, 1, 1);
+            Ok(u32::from_le_bytes([data[0], data[1], data[2], 0]).into())
+        } else {
+            Ok(Default::default())
+        }
     }
 
     pub fn surface_copy(&mut self, args: &[Value]) -> gml::Result<Value> {
