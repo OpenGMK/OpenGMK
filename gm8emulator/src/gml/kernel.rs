@@ -2506,9 +2506,10 @@ impl Game {
         Ok(Default::default())
     }
 
-    pub fn action_path_old(&mut self, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 3
-        unimplemented!("Called unimplemented kernel function action_path_old")
+    pub fn action_path_old(args: &[Value]) -> gml::Result<Value> {
+        // In GM 8.0, 8.1.141 and 8.1.218 this does not even set the result value explicitly.
+        expect_args!(args, [any, any, any])?;
+        Ok(Default::default())
     }
 
     pub fn action_set_sprite(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
@@ -2520,24 +2521,28 @@ impl Game {
         Ok(Default::default())
     }
 
-    pub fn action_draw_font(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function action_draw_font")
+    pub fn action_draw_font(args: &[Value]) -> gml::Result<Value> {
+        // In GM 8.0, 8.1.141 and 8.1.218 this does not even set the result value explicitly.
+        expect_args!(args, [any])?;
+        Ok(Default::default())
     }
 
-    pub fn action_draw_font_old(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 6
-        unimplemented!("Called unimplemented kernel function action_draw_font_old")
+    pub fn action_draw_font_old(args: &[Value]) -> gml::Result<Value> {
+        // In GM 8.0, 8.1.141 and 8.1.218 this does not even set the result value explicitly.
+        expect_args!(args, [any, any, any, any, any, any])?;
+        Ok(Default::default())
     }
 
-    pub fn action_fill_color(&mut self, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function action_fill_color")
+    pub fn action_fill_color(args: &[Value]) -> gml::Result<Value> {
+        // In GM 8.0, 8.1.141 and 8.1.218 this does not even set the result value explicitly.
+        expect_args!(args, [any])?;
+        Ok(Default::default())
     }
 
-    pub fn action_line_color(&mut self, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function action_line_color")
+    pub fn action_line_color(args: &[Value]) -> gml::Result<Value> {
+        // In GM 8.0, 8.1.141 and 8.1.218 this does not even set the result value explicitly.
+        expect_args!(args, [any])?;
+        Ok(Default::default())
     }
 
     pub fn action_highscore(args: &[Value]) -> gml::Result<Value> {
