@@ -70,9 +70,9 @@ pub struct SaveState {
     pub draw_alpha: Real,
     pub draw_halign: draw::Halign,
     pub draw_valign: draw::Valign,
-    pub surfaces: Vec<Option<Surface>>,
+    pub surfaces: HandleList<Surface>,
     pub surface_target: Option<i32>,
-    pub models: Vec<Option<Model>>,
+    pub models: HandleList<Model>,
     pub model_matrix_stack: Vec<[f32; 16]>,
     pub auto_draw: bool,
     pub renderer_state: RendererState,
@@ -211,8 +211,7 @@ impl SaveState {
 
         game.renderer.set_stored(self.screenshot, self.zbuffer, self.window_width, self.window_height);
 
-        let surfaces = self.surfaces;
-        if let Some(Some(surf)) = self.surface_target.and_then(|id| surfaces.get(id as usize)) {
+        if let Some(surf) = self.surface_target.and_then(|id| self.surfaces.get(id)) {
             game.renderer.set_target(surf.atlas_ref);
         } else {
             game.renderer.reset_target();
@@ -252,7 +251,7 @@ impl SaveState {
         game.draw_alpha = self.draw_alpha;
         game.draw_halign = self.draw_halign;
         game.draw_valign = self.draw_valign;
-        game.surfaces = surfaces;
+        game.surfaces = self.surfaces;
         game.surface_target = self.surface_target;
         game.models = self.models;
         game.model_matrix_stack = self.model_matrix_stack;

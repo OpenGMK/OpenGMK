@@ -13,8 +13,8 @@ pub struct UserTransition {
 }
 
 fn wipe(game: &mut Game, surf_old: i32, surf_new: i32, width: i32, height: i32, progress: Real, horz: i32, vert: i32) {
-    let surf_old = game.surfaces.get_asset(surf_old).unwrap();
-    let surf_new = game.surfaces.get_asset(surf_new).unwrap();
+    let surf_old = game.surfaces.get(surf_old).unwrap();
+    let surf_new = game.surfaces.get(surf_new).unwrap();
 
     game.renderer.draw_sprite(surf_old.atlas_ref, 0.0, 0.0, 1.0, 1.0, 0.0, 0xffffff, 1.0);
 
@@ -39,8 +39,8 @@ fn wipe(game: &mut Game, surf_old: i32, surf_new: i32, width: i32, height: i32, 
 }
 
 fn wipe_from_center(game: &mut Game, surf_old: i32, surf_new: i32, width: i32, height: i32, progress: Real) {
-    let surf_old = game.surfaces.get_asset(surf_old).unwrap();
-    let surf_new = game.surfaces.get_asset(surf_new).unwrap();
+    let surf_old = game.surfaces.get(surf_old).unwrap();
+    let surf_new = game.surfaces.get(surf_new).unwrap();
 
     game.renderer.draw_sprite(surf_old.atlas_ref, 0.0, 0.0, 1.0, 1.0, 0.0, 0xffffff, 1.0);
 
@@ -67,8 +67,8 @@ fn wipe_from_center(game: &mut Game, surf_old: i32, surf_new: i32, width: i32, h
 }
 
 fn slide(game: &mut Game, surf_old: i32, surf_new: i32, width: i32, height: i32, progress: Real, horz: i32, vert: i32) {
-    let surf_old = game.surfaces.get_asset(surf_old).unwrap();
-    let surf_new = game.surfaces.get_asset(surf_new).unwrap();
+    let surf_old = game.surfaces.get(surf_old).unwrap();
+    let surf_new = game.surfaces.get(surf_new).unwrap();
 
     game.renderer.draw_sprite(surf_old.atlas_ref, 0.0, 0.0, 1.0, 1.0, 0.0, 0xffffff, 1.0);
 
@@ -103,8 +103,8 @@ fn interlace(
         );
     }
 
-    let surf_old = game.surfaces.get_asset(surf_old).unwrap();
-    let surf_new = game.surfaces.get_asset(surf_new).unwrap();
+    let surf_old = game.surfaces.get(surf_old).unwrap();
+    let surf_new = game.surfaces.get(surf_new).unwrap();
 
     if progress == length {
         game.renderer.draw_sprite(surf_new.atlas_ref, 0.0, 0.0, 1.0, 1.0, 0.0, 0xffffff, 1.0);
@@ -164,8 +164,8 @@ fn interlace(
 }
 
 fn push(game: &mut Game, surf_old: i32, surf_new: i32, width: i32, height: i32, progress: Real, horz: i32, vert: i32) {
-    let surf_old = game.surfaces.get_asset(surf_old).unwrap();
-    let surf_new = game.surfaces.get_asset(surf_new).unwrap();
+    let surf_old = game.surfaces.get(surf_old).unwrap();
+    let surf_new = game.surfaces.get(surf_new).unwrap();
 
     let old_x = progress * (horz * width).into();
     let old_y = progress * (vert * height).into();
@@ -177,8 +177,8 @@ fn push(game: &mut Game, surf_old: i32, surf_new: i32, width: i32, height: i32, 
 }
 
 fn rotate(game: &mut Game, surf_old: i32, surf_new: i32, width: Real, height: Real, progress: Real, to_right: bool) {
-    let surf_old = game.surfaces.get_asset(surf_old).unwrap();
-    let surf_new = game.surfaces.get_asset(surf_new).unwrap();
+    let surf_old = game.surfaces.get(surf_old).unwrap();
+    let surf_new = game.surfaces.get(surf_new).unwrap();
 
     game.renderer.draw_sprite(surf_old.atlas_ref, 0.0, 0.0, 1.0, 1.0, 0.0, 0xffffff, 1.0);
 
@@ -199,16 +199,16 @@ fn rotate(game: &mut Game, surf_old: i32, surf_new: i32, width: Real, height: Re
 }
 
 fn fade_direct(game: &mut Game, surf_old: i32, surf_new: i32, progress: Real) {
-    let surf_old = game.surfaces.get_asset(surf_old).unwrap();
-    let surf_new = game.surfaces.get_asset(surf_new).unwrap();
+    let surf_old = game.surfaces.get(surf_old).unwrap();
+    let surf_new = game.surfaces.get(surf_new).unwrap();
 
     game.renderer.draw_sprite(surf_old.atlas_ref, 0.0, 0.0, 1.0, 1.0, 0.0, 0xffffff, 1.0);
     game.renderer.draw_sprite(surf_new.atlas_ref, 0.0, 0.0, 1.0, 1.0, 0.0, 0xffffff, progress.into());
 }
 
 fn fade_black(game: &mut Game, surf_old: i32, surf_new: i32, progress: Real) {
-    let surf_old = game.surfaces.get_asset(surf_old).unwrap();
-    let surf_new = game.surfaces.get_asset(surf_new).unwrap();
+    let surf_old = game.surfaces.get(surf_old).unwrap();
+    let surf_new = game.surfaces.get(surf_new).unwrap();
 
     game.renderer.clear_view(0.into(), 1.0.into());
     if progress < 0.5.into() {

@@ -107,8 +107,8 @@ pub trait HandleManager<T>: private::HandleStorage<T> {
         self.push_from(init_handle)
     }
 
-    fn delete(&mut self, index: i32) -> bool {
-        usize::try_from(index).ok().and_then(|x| self.iter_mut().nth(x)).and_then(|x| x.take()).is_some()
+    fn remove(&mut self, index: i32) -> Option<T> {
+        usize::try_from(index).ok().and_then(|x| self.iter_mut().nth(x)).and_then(|x| x.take())
     }
 }
 
