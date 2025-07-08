@@ -387,6 +387,10 @@ impl ShapeBuilder {
     }
 }
 
+// TODO: Implement Drop trait for RendererImpl to delete OpenGL objects we create? This doesn't make
+// much sense in Release builds - because then we're doing the OS's work for it and just increasing
+// the process termination time - but can be quite useful for Debug ones.
+
 impl RendererImpl {
     pub fn new(options: &RendererOptions, connection: &Connection, window: &Window, clear_colour: Colour) -> Result<Self, String> {
         unsafe {
@@ -482,8 +486,61 @@ impl RendererImpl {
             // Use DX provoking vertex convention
             gl.ProvokingVertex(gl::FIRST_VERTEX_CONVENTION);
 
-            // Unbind VBO
-            gl.BindBuffer(gl::ARRAY_BUFFER, 0);
+            // Create and bind the VBO once
+            let mut commands_vbo: GLuint = 0;
+            gl.GenBuffers(1, &mut commands_vbo);
+            gl.BindBuffer(gl::ARRAY_BUFFER, commands_vbo);
+
+            // layout (location = 0) in vec3 pos;
+            // layout (location = 1) in vec4 blend;
+            // layout (location = 2) in vec2 tex_coord;
+            // layout (location = 3) in vec3 normal;
+            // layout (location = 4) in vec4 atlas_xywh;
+            gl.EnableVertexAttribArray(0);
+            gl.VertexAttribPointer(
+                0,
+                3,
+                gl::FLOAT,
+                gl::FALSE,
+                size_of::<Vertex>() as i32,
+                offset_of!(Vertex, pos) as *const _,
+            );
+            gl.EnableVertexAttribArray(1);
+            gl.VertexAttribPointer(
+                1,
+                4,
+                gl::FLOAT,
+                gl::FALSE,
+                size_of::<Vertex>() as i32,
+                offset_of!(Vertex, blend) as *const _,
+            );
+            gl.EnableVertexAttribArray(2);
+            gl.VertexAttribPointer(
+                2,
+                2,
+                gl::FLOAT,
+                gl::FALSE,
+                size_of::<Vertex>() as i32,
+                offset_of!(Vertex, tex_coord) as *const _,
+            );
+            gl.EnableVertexAttribArray(3);
+            gl.VertexAttribPointer(
+                3,
+                3,
+                gl::FLOAT,
+                gl::FALSE,
+                size_of::<Vertex>() as i32,
+                offset_of!(Vertex, normal) as *const _,
+            );
+            gl.EnableVertexAttribArray(4);
+            gl.VertexAttribPointer(
+                4,
+                4,
+                gl::FLOAT,
+                gl::FALSE,
+                size_of::<Vertex>() as i32,
+                offset_of!(Vertex, atlas_xywh) as *const _,
+            );
 
             // Use program
             gl.UseProgram(program);
@@ -549,6 +606,7 @@ impl RendererImpl {
                 imp,
                 //program,
                 //vao,
+                //commands_vbo,
                 atlas_packers: vec![],
                 texture_ids: vec![],
                 zbuf_ids: vec![],
@@ -725,72 +783,24 @@ impl RendererImpl {
             self.gl.TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, filter_mode as _);
             self.gl.TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, filter_mode as _);
 
-            let mut commands_vbo: GLuint = 0;
-            self.gl.GenBuffers(1, &mut commands_vbo);
-            self.gl.BindBuffer(gl::ARRAY_BUFFER, commands_vbo);
             self.gl.BufferData(
                 gl::ARRAY_BUFFER,
                 (size_of::<Vertex>() * buffer.len()) as _,
                 buffer.as_ptr().cast(),
-                gl::STATIC_DRAW,
+                gl::STREAM_DRAW,
             );
             assert_eq!(self.gl.GetError(), 0);
-
-            // layout (location = 0) in vec3 pos;
-            // layout (location = 1) in vec4 blend;
-            // layout (location = 2) in vec2 tex_coord;
-            // layout (location = 3) in vec3 normal;
-            // layout (location = 4) in vec4 atlas_xywh;
-            self.gl.EnableVertexAttribArray(0);
-            self.gl.VertexAttribPointer(
-                0,
-                3,
-                gl::FLOAT,
-                gl::FALSE,
-                size_of::<Vertex>() as i32,
-                offset_of!(Vertex, pos) as *const _,
-            );
-            self.gl.EnableVertexAttribArray(1);
-            self.gl.VertexAttribPointer(
-                1,
-                4,
-                gl::FLOAT,
-                gl::FALSE,
-                size_of::<Vertex>() as i32,
-                offset_of!(Vertex, blend) as *const _,
-            );
-            self.gl.EnableVertexAttribArray(2);
-            self.gl.VertexAttribPointer(
-                2,
-                2,
-                gl::FLOAT,
-                gl::FALSE,
-                size_of::<Vertex>() as i32,
-                offset_of!(Vertex, tex_coord) as *const _,
-            );
-            self.gl.EnableVertexAttribArray(3);
-            self.gl.VertexAttribPointer(
-                3,
-                3,
-                gl::FLOAT,
-                gl::FALSE,
-                size_of::<Vertex>() as i32,
-                offset_of!(Vertex, normal) as *const _,
-            );
-            self.gl.EnableVertexAttribArray(4);
-            self.gl.VertexAttribPointer(
-                4,
-                4,
-                gl::FLOAT,
-                gl::FALSE,
-                size_of::<Vertex>() as i32,
-                offset_of!(Vertex, atlas_xywh) as *const _,
-            );
 
             self.gl.DrawArrays(shape.into(), 0, buffer.len() as i32);
 
-            self.gl.DeleteBuffers(1, &commands_vbo);
-            assert_eq!(self.gl.GetError(), 0);
+            // https://www.khronos.org/opengl/wiki/Buffer_Object_Streaming#Buffer_re-specification
+            // https://www.khronos.org/opengl/wiki/Buffer_Object#Invalidation
+            self.gl.BufferData(
+                gl::ARRAY_BUFFER,
+                (size_of::<Vertex>() * buffer.len()) as _,
+                ptr::null(),
+                gl::STREAM_DRAW,
+            );
         }
     }
 }
