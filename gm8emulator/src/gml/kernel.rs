@@ -3596,7 +3596,6 @@ impl Game {
 
     pub fn action_set_cursor(&mut self, args: &[Value]) -> gml::Result<Value> {
         let (sprite_id, show_window_cursor) = expect_args!(args, [int, bool])?;
-        let _ = (sprite_id, show_window_cursor);
         self.cursor_sprite = sprite_id;
         let cursor = if show_window_cursor {
             Cursor::Arrow // GM8 seems to always resets to default cursor on call of this function
