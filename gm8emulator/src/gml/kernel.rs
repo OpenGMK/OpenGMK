@@ -2513,12 +2513,21 @@ impl Game {
     }
 
     pub fn action_set_sprite(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
-        let (sprite, scale) = expect_args!(args, [int, real])?;
+        let (sprite_idx, scale) = expect_args!(args, [int, real])?;
         let instance = self.room.instance_list.get(context.this);
-        instance.sprite_index.set(sprite);
-        instance.image_xscale.set(scale);
-        instance.image_yscale.set(scale);
-        Ok(Default::default())
+
+        if let Some(sprite) = self.assets.sprites.get_asset(sprite_idx) {
+            instance.set_sprite_index(sprite_idx, sprite.frames.len());
+
+            if f64::from(scale) > 0.0 {
+                instance.image_xscale.set(scale);
+                instance.image_yscale.set(scale);
+            }
+
+            Ok(Default::default())
+        } else {
+            Err(gml::Error::FunctionError("action_set_sprite".into(), "Trying to set non-existing sprite.".into()))
+        }
     }
 
     pub fn action_draw_font(args: &[Value]) -> gml::Result<Value> {
@@ -2901,13 +2910,26 @@ impl Game {
     }
 
     pub fn action_sprite_set(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
-        let (sprite_id, image_index, image_speed) = expect_args!(args, [int, real, real])?;
+        let (sprite_idx, image_index, image_speed) = expect_args!(args, [int, real, real])?;
         let instance = self.room.instance_list.get(context.this);
-        instance.bbox_is_stale.set(true);
-        instance.sprite_index.set(sprite_id);
-        instance.image_index.set(image_index);
-        instance.image_speed.set(image_speed);
-        Ok(Default::default())
+
+        if let Some(sprite) = self.assets.sprites.get_asset(sprite_idx) {
+            if sprite_idx != instance.sprite_index.get() {
+                instance.sprite_index.set(sprite_idx);
+                instance.bbox_is_stale.set(true);
+            }
+
+            if f64::from(image_index) >= 0.0 {
+                instance.image_index.set(image_index);
+            } else if sprite.frames.len() as f64 <= instance.image_index.get().floor().into() {
+                instance.image_index.set(0.0.into());
+            }
+
+            instance.image_speed.set(image_speed);
+            Ok(Default::default())
+        } else {
+            Err(gml::Error::FunctionError("action_sprite_set".into(), "Trying to set non-existing sprite.".into()))
+        }
     }
 
     pub fn action_sprite_transform(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
