@@ -5460,9 +5460,15 @@ impl Game {
         Ok(Default::default())
     }
 
-    pub fn instance_sprite(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function instance_sprite")
+    pub fn instance_sprite(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let sprite_idx = expect_args!(args, [int])?;
+        let instance = self.room.instance_list.get(context.this);
+        if let Some(sprite) = self.assets.sprites.get_asset(sprite_idx) {
+            instance.set_sprite_index(sprite_idx, sprite.frames.len());
+            Ok(Default::default())
+        } else {
+            Err(gml::Error::FunctionError("instance_sprite".into(), "Trying to set non-existing sprite.".into()))
+        }
     }
 
     pub fn position_empty(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {

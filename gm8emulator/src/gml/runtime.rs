@@ -1232,17 +1232,10 @@ impl Game {
             InstanceVariable::Depth => instance.depth.set(value.into()),
             InstanceVariable::SpriteIndex => {
                 let v: i32 = value.into();
-
-                if v != instance.sprite_index.get() {
-                    instance.bbox_is_stale.set(true);
-                    instance.sprite_index.set(v);
-                }
-
-                let frame_count =
-                    if let Some(sprite) = self.assets.sprites.get_asset(v) { sprite.frames.len() as f64 } else { 0.0 };
-                if frame_count <= instance.image_index.get().floor().into() {
-                    instance.image_index.set(Real::from(0.0));
-                }
+                instance.set_sprite_index(
+                    v,
+                    self.assets.sprites.get_asset(v).map_or(0, |s| s.frames.len())
+                );
             },
             InstanceVariable::ImageIndex => {
                 instance.image_index.set(value.into());
