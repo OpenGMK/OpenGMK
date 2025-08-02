@@ -28,7 +28,7 @@ impl Manager {
     }
 
     fn free(&mut self, id: i32) -> Result<(), String> {
-        self.externals.delete(id);
+        self.externals.remove(id);
         Ok(())
     }
 }
@@ -50,15 +50,15 @@ fn main() -> io::Result<()> {
         None => {
             eprintln!("This is a bridge executable, and is not meant to be ran independently.");
             pause();
-            return Ok(())
+            return Ok(());
         },
         Some(version) => {
             stdout.write_all(&dll::PROTOCOL_VERSION.to_le_bytes())?;
             stdout.flush()?;
             if version != dll::PROTOCOL_VERSION {
-                return Ok(())
+                return Ok(());
             }
-        }
+        },
     }
 
     eprintln!("starting dll compatibility layer\n  > server: \"{}\"", env::args().next().unwrap());
@@ -94,7 +94,7 @@ fn main() -> io::Result<()> {
                 => respond!(manager.free(id)),
             dll::Wow64Message::Stop => {
                 respond!(Result::<(), String>::Ok(()));
-                break Ok(())
+                break Ok(());
             },
         }
     }
