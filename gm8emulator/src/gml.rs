@@ -78,6 +78,34 @@ impl Function {
     }
 }
 
+trait FunctionTryFromEnum: Sized {
+    fn to_ptr(e: &Function) -> Option<Self>;
+}
+
+impl FunctionTryFromEnum for ContextFunctionPtr {
+    fn to_ptr(e: &Function) -> Option<Self> {
+        if let Function::Runtime(f) = e { Some(*f) } else { None }
+    }
+}
+
+impl FunctionTryFromEnum for StateFunctionPtr {
+    fn to_ptr(e: &Function) -> Option<Self> {
+        if let Function::Engine(f) = e { Some(*f) } else { None }
+    }
+}
+
+impl FunctionTryFromEnum for RoutineFunctionPtr {
+    fn to_ptr(e: &Function) -> Option<Self> {
+        if let Function::Volatile(f) | Function::Constant(f) = e { Some(*f) } else { None }
+    }
+}
+
+impl FunctionTryFromEnum for ValueFunctionPtr {
+    fn to_ptr(e: &Function) -> Option<Self> {
+        if let Function::Pure(f) = e { Some(*f) } else { None }
+    }
+}
+
 impl<T> Serialize for FunctionPtr<T> {
     fn serialize<S>(&self, s: S) -> std::result::Result<S::Ok, S::Error>
     where
@@ -91,56 +119,14 @@ impl<T> Serialize for FunctionPtr<T> {
     }
 }
 
-impl<'de> Deserialize<'de> for ContextFunction {
+impl<'de, T: FunctionTryFromEnum> Deserialize<'de> for FunctionPtr<T> {
     fn deserialize<D>(d: D) -> std::result::Result<Self, D::Error>
     where
         D: serde::Deserializer<'de>,
     {
         let i = u16::deserialize(d)?;
-        if let Some((_, Function::Runtime(f))) = mappings::FUNCTIONS.index(i.into()) {
-            Ok(Self(*f))
-        } else {
-            Err(de::Error::custom("deserialized function index is out of range"))
-        }
-    }
-}
-
-impl<'de> Deserialize<'de> for StateFunction {
-    fn deserialize<D>(d: D) -> std::result::Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        let i = u16::deserialize(d)?;
-        if let Some((_, Function::Engine(f))) = mappings::FUNCTIONS.index(i.into()) {
-            Ok(Self(*f))
-        } else {
-            Err(de::Error::custom("deserialized function index is out of range"))
-        }
-    }
-}
-
-impl<'de> Deserialize<'de> for RoutineFunction {
-    fn deserialize<D>(d: D) -> std::result::Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        let i = u16::deserialize(d)?;
-        if let Some((_, Function::Volatile(f) | Function::Constant(f))) = mappings::FUNCTIONS.index(i.into()) {
-            Ok(Self(*f))
-        } else {
-            Err(de::Error::custom("deserialized function index is out of range"))
-        }
-    }
-}
-
-impl<'de> Deserialize<'de> for ValueFunction {
-    fn deserialize<D>(d: D) -> std::result::Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        let i = u16::deserialize(d)?;
-        if let Some((_, Function::Pure(f))) = mappings::FUNCTIONS.index(i.into()) {
-            Ok(Self(*f))
+        if let Some(f) = mappings::FUNCTIONS.index(i.into()).and_then(|(_, v)| T::to_ptr(v)) {
+            Ok(Self(f))
         } else {
             Err(de::Error::custom("deserialized function index is out of range"))
         }
