@@ -1850,11 +1850,10 @@ impl Game {
                 if let Some(timeline) = self.assets.timelines.get_asset(instance.timeline_index.get()) {
                     let moments = timeline.moments.clone();
                     let timeline_len = Real::from(*moments.borrow().keys().max().unwrap_or(&0));
+                    let old_position = instance.timeline_position.get();
+                    let new_position = old_position + instance.timeline_speed.get();
 
                     if timeline_len > Real::from(0) {
-                        let old_position = instance.timeline_position.get();
-                        let new_position = old_position + instance.timeline_speed.get();
-
                         match instance.timeline_speed.get() {
                             x if x > Real::from(0) => {
                                 if new_position > timeline_len && instance.timeline_loop.get() {
@@ -1889,6 +1888,23 @@ impl Game {
                             },
                             _ => {},
                         };
+                    } else if timeline_len == Real::from(0) {
+                        if new_position > timeline_len && instance.timeline_loop.get() {
+                            instance.timeline_position.set(Real::from(0));
+                        } else {
+                            instance.timeline_position.set(new_position);
+                        }
+
+                        if old_position <= timeline_len {
+                            for (_, tree) in moments
+                                .borrow()
+                                .iter()
+                                .filter(|(&x, _)| Real::from(x) >= old_position && Real::from(x) < new_position)
+                                .rev()
+                            {
+                                self.execute_tree(tree.clone(), handle, handle, 0, 0, object_index)?;
+                            }
+                        }
                     }
                 }
             }
