@@ -1851,55 +1851,33 @@ impl Game {
                     let moments = timeline.moments.clone();
                     let timeline_len = Real::from(*moments.borrow().keys().max().unwrap_or(&0));
                     let old_position = instance.timeline_position.get();
-                    let new_position = old_position + instance.timeline_speed.get();
+                    let speed = instance.timeline_speed.get();
+                    let new_position = old_position + speed;
 
-                    if timeline_len > Real::from(0) {
-                        match instance.timeline_speed.get() {
-                            x if x > Real::from(0) => {
-                                if new_position > timeline_len && instance.timeline_loop.get() {
-                                    instance.timeline_position.set(Real::from(0));
-                                } else {
-                                    instance.timeline_position.set(new_position)
-                                }
-
-                                for (_, tree) in moments
-                                    .borrow()
-                                    .iter()
-                                    .filter(|(&x, _)| Real::from(x) >= old_position && Real::from(x) < new_position)
-                                {
-                                    self.execute_tree(tree.clone(), handle, handle, 0, 0, object_index)?;
-                                }
-                            },
-                            x if x < Real::from(0) => {
-                                if new_position < Real::from(0) && instance.timeline_loop.get() {
-                                    instance.timeline_position.set(timeline_len);
-                                } else {
-                                    instance.timeline_position.set(new_position)
-                                }
-
-                                for (_, tree) in moments
-                                    .borrow()
-                                    .iter()
-                                    .filter(|(&x, _)| Real::from(x) > new_position && Real::from(x) <= old_position)
-                                    .rev()
-                                {
-                                    self.execute_tree(tree.clone(), handle, handle, 0, 0, object_index)?;
-                                }
-                            },
-                            _ => {},
-                        };
-                    } else if timeline_len == Real::from(0) {
-                        if new_position > timeline_len && instance.timeline_loop.get() {
+                    if new_position > timeline_len && instance.timeline_loop.get() {
+                        if speed >= Real::from(0) {
                             instance.timeline_position.set(Real::from(0));
                         } else {
-                            instance.timeline_position.set(new_position);
+                            instance.timeline_position.set(timeline_len);
                         }
+                    } else {
+                        instance.timeline_position.set(new_position)
+                    }
 
-                        if old_position <= timeline_len {
+                    if timeline_len >= Real::from(0) {
+                        if speed > Real::from(0) {
                             for (_, tree) in moments
                                 .borrow()
                                 .iter()
                                 .filter(|(&x, _)| Real::from(x) >= old_position && Real::from(x) < new_position)
+                            {
+                                self.execute_tree(tree.clone(), handle, handle, 0, 0, object_index)?;
+                            }
+                        } else if speed < Real::from(0) {
+                            for (_, tree) in moments
+                                .borrow()
+                                .iter()
+                                .filter(|(&x, _)| Real::from(x) <= old_position && Real::from(x) > new_position)
                                 .rev()
                             {
                                 self.execute_tree(tree.clone(), handle, handle, 0, 0, object_index)?;
