@@ -80,78 +80,74 @@ impl MacroWindow {
 
     fn show_macro_windows(&mut self, info: &mut DisplayInformation) {
         let keybind_pressed = info.keybind_pressed(Binding::ToggleMacros);
-        let DisplayInformation {
-            keyboard_state,
-            keybindings,
-            config,
-            frame,
-            ..
-        } = info;
+        let config = &info.config;
+        let frame = info.frame;
 
-        frame.begin_window(&self.name(), None, true, false, Some(&mut self.is_open));
+        let mut is_open = self.is_open;
+        frame
+            .window(self.name())
+            .opened(&mut is_open)
+            .build(|| {
+                let window_size = frame.window_size();
+                let content_position = frame.window_content_region_min();
+                frame.set_next_item_width(window_size[0] - content_position[0] * 2.0);
+                frame.input_text(&"##macroinput", &mut self.macro_string)
+                    .read_only(self.run_macro)
+                    .build();
+                if frame.is_item_focused() {
+                    info.keybindings.disable_bindings();
+                }
 
-        let mut flags: i32 = 0;
-        if self.run_macro {
-            flags = cimgui_sys::ImGuiInputTextFlags__ImGuiInputTextFlags_ReadOnly as _;
-        }
-        
-        let window_size = frame.window_size();
-        let content_position = frame.content_position();
-        frame.set_next_item_width(window_size.0 - content_position.0 * 2.0);
-        frame.input_text(&"##macroinput", &mut self.macro_string, flags, None);
-        if frame.is_item_focused() {
-            keybindings.disable_bindings();
-        }
-
-        let pressed = frame.checkbox("Run Macro", &mut self.run_macro) || keybind_pressed;
-        if keybind_pressed {
-            self.run_macro = !self.run_macro;
-        }
-        frame.same_line(0.0, -1.0);
-        frame.checkbox("Repeat Macro", &mut self.repeat_macro);
-        if pressed {
-            if self.run_macro {
-                self.start_frame = config.current_frame;
-                self.update_macro();
-            } else {
-                self.info_text = String::from("Not running");
-            }
-        }
-        
-        frame.text(&self.info_text);
-        
-        // Apply the current frame of the macro if the frame has changed
-        if self.run_macro && self.last_frame != config.current_frame {
-            self.last_frame = config.current_frame;
-
-            let current_frame = config.current_frame.checked_sub(self.start_frame).unwrap_or(0);
-            let index = if !self.repeat_macro && current_frame >= self.input_frames.len() {
-                self.input_frames.len() - 1
-            } else {
-                current_frame % self.input_frames.len()
-            };
-
-            // if the start frame is before the current frame
-            if self.start_frame <= config.current_frame {
-                self.info_text = format!("Macro Frame {}/{}", index, self.input_frames.len() - 1);
-
-                // and we repeat the macro or are still at the first iteration
-                if self.repeat_macro || config.current_frame - self.start_frame < self.input_frames.len() {
-                    let current_frame = self.input_frames.get(index).unwrap();
-                    
-                    for entry in current_frame {
-                        match entry {
-                            StateChange::Click(index) => keyboard_state.get_mut(*index).unwrap().click(),
-                            StateChange::ChangeTo(index, state) => keyboard_state.get_mut(*index).unwrap().reset_to_state(*state),
-                        }
+                let pressed = frame.checkbox("Run Macro", &mut self.run_macro) || keybind_pressed;
+                if keybind_pressed {
+                    self.run_macro = !self.run_macro;
+                }
+                frame.same_line();
+                frame.checkbox("Repeat Macro", &mut self.repeat_macro);
+                if pressed {
+                    if self.run_macro {
+                        self.start_frame = config.current_frame;
+                        self.update_macro();
+                    } else {
+                        self.info_text = String::from("Not running");
                     }
                 }
-            } else {
-                self.info_text = format!("Macro Frame -{}/{}", self.start_frame - config.current_frame, self.input_frames.len() - 1);
-            }
-        }
+                
+                frame.text(&self.info_text);
+                
+                // Apply the current frame of the macro if the frame has changed
+                if self.run_macro && self.last_frame != config.current_frame {
+                    self.last_frame = config.current_frame;
 
-        frame.end();
+                    let current_frame = config.current_frame.checked_sub(self.start_frame).unwrap_or(0);
+                    let index = if !self.repeat_macro && current_frame >= self.input_frames.len() {
+                        self.input_frames.len() - 1
+                    } else {
+                        current_frame % self.input_frames.len()
+                    };
+
+                    // if the start frame is before the current frame
+                    if self.start_frame <= config.current_frame {
+                        self.info_text = format!("Macro Frame {}/{}", index, self.input_frames.len() - 1);
+
+                        // and we repeat the macro or are still at the first iteration
+                        if self.repeat_macro || config.current_frame - self.start_frame < self.input_frames.len() {
+                            let current_frame = self.input_frames.get(index).unwrap();
+                            
+                            for entry in current_frame {
+                                match entry {
+                                    StateChange::Click(index) => info.keyboard_state.get_mut(*index).unwrap().click(),
+                                    StateChange::ChangeTo(index, state) => info.keyboard_state.get_mut(*index).unwrap().reset_to_state(*state),
+                                }
+                            }
+                        }
+                    } else {
+                        self.info_text = format!("Macro Frame -{}/{}", self.start_frame - config.current_frame, self.input_frames.len() - 1);
+                    }
+                }
+            }
+        );
+        self.is_open = is_open;
     }
 
     fn update_macro(&mut self) {

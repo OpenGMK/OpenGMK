@@ -16,6 +16,7 @@ layout(std140) uniform RenderState {
     vec4 ambient_colour; // padded vec3
     bool lighting_enabled;
     bool gouraud_shading;
+    bool colour_blending;
     // frag shader
     bool repeat;
     bool lerp; // only used if repeat is on
@@ -48,15 +49,15 @@ void main() {
         if (lerp) {
             // get the exact colour of each of the four pixels this coordinate is near, and mix them
             vec2 floor_coord = floor(sprite_coord - 0.5);
-            
+
             vec2 topleft = (frag_atlas_xywh.xy + mod(floor_coord + 0.5, frag_atlas_xywh.zw)) / tex_size;
             vec2 botright = (frag_atlas_xywh.xy + mod(floor_coord + 1.5, frag_atlas_xywh.zw)) / tex_size;
-            
+
             vec4 sampleTL = texture(tex, topleft);
             vec4 sampleTR = texture(tex, vec2(botright.x,topleft.y));
             vec4 sampleBL = texture(tex, vec2(topleft.x,botright.y));
             vec4 sampleBR = texture(tex, botright);
-            
+
             vec2 factor = fract(sprite_coord + 0.5);
             vec4 mix_top = mix(sampleTL, sampleTR, factor.x);
             vec4 mix_bot = mix(sampleBL, sampleBR, factor.x);

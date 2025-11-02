@@ -1,5 +1,5 @@
 use crate::{
-    imgui,
+    imgui_utils::*,
     game::{
         Renderer,
         recording::{
@@ -70,18 +70,26 @@ impl GameWindow {
             }
             
             info.frame.begin_screen_cover();
-            let screencover_focused = info.frame.window_focused();
+            let screencover_focused = info.frame.is_window_focused();
             info.frame.end();
 
             if self.set_screencover_focus {
                 unsafe {
-                    cimgui_sys::igSetNextWindowCollapsed(false, 0);
-                    cimgui_sys::igSetNextWindowFocus();
+                    imgui::sys::igSetNextWindowCollapsed(false, 0);
+                    imgui::sys::igSetNextWindowFocus();
                 }
             }
 
             if info.config.set_mouse_using_textbox {
-                self.mouse_dialog.init_if_closed(info.new_mouse_pos.unwrap_or((0,0)));
+                self.mouse_dialog.init_if_closed(info.new_mouse_pos.unwrap_or_else(|| {
+                    // Take the mouse x/y from the previous frame if we don't have one set for this frame
+                    // Technically it would be better if it took the current frame if it existed, the previous if not and (0, 0) if neither exist but if we're in a state where the current frame already exists we're most likely in read-only anyway and can't edit the mouse using this window. (TODO: allow editing current frame using this window too?)
+                    if let Some(current_frame) = info.replay.get_frame(info.config.current_frame-1) {
+                        (current_frame.mouse_x, current_frame.mouse_y)
+                    } else {
+                        (0, 0,)
+                    }
+                }));
                 self.mouse_dialog.show_window(info);
 
                 match self.mouse_dialog.get_result() {
@@ -106,53 +114,49 @@ impl GameWindow {
         }
         
         let (w, h) = info.game.renderer.stored_size();
-        info.frame.setup_next_window(imgui::Vec2(f32::from(info.config.ui_width) - w as f32 - 8.0, 8.0), None, None);
-        info.frame.begin_window(
-            &format!("{}###{}", info.game.get_window_title(), self.name()),
-            Some(imgui::Vec2(
-                w as f32 + (2.0 * info.win_border_size),
-                h as f32 + info.win_border_size + info.win_frame_height
-            )),
-            false,
-            false,
-            None,
-        );
-        let imgui::Vec2(x, y) = info.frame.window_position();
-        self.callback_data = GameViewData {
-            renderer: (&mut info.game.renderer) as *mut _,
-            x: (x + info.win_border_size) as i32,
-            y: (y + info.win_frame_height) as i32,
-            w: w,
-            h: h,
-        };
-
-        unsafe extern "C" fn callback(
-            _draw_list: *const cimgui_sys::ImDrawList,
-            ptr: *const cimgui_sys::ImDrawCmd
-        ) {
-            let data = &*((*ptr).UserCallbackData as *mut GameViewData);
-            (*data.renderer).draw_stored(data.x, data.y, data.w, data.h);
-        }
-        
-        if !info.frame.window_collapsed() {
-            info.frame.callback(callback, &mut self.callback_data);
-            
-            if *info.setting_mouse_pos && !info.config.set_mouse_using_textbox {
-                let imgui::Vec2(mouse_x, mouse_y) = info.frame.mouse_pos();
-                let position = (-(x + info.win_border_size - mouse_x) as i32, -(y + info.win_frame_height - mouse_y) as i32);
-                info.frame.text_centered_float(&format!("{}, {}", position.0, position.1), imgui::Vec2(mouse_x, mouse_y-15.0));
-                if info.frame.left_clicked() || info.frame.right_clicked() || info.frame.middle_clicked() {
-                    *info.setting_mouse_pos = false;
-                    *info.new_mouse_pos = Some(position);
+        info.frame
+            .window(format!("{}###{}", info.game.get_window_title(), self.name()))
+            .position([f32::from(info.config.ui_width) - w as f32 - 8.0, 8.0], imgui::Condition::FirstUseEver)
+            .size([
+                    w as f32 + (2.0 * info.win_border_size),
+                    h as f32 + info.win_border_size + info.win_frame_height
+                ], imgui::Condition::Always)
+            .resizable(false)
+            .menu_bar(false)
+            .build(|| {
+                let [x, y] = info.frame.window_pos();
+                self.callback_data = GameViewData {
+                    renderer: (&mut info.game.renderer) as *mut _,
+                    x: (x + info.win_border_size) as i32,
+                    y: (y + info.win_frame_height) as i32,
+                    w: w,
+                    h: h,
+                };
+                unsafe extern "C" fn callback(
+                    _draw_list: *const imgui::sys::ImDrawList,
+                    ptr: *const imgui::sys::ImDrawCmd
+                ) {
+                    let data = &*((*ptr).UserCallbackData as *mut GameViewData);
+                    (*data.renderer).draw_stored(data.x, data.y, data.w, data.h);
+                }
+                
+                info.frame.callback(callback, &mut self.callback_data);
+                
+                if *info.setting_mouse_pos && !info.config.set_mouse_using_textbox {
+                    let Vec2(mouse_x, mouse_y) = info.frame.mouse_pos();
+                    let position = (-(x + info.win_border_size - mouse_x) as i32, -(y + info.win_frame_height - mouse_y) as i32);
+                    info.frame.text_centered_float(&format!("{}, {}", position.0, position.1), Vec2(mouse_x, mouse_y-15.0));
+                    if info.frame.is_mouse_clicked(imgui::MouseButton::Left) || info.frame.is_mouse_clicked(imgui::MouseButton::Right) || info.frame.is_mouse_clicked(imgui::MouseButton::Middle) {
+                        *info.setting_mouse_pos = false;
+                        *info.new_mouse_pos = Some(position);
+                    }
+                }
+                
+                if info.frame.is_window_hovered() && info.frame.is_mouse_clicked(imgui::MouseButton::Right) {
+                    self.set_context_menu_instances(info);
                 }
             }
-            
-            if info.frame.window_hovered() && info.frame.right_clicked() {
-                self.set_context_menu_instances(info);
-            }
-        }
-        
-        info.frame.end();
+        );
     }
 
     fn display_context_menu(&mut self, info: &mut DisplayInformation) -> bool {
@@ -174,10 +178,10 @@ impl GameWindow {
     /// Gets all the instances the mouse is hovered over and puts them in a context menu
     fn set_context_menu_instances(&mut self, info: &mut DisplayInformation) {
         unsafe {
-            cimgui_sys::igSetWindowFocusNil();
+            imgui::sys::igSetWindowFocus_Nil();
         }
-        let offset = info.frame.window_position() + imgui::Vec2(info.win_border_size, info.win_frame_height);
-        let imgui::Vec2(x, y) = info.frame.mouse_pos() - offset;
+        let offset = Vec2::from(info.frame.window_pos()) + Vec2(info.win_border_size, info.win_frame_height);
+        let Vec2(x, y) = info.frame.mouse_pos() - offset;
         let (x, y) = info.game.translate_screen_to_room(x as _, y as _);
         
         let mut options: Vec<(String, i32)> = Vec::new();

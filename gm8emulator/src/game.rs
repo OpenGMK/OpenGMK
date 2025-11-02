@@ -36,7 +36,7 @@ use crate::{
     game::gm_save::GMSave,
     game::replay::FrameRng,
     gml::{self, ds, ev, file, rand::Random, runtime::Instruction, Compiler, Context},
-    handleman::{HandleArray, HandleList},
+    handleman::{HandleArray, HandleList, HandleManager},
     input::{self, Input},
     instance::{DummyFieldHolder, Instance, InstanceState},
     instancelist::{InstanceList, TileList},
@@ -169,9 +169,9 @@ pub struct Game {
     pub draw_alpha: Real,
     pub draw_halign: draw::Halign,
     pub draw_valign: draw::Valign,
-    pub surfaces: Vec<Option<surface::Surface>>,
+    pub surfaces: HandleList<surface::Surface>,
     pub surface_target: Option<i32>,
-    pub models: Vec<Option<model::Model>>,
+    pub models: HandleList<model::Model>,
     pub model_matrix_stack: Vec<[f32; 16]>,
     pub auto_draw: bool,
     pub uninit_fields_are_zero: bool,
@@ -1292,9 +1292,9 @@ impl Game {
             draw_alpha: Real::from(1.0),
             draw_halign: draw::Halign::Left,
             draw_valign: draw::Valign::Top,
-            surfaces: Vec::new(),
+            surfaces: HandleList::new(),
             surface_target: None,
-            models: Vec::new(),
+            models: HandleList::new(),
             model_matrix_stack: Vec::new(),
             auto_draw: true,
             last_instance_id,
@@ -1564,10 +1564,7 @@ impl Game {
             self.renderer.set_target(old_surf.atlas_ref);
             self.draw()?;
             self.renderer.set_target(new_surf.atlas_ref);
-            let old_surf_id = self.surfaces.len() as i32;
-            self.surfaces.push(Some(old_surf));
-            self.surfaces.push(Some(new_surf));
-            (old_surf_id, old_surf_id + 1)
+            (self.surfaces.put(old_surf), self.surfaces.put(new_surf))
         } else {
             (-1, -1)
         };
@@ -1709,13 +1706,11 @@ impl Game {
 
         if self.scene_change.is_some() {
             // GM8 would have a memory leak here. We're not doing that.
-            if let Some(surf) = self.surfaces.get_asset_mut(trans_surf_old) {
+            if let Some(surf) = self.surfaces.remove(trans_surf_old) {
                 self.renderer.delete_sprite(surf.atlas_ref);
-                self.surfaces[trans_surf_old as usize] = None;
             }
-            if let Some(surf) = self.surfaces.get_asset_mut(trans_surf_new) {
+            if let Some(surf) = self.surfaces.remove(trans_surf_new) {
                 self.renderer.delete_sprite(surf.atlas_ref);
-                self.surfaces[trans_surf_new as usize] = None;
             }
 
             // Let then next frame handle it
@@ -1771,13 +1766,11 @@ impl Game {
                     }
                 }
             }
-            if let Some(surf) = self.surfaces.get_asset_mut(trans_surf_old) {
+            if let Some(surf) = self.surfaces.remove(trans_surf_old) {
                 self.renderer.delete_sprite(surf.atlas_ref);
-                self.surfaces[trans_surf_old as usize] = None;
             }
-            if let Some(surf) = self.surfaces.get_asset_mut(trans_surf_new) {
+            if let Some(surf) = self.surfaces.remove(trans_surf_new) {
                 self.renderer.delete_sprite(surf.atlas_ref);
-                self.surfaces[trans_surf_new as usize] = None;
             }
             self.transition_kind = 0;
             Ok(())

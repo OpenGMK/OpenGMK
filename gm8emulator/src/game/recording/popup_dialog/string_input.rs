@@ -1,5 +1,5 @@
-use crate::{game::{recording::window::DisplayInformation, replay::FrameRng}, imgui};
-
+use imgui::{InputTextCallback, InputTextCallbackHandler};
+use crate::{game::{recording::window::DisplayInformation, replay::FrameRng}};
 use super::{DialogState, Dialog};
 
 pub struct StringInputPopup {
@@ -14,6 +14,22 @@ pub struct RNGSelect {
     result: Option<FrameRng>
 }
 
+struct CallbackHandler {
+    pub char_limit: Option<usize>,
+}
+impl InputTextCallbackHandler for CallbackHandler {
+    fn on_edit(&mut self, mut data: imgui::TextCallbackData) {
+        if let Some(char_limit) = self.char_limit {
+            let str = data.str();
+            if char_limit < str.len() {
+                if let Some((_index, (byte_pos, _char))) = str.char_indices().enumerate().find(|(index, (_, _))| *index >= char_limit) {
+                    data.remove_chars(byte_pos, str.len());
+                }
+            }
+        }
+    }
+}
+
 impl Dialog for StringInputPopup {
     fn show(&mut self, info: &mut DisplayInformation) -> DialogState {
         let DisplayInformation {
@@ -23,29 +39,33 @@ impl Dialog for StringInputPopup {
         } = info;
         let mut state: DialogState = DialogState::Closed;
 
-        if frame.begin_popup_modal(&self.name) {
+        if let Some(token) = frame.begin_popup(&self.name) {
             state = DialogState::Open;
 
             if !self.is_open {
                 self.is_open = true;
-                frame.set_keyboard_focus_here(0); // Auto-focus textbox if we just opened the dialog
+                frame.set_keyboard_focus_here(); // Auto-focus textbox if we just opened the dialog
             }
 
-            let submitted = frame.input_text(&"##textinput", &mut self.input_buffer, cimgui_sys::ImGuiInputTextFlags__ImGuiInputTextFlags_EnterReturnsTrue as _, self.char_limit);
+            let submitted = frame.input_text("##textinput", &mut self.input_buffer)
+                                    .enter_returns_true(true)
+                                    .callback(InputTextCallback::EDIT, CallbackHandler { char_limit: self.char_limit })
+                                    .build();
+
             if frame.is_item_focused() {
                 keybindings.disable_bindings();
             }
-            if submitted || frame.button("Submit", imgui::Vec2(50.0, 20.0), None) {
+            if submitted || frame.button_with_size("Submit", [50.0, 20.0]) {
                 frame.close_current_popup();
                 state = DialogState::Submit;
             }
 
-            frame.same_line(0.0, 5.0);
-            if frame.button("Cancel", imgui::Vec2(50.0, 20.0), None) {
+            frame.same_line_with_spacing(0.0, 5.0);
+            if frame.button_with_size("Cancel", [50.0, 20.0]) {
                 frame.close_current_popup();
                 state = DialogState::Cancelled;
             }
-            frame.end_popup();
+            token.end();
         }
 
         state

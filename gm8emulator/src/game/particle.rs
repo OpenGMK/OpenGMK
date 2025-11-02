@@ -1418,19 +1418,19 @@ impl Particle {
             return
         }
         let ptype = ptype.unwrap();
-        let image_count = 4;
         let atlas_ref = match ptype.graphic {
             ParticleGraphic::Sprite { sprite, animat, stretch, random: _ } => {
-                let mut subimage = self.subimage;
-                if animat {
-                    if stretch && self.lifetime > 0 {
-                        subimage += image_count * self.timer / self.lifetime;
-                    } else {
-                        subimage += self.timer;
+                if let Some(asset) = assets.sprites.get_asset(sprite) {
+                    let frames = asset.frames.len() as i32;
+                    let mut subimage = self.subimage;
+                    if animat {
+                        subimage += if stretch && self.lifetime > 0 {
+                            frames * self.timer / self.lifetime
+                        } else {
+                            self.timer
+                        }
                     }
-                }
-                if let Some(sprite) = assets.sprites.get_asset(sprite) {
-                    sprite.get_atlas_ref(subimage % sprite.frames.len() as i32)
+                    asset.get_atlas_ref(subimage)
                 } else {
                     None
                 }

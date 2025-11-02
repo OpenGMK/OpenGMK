@@ -289,7 +289,7 @@ impl Game {
         }
 
         // Middle button
-        if self.input.mouse_check_button(MouseButton::Left as i8) {
+        if self.input.mouse_check_button(MouseButton::Middle as i8) {
             try_mouse_events!(2);
         }
 
@@ -309,7 +309,7 @@ impl Game {
         }
 
         // Middle button pressed
-        if self.input.mouse_check_button_pressed(MouseButton::Left as i8) {
+        if self.input.mouse_check_button_pressed(MouseButton::Middle as i8) {
             try_mouse_events!(6);
         }
 
@@ -324,7 +324,7 @@ impl Game {
         }
 
         // Middle button released
-        if self.input.mouse_check_button_released(MouseButton::Left as i8) {
+        if self.input.mouse_check_button_released(MouseButton::Middle as i8) {
             try_mouse_events!(9);
         }
 
@@ -377,34 +377,43 @@ impl Game {
             self.run_object_event(gml::ev::MOUSE, 52, None)?;
         }
 
+        // NB: Global mouse events from GM 5.x may execute multiple times in a
+        // step for the same instance - that's why they're duplicated next.
+
         // Global left button pressed
         if self.input.mouse_check_button_pressed(MouseButton::Left as i8) {
             self.run_object_event(gml::ev::MOUSE, 53, None)?;
+            self.run_object_event(gml::ev::MOUSE, 12, None)?; // Global Pressed ("any"; GM 5.x)
         }
 
         // Global right button pressed
         if self.input.mouse_check_button_pressed(MouseButton::Right as i8) {
             self.run_object_event(gml::ev::MOUSE, 54, None)?;
+            self.run_object_event(gml::ev::MOUSE, 12, None)?; // Global Pressed ("any"; GM 5.x)
         }
 
         // Global middle button pressed
         if self.input.mouse_check_button_pressed(MouseButton::Middle as i8) {
             self.run_object_event(gml::ev::MOUSE, 55, None)?;
+            self.run_object_event(gml::ev::MOUSE, 12, None)?; // Global Pressed ("any"; GM 5.x)
         }
 
         // Global left button released
         if self.input.mouse_check_button_released(MouseButton::Left as i8) {
             self.run_object_event(gml::ev::MOUSE, 56, None)?;
+            self.run_object_event(gml::ev::MOUSE, 13, None)?; // Global Released ("any"; GM 5.x)
         }
 
         // Global right button released
         if self.input.mouse_check_button_released(MouseButton::Right as i8) {
             self.run_object_event(gml::ev::MOUSE, 57, None)?;
+            self.run_object_event(gml::ev::MOUSE, 13, None)?; // Global Released ("any"; GM 5.x)
         }
 
         // Global middle button released
         if self.input.mouse_check_button_released(MouseButton::Middle as i8) {
             self.run_object_event(gml::ev::MOUSE, 58, None)?;
+            self.run_object_event(gml::ev::MOUSE, 13, None)?; // Global Released ("any"; GM 5.x)
         }
 
         // Mouse wheel up

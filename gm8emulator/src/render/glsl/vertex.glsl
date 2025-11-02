@@ -16,6 +16,7 @@ layout(std140) uniform RenderState {
     vec4 ambient_colour; // padded vec3
     bool lighting_enabled;
     bool gouraud_shading;
+    bool colour_blending;
     // frag shader
     bool repeat;
     bool lerp; // only used if repeat is on
@@ -42,10 +43,17 @@ out float fog_z;
 
 void main() {
     vec4 world_pos = model * vec4(pos, 1.0);
-    frag_tex_coord = tex_coord;
     frag_atlas_xywh = atlas_xywh;
-    frag_blend = blend;
     frag_blend_flat = vec4(1.0);
+
+    if (any(isnan(tex_coord))) {
+        frag_tex_coord = vec2(0.0);
+        frag_blend = blend;
+    } else {
+        frag_tex_coord = tex_coord;
+        frag_blend = colour_blending ? blend : vec4(1.0);
+    }
+
     if (lighting_enabled) {
         vec3 light_col = vec3(0.0);
         vec3 new_normal = -(model * vec4(normal, 0.0)).xyz;

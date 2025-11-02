@@ -1,5 +1,0 @@
-# for bindgen :)
-
-edition = "2018"
-version = "Two"
-max_width = 120

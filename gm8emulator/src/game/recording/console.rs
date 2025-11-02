@@ -1,7 +1,8 @@
+use imgui::ListBox;
+
 use crate::{
-    game::recording::window::{Window, Openable, DisplayInformation},
-    gml::{ Context, Value },
-    imgui,
+    game::recording::window::{ Window, Openable, DisplayInformation },
+    gml::{ Context, Value }
 };
 
 pub struct ConsoleWindow {
@@ -53,96 +54,101 @@ impl Window for ConsoleWindow {
             ..
         } = info;
 
-        frame.setup_next_window(imgui::Vec2(100.0, 100.0), Some(imgui::Vec2(600.0, 250.0)), None);
-        if frame.begin_window(&self.name(), None, true, false, Some(&mut self.is_open)) {
-            let window_size = frame.window_size();
-            let content_position = frame.content_position();
-            if frame.begin_listbox(&"GMLConsoleOutput", window_size - imgui::Vec2(content_position.0*2.0, 60.0)) {
-                for text in &self.output {
-                    frame.text(&text);
-                }
-                if self.scroll_to_bottom {
-                    self.scroll_to_bottom = false;
-                    frame.set_scroll_here_y(1.0);
-                }
-                frame.end_listbox();
-            }
-
-            // width = window width - padding - (width of checkbox + item x spacing) - (width of run button + item x spacing)
-            let width = window_size.0 - content_position.0 * 2.0 - 58.0 - 28.0;
-            if width > 0.0 {
-                // checkbox and run button are visible
-                frame.set_next_item_width(width);
-            } else if width > -58.0 {
-                // only checkbox is visible
-                frame.set_next_item_width(width+58.0);
-            } else if width > -58.0 - 28.0 {
-                // nothing is visible
-                frame.set_next_item_width(width+58.0+28.0)
-            }
-
-            let pressed_enter = frame.input_text(&"##consoleinput", &mut self.input_string, cimgui_sys::ImGuiInputTextFlags__ImGuiInputTextFlags_EnterReturnsTrue as _, None);
-            if pressed_enter {
-                frame.set_keyboard_focus_here(0);
-            }
-
-            if frame.is_item_focused() {
-                keybindings.disable_bindings();
-            }
-
-            frame.same_line(0.0, -1.0);
-            let mut run_code = pressed_enter;
-            if width > 0.0 {
-                run_code = frame.button(&"Run", imgui::Vec2(50.0, 20.0), None) || run_code;
-                frame.same_line(0.0, -1.0);
-            }
-
-            frame.checkbox("##runcode", &mut self.run_code);
-            if self.last_frame != config.current_frame || self.last_rerecords != config.rerecords {
-                run_code = run_code || self.run_code;
-                self.last_frame = config.current_frame;
-                self.last_rerecords = config.rerecords;
-            }
-
-            if run_code {
-                if self.input_string.starts_with('/') || self.input_string.starts_with('.') {
-                    // see if it's a known command
-                    match self.input_string.split_at(1).1 {
-                        "clear" => self.output.clear(),
-                        _ => {
-                            self.run_code = false;
-                            self.output.push(format!("Unknown command: {}\n", self.input_string));
-                        }
+        frame.window(self.name())
+            .opened(&mut self.is_open)
+            .position([100.0, 100.0], imgui::Condition::FirstUseEver)
+            .size([600.0, 250.0], imgui::Condition::FirstUseEver)
+            .build(|| {
+                let window_size = frame.window_size();
+                let content_position = frame.window_content_region_min();
+                ListBox::new("GMLConsoleOutput")
+                .size([window_size[0]-content_position[0]*2.0, window_size[1] - 60.0])
+                .build(frame, || {
+                    for text in &self.output {
+                        frame.text(&text);
                     }
-                } else {
-                    // run input as gml code
-                    if !self.run_code {
-                        self.output.push(format!(">>> {}\n", self.input_string));
+                    if self.scroll_to_bottom {
+                        self.scroll_to_bottom = false;
+                        frame.set_scroll_here_y_with_ratio(1.0);
                     }
+                });
 
-                    let mut new_args: [Value; 16] = Default::default();
-                    new_args[0] = self.input_string.clone().into();
-                    match game.execute_string(&mut self.gml_context, &new_args) {
-                        Ok(value) => match value {
-                            Value::Str(string) => if !self.run_code { self.output.push(format!("\"{}\"\n", string)); },
-                            Value::Real(real) => if !self.run_code { self.output.push(format!("{}\n", real)); },
-                        },
-                        Err(error) => {
-                            self.run_code = false;
-                            self.output.push(format!("Error: {}\n", error));
-                        },
-                    }
-
-                    **clean_state = false;
+                // width = window width - padding - (width of checkbox + item x spacing) - (width of run button + item x spacing)
+                let width = window_size[0] - content_position[0] * 2.0 - 58.0 - 28.0;
+                if width > 0.0 {
+                    // checkbox and run button are visible
+                    frame.set_next_item_width(width);
+                } else if width > -58.0 {
+                    // only checkbox is visible
+                    frame.set_next_item_width(width+58.0);
+                } else if width > -58.0 - 28.0 {
+                    // nothing is visible
+                    frame.set_next_item_width(width+58.0+28.0)
                 }
+
+                let pressed_enter = frame.input_text("##consoleinput", &mut self.input_string)
+                                        .enter_returns_true(true)
+                                        .build();
                 if pressed_enter {
-                    // only clear the input buffer if the user pressed enter
-                    self.input_string.clear();
+                    frame.set_keyboard_focus_here();
                 }
-                self.scroll_to_bottom = true;
-            }
-        }
-        frame.end();
+
+                if frame.is_item_focused() {
+                    keybindings.disable_bindings();
+                }
+
+                frame.same_line();
+                let mut run_code = pressed_enter;
+                if width > 0.0 {
+                    run_code = frame.button_with_size("Run", [50.0, 20.0]) || run_code;
+                    frame.same_line();
+                }
+
+                frame.checkbox("##runcode", &mut self.run_code);
+                if self.last_frame != config.current_frame || self.last_rerecords != config.rerecords {
+                    run_code = run_code || self.run_code;
+                    self.last_frame = config.current_frame;
+                    self.last_rerecords = config.rerecords;
+                }
+
+                if run_code {
+                    if self.input_string.starts_with('/') || self.input_string.starts_with('.') {
+                        // see if it's a known command
+                        match self.input_string.split_at(1).1 {
+                            "clear" => self.output.clear(),
+                            _ => {
+                                self.run_code = false;
+                                self.output.push(format!("Unknown command: {}\n", self.input_string));
+                            }
+                        }
+                    } else {
+                        // run input as gml code
+                        if !self.run_code {
+                            self.output.push(format!(">>> {}\n", self.input_string));
+                        }
+
+                        let mut new_args: [Value; 16] = Default::default();
+                        new_args[0] = self.input_string.clone().into();
+                        match game.execute_string(&mut self.gml_context, &new_args) {
+                            Ok(value) => match value {
+                                Value::Str(string) => if !self.run_code { self.output.push(format!("\"{}\"\n", string)); },
+                                Value::Real(real) => if !self.run_code { self.output.push(format!("{}\n", real)); },
+                            },
+                            Err(error) => {
+                                self.run_code = false;
+                                self.output.push(format!("Error: {}\n", error));
+                            },
+                        }
+
+                        **clean_state = false;
+                    }
+                    if pressed_enter {
+                        // only clear the input buffer if the user pressed enter
+                        self.input_string.clear();
+                    }
+                    self.scroll_to_bottom = true;
+                }
+            });
     }
 
     fn is_open(&self) -> bool {

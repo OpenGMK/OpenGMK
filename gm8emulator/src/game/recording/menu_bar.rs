@@ -1,5 +1,4 @@
 use crate::{
-    imgui,
     game::recording::{
         UIState,
         keybinds::KeybindWindow,
@@ -13,23 +12,23 @@ use crate::{
 };
 
 impl UIState<'_> {
-    pub fn show_menu_bar(&mut self, frame: &mut imgui::Frame) -> bool {
-        if frame.begin_menu_main_bar() {
-            if frame.begin_menu("File", true) {
+    pub fn show_menu_bar(&mut self, frame: &mut imgui::Ui) -> bool {
+        if let Some(main_menu_bar_token) = frame.begin_main_menu_bar() {
+            if let Some(file_menu_token) = frame.begin_menu("File") {
                 if frame.menu_item("Close") {
                     return false;
                 }
-                frame.end_menu();
+                file_menu_token.end();
             }
             
-            if frame.begin_menu("Windows", true) {
-                if frame.begin_menu("Active Windows", true) {
+            if let Some(window_menu_token) = frame.begin_menu("Windows") {
+                if let Some(active_window_menu_token) = frame.begin_menu("Active Windows") {
                     for (window, focus) in &mut self.windows {
                         if frame.menu_item(&window.name()) {
                             *focus = true;
                         }
                     }
-                    frame.end_menu();
+                    active_window_menu_token.end();
                 }
 
                 macro_rules! openable {
@@ -75,7 +74,7 @@ impl UIState<'_> {
                     }};
                 }
                 
-                if frame.begin_menu("Open", true) {
+                if let Some(open_menu_token) = frame.begin_menu("Open") {
                     openable! {
                         single KeybindWindow,
                         single InputEditWindow,
@@ -83,12 +82,13 @@ impl UIState<'_> {
                         multi MacroWindow,
                     }
                     
-                    frame.end_menu();
+                    open_menu_token.end();
                 }
-                frame.end_menu();
+
+                window_menu_token.end();
             }
             
-            frame.end_menu_main_bar();
+            main_menu_bar_token.end();
         }
         true
     }

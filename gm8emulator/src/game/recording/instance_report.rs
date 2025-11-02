@@ -1,15 +1,11 @@
 use crate::{
-    imgui,
+    imgui_utils::*,
     instance::Field,
     game::{
         Game,
         recording::window::{Window, DisplayInformation},
     },
     render::atlas::AtlasRef,
-};
-use clipboard::{
-    ClipboardProvider,
-    ClipboardContext
 };
 use std::ops::Index;
 
@@ -170,66 +166,67 @@ impl InstanceReportWindow {
         }
     }
 
-    fn show_text(frame: &mut imgui::Frame, text: &String) {
+    fn show_text(frame: &imgui::Ui, text: &String) {
         frame.text(text);
-        if frame.middle_clicked() && frame.item_hovered() {
+        if frame.is_mouse_clicked(imgui::MouseButton::Middle) && frame.is_item_hovered() {
             let value_str = text.index(text.find(':').unwrap_or(usize::MAX).wrapping_add(1)..);
-            let mut ctx: ClipboardContext = ClipboardProvider::new().unwrap();
-            ctx.set_contents(value_str.to_owned()).unwrap();
+            frame.set_clipboard_text(value_str);
         }
     }
 
     /// Creates the window for the instance.
     /// Returns whether or not the window is open
-    fn instance_window(&mut self, frame: &mut imgui::Frame, game: &mut Game, id: i32, instance_report: Option<&(i32, Option<InstanceReport>)>) -> bool {
+    fn instance_window(&mut self, frame: &imgui::Ui, game: &mut Game, id: i32, instance_report: Option<&(i32, Option<InstanceReport>)>) -> bool {
         let mut open = true;
-        frame.begin_window(&format!("Instance {}", id), None, true, false, Some(&mut open));
-        if let Some((_, Some(report))) = instance_report {
-            Self::show_text(frame, &report.object_name);
-            Self::show_text(frame, &report.id);
-            frame.text("");
-            if frame.begin_tree_node("General Variables") {
-                report.general_vars.iter().for_each(|s| Self::show_text(frame, s));
-                frame.pop_tree_node();
+        frame.window(format!("Instance {}", id))
+            .opened(&mut open)
+            .build(|| {
+                if let Some((_, Some(report))) = instance_report {
+                    Self::show_text(frame, &report.object_name);
+                    Self::show_text(frame, &report.id);
+                    frame.text("");
+                    if let Some(node) = frame.tree_node("General Variables") {
+                        report.general_vars.iter().for_each(|s| Self::show_text(frame, s));
+                        node.end();
+                    }
+                    if let Some(node) = frame.tree_node("Physics Variables") {
+                        report.physics_vars.iter().for_each(|s| Self::show_text(frame, s));
+                        node.end();
+                    }
+                    if let Some(node) = frame.tree_node("Image Variables") {
+                        report.image_vars.iter().for_each(|s| Self::show_text(frame, s));
+                        node.end();
+                    }
+                    if let Some(node) = frame.tree_node("Timeline Variables") {
+                        report.timeline_vars.iter().for_each(|s| Self::show_text(frame, s));
+                        node.end();
+                    }
+                    if let Some(node) = frame.tree_node("Alarms") {
+                        report.alarms.iter().for_each(|s| Self::show_text(frame, s));
+                        node.end();
+                    }
+                    if let Some(node) = frame.tree_node("Fields") {
+                        report.fields.iter().for_each(|f| match f {
+                            ReportField::Single(s) => Self::show_text(frame, s),
+                            ReportField::Array(label, array) => {
+                                if let Some(node2) = frame.tree_node(label) {
+                                    array.iter().for_each(|s| Self::show_text(frame, s));
+                                    node2.end();
+                                }
+                            },
+                        });
+                        node.end();
+                    }
+                    self.add_sprite_image(frame, game, id);
+                } else {
+                    frame.text_centered("<deleted instance>", Vec2(160.0, 35.0));
+                }
             }
-            if frame.begin_tree_node("Physics Variables") {
-                report.physics_vars.iter().for_each(|s| Self::show_text(frame, s));
-                frame.pop_tree_node();
-            }
-            if frame.begin_tree_node("Image Variables") {
-                report.image_vars.iter().for_each(|s| Self::show_text(frame, s));
-                frame.pop_tree_node();
-            }
-            if frame.begin_tree_node("Timeline Variables") {
-                report.timeline_vars.iter().for_each(|s| Self::show_text(frame, s));
-                frame.pop_tree_node();
-            }
-            if frame.begin_tree_node("Alarms") {
-                report.alarms.iter().for_each(|s| Self::show_text(frame, s));
-                frame.pop_tree_node();
-            }
-            if frame.begin_tree_node("Fields") {
-                report.fields.iter().for_each(|f| match f {
-                    ReportField::Single(s) => Self::show_text(frame, s),
-                    ReportField::Array(label, array) => {
-                        if frame.begin_tree_node(label) {
-                            array.iter().for_each(|s| Self::show_text(frame, s));
-                            frame.pop_tree_node();
-                        }
-                    },
-                });
-                frame.pop_tree_node();
-            }
-            self.add_sprite_image(frame, game, id);
-        } else {
-            frame.text_centered("<deleted instance>", imgui::Vec2(160.0, 35.0));
-        }
-        frame.end();
-
+        );
         open
     }
 
-    fn add_sprite_image(&mut self, frame: &mut imgui::Frame, game: &mut Game, id: i32) {
+    fn add_sprite_image(&mut self, frame: &imgui::Ui, game: &mut Game, id: i32) {
         if let Some(handle) = game.room.instance_list.get_by_instid(id) {
             use crate::game::GetAsset;
             let instance = game.room.instance_list.get(handle);
@@ -241,23 +238,23 @@ impl InstanceReportWindow {
                 if sprite.width <= 48 && sprite.height <= 48 {
                     let i = self.instance_images.len();
                     self.instance_images.push(atlas_ref);
-                    let imgui::Vec2(win_x, win_y) = frame.window_position();
-                    let win_w = frame.window_size().0;
+                    let Vec2(win_x, win_y) = frame.window_pos().into();
+                    let win_w = frame.window_size()[0];
                     let center_x = win_x + win_w - 28.0;
                     let center_y = win_y + 46.0;
                     let min_x = center_x - (sprite.width / 2) as f32;
                     let min_y = center_y - (sprite.height / 2) as f32;
                     unsafe {
-                        cimgui_sys::ImDrawList_AddImage(
-                            cimgui_sys::igGetWindowDrawList(),
+                        imgui::sys::ImDrawList_AddImage(
+                            imgui::sys::igGetWindowDrawList(),
                             self.instance_images.as_mut_ptr().add(i) as _,
-                            cimgui_sys::ImVec2 { x: min_x, y: min_y },
-                            cimgui_sys::ImVec2 { 
+                            imgui::sys::ImVec2 { x: min_x, y: min_y },
+                            imgui::sys::ImVec2 { 
                                 x: min_x + sprite.width as f32,
                                 y: min_y + sprite.height as f32
                             },
-                            cimgui_sys::ImVec2 { x: 0.0, y: 0.0 },
-                            cimgui_sys::ImVec2 { x: 1.0, y: 1.0 },
+                            imgui::sys::ImVec2 { x: 0.0, y: 0.0 },
+                            imgui::sys::ImVec2 { x: 1.0, y: 1.0 },
                             instance.image_blend.get() as u32 | 0xFF000000,
                         );
                     }

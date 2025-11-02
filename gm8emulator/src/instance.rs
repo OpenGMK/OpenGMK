@@ -351,6 +351,17 @@ impl Instance {
     pub fn is_active(&self) -> bool {
         self.state.get() == InstanceState::Active
     }
+
+    pub fn set_sprite_index(&self, sprite_idx: i32, frame_count: usize) {
+        if sprite_idx != self.sprite_index.get() {
+            self.sprite_index.set(sprite_idx);
+            self.bbox_is_stale.set(true);
+        }
+
+        if frame_count as f64 <= self.image_index.get().floor().into() {
+            self.image_index.set(0.0.into());
+        }
+    }
 }
 
 impl Field {

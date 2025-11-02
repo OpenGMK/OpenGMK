@@ -1,5 +1,5 @@
 use crate::{
-    imgui,
+    imgui_utils::Vec2,
     game::{
         Game,
         recording::{WindowKind, KeyState, ProjectConfig, instance_report::InstanceReport, keybinds::{Keybindings, Binding}, popup_dialog::Dialog},
@@ -10,9 +10,9 @@ use crate::{
 };
 use std::path::PathBuf;
 
-pub struct DisplayInformation<'a, 'f> {
+pub struct DisplayInformation<'a> {
     pub game: &'a mut Game,
-    pub frame: &'a mut imgui::Frame<'f>,
+    pub frame: &'a imgui::Ui,
     pub game_running: &'a mut bool,
     pub setting_mouse_pos: &'a mut bool,
     pub new_mouse_pos: &'a mut Option<(i32, i32)>,
@@ -37,7 +37,7 @@ pub struct DisplayInformation<'a, 'f> {
     pub startup_successful: &'a bool,
     pub project_path: &'a PathBuf,
 
-    pub win_padding: imgui::Vec2<f32>,
+    pub win_padding: Vec2<f32>,
     pub win_frame_height: f32,
     pub win_border_size: f32,
 
@@ -94,7 +94,7 @@ pub trait Openable<T>: Window
     fn open(id: usize) -> Self;
 }
 
-impl DisplayInformation<'_, '_> {
+impl DisplayInformation<'_> {
     pub fn update_instance_reports(&mut self) {
         *self.instance_reports = self.config.watched_ids.iter().map(|id| (*id, InstanceReport::new(self.game, *id))).collect();
     }

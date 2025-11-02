@@ -35,6 +35,9 @@ macro_rules! shader_file {
     };
 }
 
+// requires at least GL 3.3
+pub const OPENGL_VERSION: (i32, i32) = (3, 3);
+
 #[derive(Clone, Copy, PartialEq)]
 #[repr(u32)]
 enum GLBool {
@@ -78,6 +81,7 @@ struct RenderState {
     ambient_colour: [f32; 4],
     lighting: GLBool,
     gouraud: GLBool,
+    texture_blend: GLBool, // emulates glTexEnv(): GL_MODULATE if true, GL_REPLACE if false
     // frag shader
     texture_repeat: GLBool,
     interpolate_pixels: GLBool,
@@ -111,6 +115,7 @@ impl Default for RenderState {
             blend_mode: (BlendType::SrcAlpha, BlendType::InvSrcAlpha),
             interpolate_pixels: GLBool::False,
             texture_repeat: GLBool::False,
+            texture_blend: GLBool::True,
             model_matrix: identity_matrix.clone(),
             view_matrix: identity_matrix.clone(),
             proj_matrix: identity_matrix.clone(),
@@ -352,6 +357,7 @@ impl ShapeBuilder {
             primitive: PrimitiveBuilder::new(
                 atlas_ref,
                 if outline { PrimitiveType::LineStrip } else { PrimitiveType::TriFan },
+                false,
             ),
             outline,
             depth,
@@ -381,6 +387,10 @@ impl ShapeBuilder {
     }
 }
 
+// TODO: Implement Drop trait for RendererImpl to delete OpenGL objects we create? This doesn't make
+// much sense in Release builds - because then we're doing the OS's work for it and just increasing
+// the process termination time - but can be quite useful for Debug ones.
+
 impl RendererImpl {
     pub fn new(options: &RendererOptions, connection: &Connection, window: &Window, clear_colour: Colour) -> Result<Self, String> {
         unsafe {
@@ -393,26 +403,22 @@ impl RendererImpl {
             // debug print
             let ver_str = CStr::from_ptr(gl.GetString(gl::VERSION).cast()).to_str().unwrap();
             let vendor_str = CStr::from_ptr(gl.GetString(gl::VENDOR).cast()).to_str().unwrap();
-            eprintln!("creating graphics context\n  > gl_version: \"{}\"\n  > gl_vendor: \"{}\"", ver_str, vendor_str);
+            eprintln!("creating graphics context\n  > GL_VERSION: \"{}\"\n  > GL_VENDOR: \"{}\"", ver_str, vendor_str);
 
-            // requires at least GL 3.3
             let mut v_maj: GLint = 0;
-            gl.GetIntegerv(gl::MAJOR_VERSION, &mut v_maj);
             let mut v_min: GLint = 0;
+            gl.GetIntegerv(gl::MAJOR_VERSION, &mut v_maj);
             gl.GetIntegerv(gl::MINOR_VERSION, &mut v_min);
             assert!(
-                (v_maj == 3 && v_min >= 3) || v_maj > 3,
-                "OpenGL version 3.3 or later is required, but found version {}.{}",
+                (v_maj == OPENGL_VERSION.0 && v_min >= OPENGL_VERSION.1) || v_maj > OPENGL_VERSION.0,
+                "OpenGL version {}.{} or later is required, but found version {}.{}",
+                OPENGL_VERSION.0,
+                OPENGL_VERSION.1,
                 v_maj,
                 v_min
             );
 
-            if options.vsync {
-                imp.set_swap_interval(1);
-            } else {
-                imp.set_swap_interval(0);
-            }
-
+            imp.set_swap_interval(if options.vsync { 1 } else { 0 });
             let zbuf_format = if options.zbuf_24 { gl::DEPTH_COMPONENT24 } else { gl::DEPTH_COMPONENT16 } as GLint;
 
             // Compile vertex shader
@@ -480,8 +486,61 @@ impl RendererImpl {
             // Use DX provoking vertex convention
             gl.ProvokingVertex(gl::FIRST_VERTEX_CONVENTION);
 
-            // Unbind VBO
-            gl.BindBuffer(gl::ARRAY_BUFFER, 0);
+            // Create and bind the VBO once
+            let mut commands_vbo: GLuint = 0;
+            gl.GenBuffers(1, &mut commands_vbo);
+            gl.BindBuffer(gl::ARRAY_BUFFER, commands_vbo);
+
+            // layout (location = 0) in vec3 pos;
+            // layout (location = 1) in vec4 blend;
+            // layout (location = 2) in vec2 tex_coord;
+            // layout (location = 3) in vec3 normal;
+            // layout (location = 4) in vec4 atlas_xywh;
+            gl.EnableVertexAttribArray(0);
+            gl.VertexAttribPointer(
+                0,
+                3,
+                gl::FLOAT,
+                gl::FALSE,
+                size_of::<Vertex>() as i32,
+                offset_of!(Vertex, pos) as *const _,
+            );
+            gl.EnableVertexAttribArray(1);
+            gl.VertexAttribPointer(
+                1,
+                4,
+                gl::FLOAT,
+                gl::FALSE,
+                size_of::<Vertex>() as i32,
+                offset_of!(Vertex, blend) as *const _,
+            );
+            gl.EnableVertexAttribArray(2);
+            gl.VertexAttribPointer(
+                2,
+                2,
+                gl::FLOAT,
+                gl::FALSE,
+                size_of::<Vertex>() as i32,
+                offset_of!(Vertex, tex_coord) as *const _,
+            );
+            gl.EnableVertexAttribArray(3);
+            gl.VertexAttribPointer(
+                3,
+                3,
+                gl::FLOAT,
+                gl::FALSE,
+                size_of::<Vertex>() as i32,
+                offset_of!(Vertex, normal) as *const _,
+            );
+            gl.EnableVertexAttribArray(4);
+            gl.VertexAttribPointer(
+                4,
+                4,
+                gl::FLOAT,
+                gl::FALSE,
+                size_of::<Vertex>() as i32,
+                offset_of!(Vertex, atlas_xywh) as *const _,
+            );
 
             // Use program
             gl.UseProgram(program);
@@ -547,6 +606,7 @@ impl RendererImpl {
                 imp,
                 //program,
                 //vao,
+                //commands_vbo,
                 atlas_packers: vec![],
                 texture_ids: vec![],
                 zbuf_ids: vec![],
@@ -575,8 +635,8 @@ impl RendererImpl {
                 using_3d: false,
                 perspective: false,
                 depth: 0.0,
-                primitive_2d: PrimitiveBuilder::new(Default::default(), PrimitiveType::PointList),
-                primitive_3d: PrimitiveBuilder::new(Default::default(), PrimitiveType::PointList),
+                primitive_2d: PrimitiveBuilder::new(Default::default(), PrimitiveType::PointList, false),
+                primitive_3d: PrimitiveBuilder::new(Default::default(), PrimitiveType::PointList, false),
 
                 loc_gm81_normalize: gl.GetUniformLocation(program, b"gm81_normalize\0".as_ptr().cast()),
                 loc_tex: gl.GetUniformLocation(program, b"tex\0".as_ptr().cast()),
@@ -723,72 +783,24 @@ impl RendererImpl {
             self.gl.TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, filter_mode as _);
             self.gl.TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, filter_mode as _);
 
-            let mut commands_vbo: GLuint = 0;
-            self.gl.GenBuffers(1, &mut commands_vbo);
-            self.gl.BindBuffer(gl::ARRAY_BUFFER, commands_vbo);
             self.gl.BufferData(
                 gl::ARRAY_BUFFER,
                 (size_of::<Vertex>() * buffer.len()) as _,
                 buffer.as_ptr().cast(),
-                gl::STATIC_DRAW,
+                gl::STREAM_DRAW,
             );
             assert_eq!(self.gl.GetError(), 0);
-
-            // layout (location = 0) in vec3 pos;
-            // layout (location = 1) in vec4 blend;
-            // layout (location = 2) in vec2 tex_coord;
-            // layout (location = 3) in vec3 normal;
-            // layout (location = 4) in vec4 atlas_xywh;
-            self.gl.EnableVertexAttribArray(0);
-            self.gl.VertexAttribPointer(
-                0,
-                3,
-                gl::FLOAT,
-                gl::FALSE,
-                size_of::<Vertex>() as i32,
-                offset_of!(Vertex, pos) as *const _,
-            );
-            self.gl.EnableVertexAttribArray(1);
-            self.gl.VertexAttribPointer(
-                1,
-                4,
-                gl::FLOAT,
-                gl::FALSE,
-                size_of::<Vertex>() as i32,
-                offset_of!(Vertex, blend) as *const _,
-            );
-            self.gl.EnableVertexAttribArray(2);
-            self.gl.VertexAttribPointer(
-                2,
-                2,
-                gl::FLOAT,
-                gl::FALSE,
-                size_of::<Vertex>() as i32,
-                offset_of!(Vertex, tex_coord) as *const _,
-            );
-            self.gl.EnableVertexAttribArray(3);
-            self.gl.VertexAttribPointer(
-                3,
-                3,
-                gl::FLOAT,
-                gl::FALSE,
-                size_of::<Vertex>() as i32,
-                offset_of!(Vertex, normal) as *const _,
-            );
-            self.gl.EnableVertexAttribArray(4);
-            self.gl.VertexAttribPointer(
-                4,
-                4,
-                gl::FLOAT,
-                gl::FALSE,
-                size_of::<Vertex>() as i32,
-                offset_of!(Vertex, atlas_xywh) as *const _,
-            );
 
             self.gl.DrawArrays(shape.into(), 0, buffer.len() as i32);
 
-            self.gl.DeleteBuffers(1, &commands_vbo);
-            assert_eq!(self.gl.GetError(), 0);
+            // https://www.khronos.org/opengl/wiki/Buffer_Object_Streaming#Buffer_re-specification
+            // https://www.khronos.org/opengl/wiki/Buffer_Object#Invalidation
+            self.gl.BufferData(
+                gl::ARRAY_BUFFER,
+                (size_of::<Vertex>() * buffer.len()) as _,
+                ptr::null(),
+                gl::STREAM_DRAW,
+            );
         }
     }
 }
@@ -814,15 +826,15 @@ impl RendererTrait for RendererImpl {
 
     fn push_atlases(&mut self, mut atl: AtlasBuilder) -> Result<(), String> {
         assert!(self.atlas_packers.is_empty(), "atlases should be initialized only once");
+
         let white_pixel_ref =
             atl.texture(1, 1, 0, 0, Box::new([0xFF, 0xFF, 0xFF, 0xFF])).ok_or("Couldn't pack white_pixel")?;
+        let (packers, mut sprites) = atl.into_inner();
+        self.white_pixel = sprites[white_pixel_ref.0 as usize].0;
+
         // update primitive buffers with white pixel
         self.reset_primitive_2d(PrimitiveType::PointList, None);
         self.reset_primitive_3d(PrimitiveType::PointList, None);
-
-        let (packers, mut sprites) = atl.into_inner();
-
-        self.white_pixel = sprites[white_pixel_ref.0 as usize].0;
 
         unsafe {
             let textures: Vec<GLuint> = {
@@ -1762,7 +1774,7 @@ impl RendererTrait for RendererImpl {
 
         // push the vertices
         self.push_primitive(
-            PrimitiveBuilder::new(atlas_ref, PrimitiveType::TriFan)
+            PrimitiveBuilder::new(atlas_ref, PrimitiveType::TriFan, true)
                 .push_vertex(rotate(left, top), [tex_left, tex_top], split_colour(col1, alpha), normal)
                 .push_vertex(rotate(right, top), [tex_right, tex_top], split_colour(col2, alpha), normal)
                 .push_vertex(rotate(right, bottom), [tex_right, tex_bottom], split_colour(col3, alpha), normal)
@@ -1802,14 +1814,14 @@ impl RendererTrait for RendererImpl {
         let normal = [0.0, 0.0, 0.0];
         let depth = self.depth;
 
-        //correct for gm offset
+        // correct for gm offset
         let correct = |xoff, yoff| {
             [(xoff-0.5) as f32, (yoff-0.5) as f32, depth]
         };
 
         // push the vertices
         self.push_primitive(
-            PrimitiveBuilder::new(atlas_ref, PrimitiveType::TriFan)
+            PrimitiveBuilder::new(atlas_ref, PrimitiveType::TriFan, true)
                 .push_vertex(correct(x1, y1), [tex_left, tex_top], split_colour(0xffffff, alpha), normal)
                 .push_vertex(correct(x2, y2), [tex_right, tex_top], split_colour(0xffffff, alpha), normal)
                 .push_vertex(correct(x3, y3), [tex_right, tex_bottom], split_colour(0xffffff, alpha), normal)
@@ -1878,7 +1890,7 @@ impl RendererTrait for RendererImpl {
         self.setup_queue(self.white_pixel.atlas_id, PrimitiveShape::Point);
         self.vertex_queue.push(Vertex {
             pos: [x as f32, y as f32, self.depth],
-            tex_coord: [0.0, 0.0],
+            tex_coord: [f32::NAN; 2],
             blend: split_colour(colour, alpha),
             atlas_xywh: self.white_pixel.into(),
             normal: [0.0, 0.0, 0.0],
@@ -1984,9 +1996,11 @@ impl RendererTrait for RendererImpl {
     }
 
     fn reset_primitive_2d(&mut self, ptype: PrimitiveType, atlas_ref: Option<AtlasRef>) {
+        let ar = atlas_ref.and_then(|ar| self.get_rect(ar).copied());
         self.primitive_2d = PrimitiveBuilder::new(
-            atlas_ref.and_then(|ar| self.get_rect(ar).copied()).unwrap_or(self.white_pixel),
+            ar.unwrap_or(self.white_pixel),
             ptype,
+            ar.is_some(),
         );
     }
 
@@ -2014,9 +2028,11 @@ impl RendererTrait for RendererImpl {
     }
 
     fn reset_primitive_3d(&mut self, ptype: PrimitiveType, atlas_ref: Option<AtlasRef>) {
+        let ar = atlas_ref.and_then(|ar| self.get_rect(ar).copied());
         self.primitive_3d = PrimitiveBuilder::new(
-            atlas_ref.and_then(|ar| self.get_rect(ar).copied()).unwrap_or(self.white_pixel),
+            ar.unwrap_or(self.white_pixel),
             ptype,
+            ar.is_some(),
         );
     }
 
@@ -2091,6 +2107,15 @@ impl RendererTrait for RendererImpl {
 
     fn set_alpha_blending(&mut self, alphablend: bool) {
         self.next_render_state.alpha_blending = alphablend;
+        self.render_state_updated = true;
+    }
+
+    fn get_colour_blending(&self) -> bool {
+        self.next_render_state.texture_blend.into()
+    }
+
+    fn set_colour_blending(&mut self, modulate: bool) {
+        self.next_render_state.texture_blend = modulate.into();
         self.render_state_updated = true;
     }
 

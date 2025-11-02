@@ -73,17 +73,19 @@ pub struct PIXELFORMATDESCRIPTOR {
     pub dwDamageMask: DWORD,
 }
 
-pub const LANG_NEUTRAL: c_ushort = 0x00;
 pub const PFD_DOUBLEBUFFER: DWORD = 0x00000001;
 pub const PFD_DRAW_TO_WINDOW: DWORD = 0x00000004;
 pub const PFD_MAIN_PLANE: BYTE = 0;
 pub const PFD_SUPPORT_OPENGL: DWORD = 0x00000020;
 pub const PFD_TYPE_RGBA: BYTE = 0;
-pub const SUBLANG_DEFAULT: c_ushort = 0x01;
+// pub const LANG_NEUTRAL: c_ushort = 0x00;
+// pub const SUBLANG_NEUTRAL: c_ushort = 0x00;
+// pub const SUBLANG_DEFAULT: c_ushort = 0x01;
 
-pub fn MAKELANGID(p: c_ushort, s: c_ushort) -> c_ushort {
-    (s << 10) | p
-}
+// #[inline(always)]
+// pub fn MAKELANGID(p: c_ushort, s: c_ushort) -> c_ushort {
+//     (s << 10) | p
+// }
 
 #[link(name = "opengl32")]
 extern "system" {

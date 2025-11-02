@@ -3,7 +3,8 @@ mod asset;
 mod game;
 mod gml;
 mod handleman;
-mod imgui;
+mod imgui_utils;
+mod imgui_key_utils;
 mod input;
 mod instance;
 mod instancelist;
@@ -80,15 +81,15 @@ fn xmain() -> i32 {
     let strict = matches.opt_present("s");
     let multithread = !matches.opt_present("t");
     let spoof_time = !matches.opt_present("r");
-    let frame_limit_at = matches.opt_str("l").map(|frame| {
-        match frame.parse::<usize>()
-        {
+    let frame_limit_at = matches
+        .opt_str("l")
+        .map(|frame| match frame.parse::<usize>() {
             Ok(f) => f,
             Err(e) => {
                 panic!("{}", e);
             },
-        }
-    }).unwrap_or(0);
+        })
+        .unwrap_or(0);
     let frame_limiter = !matches.opt_present("l");
     let verbose = matches.opt_present("v");
     let output_bin = matches.opt_str("o").map(PathBuf::from);
@@ -229,14 +230,22 @@ fn xmain() -> i32 {
         PlayType::Normal
     };
 
-    let mut components =
-        match Game::launch(assets, absolute_path, game_args, temp_dir, encoding, frame_limiter, frame_limit_at, play_type) {
-            Ok(g) => g,
-            Err(e) => {
-                eprintln!("Failed to launch game: {}", e);
-                return EXIT_FAILURE
-            },
-        };
+    let mut components = match Game::launch(
+        assets,
+        absolute_path,
+        game_args,
+        temp_dir,
+        encoding,
+        frame_limiter,
+        frame_limit_at,
+        play_type,
+    ) {
+        Ok(g) => g,
+        Err(e) => {
+            eprintln!("Failed to launch game: {}", e);
+            return EXIT_FAILURE
+        },
+    };
 
     let time_now = GameClock::SpoofedNanos(gml::datetime::now_as_nanos());
 

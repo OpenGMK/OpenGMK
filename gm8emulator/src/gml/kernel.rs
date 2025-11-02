@@ -1148,9 +1148,9 @@ impl Game {
         }
     }
 
-    pub fn texture_exists(&self, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function texture_exists")
+    pub fn texture_exists(&self, args: &[Value]) -> gml::Result<Value> {
+        let tex_id = expect_args!(args, [int])?;
+        Ok(self.renderer.check_texture_id(tex_id).into())
     }
 
     pub fn texture_set_interpolation(&mut self, args: &[Value]) -> gml::Result<Value> {
@@ -1159,9 +1159,10 @@ impl Game {
         Ok(Default::default())
     }
 
-    pub fn texture_set_blending(&mut self, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function texture_set_blending")
+    pub fn texture_set_blending(&mut self, args: &[Value]) -> gml::Result<Value> {
+        let blend = expect_args!(args, [bool])?;
+        self.renderer.set_colour_blending(blend);
+        Ok(Default::default())
     }
 
     pub fn texture_set_repeat(&mut self, args: &[Value]) -> gml::Result<Value> {
@@ -1171,32 +1172,49 @@ impl Game {
     }
 
     pub fn texture_get_width(args: &[Value]) -> gml::Result<Value> {
-        let _texid = expect_args!(args, [int])?;
-        Ok(1.into()) // we don't pad textures to power-of-2
+        let _tex_id = expect_args!(args, [int])?;
+        // OpenGL supports NPOT since 2.0, so we don't pad texture width to power-of-2.
+        // Also, this is a default value in GM if texture doesn't exist.
+        Ok(1.0.into())
     }
 
     pub fn texture_get_height(args: &[Value]) -> gml::Result<Value> {
-        let _texid = expect_args!(args, [int])?;
-        Ok(1.into()) // see texture_get_width
+        let _tex_id = expect_args!(args, [int])?;
+        // OpenGL supports NPOT since 2.0, so we don't pad texture height to power-of-2.
+        // Also, this is a default value in GM if texture doesn't exist.
+        Ok(1.0.into())
     }
 
-    pub fn texture_preload(&mut self, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function texture_preload")
+    pub fn texture_preload(&mut self, args: &[Value]) -> gml::Result<Value> {
+        let _tex_id = expect_args!(args, [int])?;
+        // FIXME: GM uses IDirect3DResource8::PreLoad(). Modern Direct3D also had that before D3D12.
+        // https://stackoverflow.com/questions/68590593/preload-texture-to-gpu-memory-in-d3d11
+        // OpenGL has glMakeTextureHandleResidentARB() from the GL_ARB_bindless_texture extension.
+        // https://www.khronos.org/opengl/wiki/Bindless_Texture#Handle_residency
+        // Pre-3.0 GL also had glAreTexturesResident() and glGetTexParameteriv(GL_TEXTURE_RESIDENT).
+        // How do they do this in modern OpenGL and GLES? glBindTexture() with glActiveTexture()?
+        // https://stackoverflow.com/questions/27345340/how-do-i-render-multiple-textures-in-modern-opengl/27345814#27345814
+        // But we employ atlases, after all.
+        Ok(Default::default())
     }
 
-    pub fn texture_set_priority(&mut self, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 2
-        unimplemented!("Called unimplemented kernel function texture_set_priority")
+    pub fn texture_set_priority(&mut self, args: &[Value]) -> gml::Result<Value> {
+        let (_tex_id, _priority) = expect_args!(args, [int, int])?;
+        // FIXME: GM uses IDirect3DResource8::SetPriority(), assuming DWORD priorities.
+        // Pre-3.0 OpenGL had glPrioritizeTextures() and glTexParameterf(GL_TEXTURE_PRIORITY).
+        // How do they do this in modern OpenGL and GLES? Some kind of LRU texture manager?
+        // https://www.khronos.org/opengl/wiki/Texture_Storage#Direct_creation
+        // https://www.khronos.org/opengl/wiki/Buffer_Object#Invalidation
+        // https://stackoverflow.com/questions/4552372/determining-available-video-memory
+        // https://stackoverflow.com/questions/42425281/understanding-binding-activating-texture-performance-penalty-in-opengl
+        // https://gamedev.stackexchange.com/questions/130674/opengl-managing-many-textures-smoothly
+        // https://www.reddit.com/r/opengl/comments/100cksq/how_to_prevent_loading_the_same_texture_for/
+        Ok(Default::default())
     }
 
     pub fn draw_set_font(&mut self, args: &[Value]) -> gml::Result<Value> {
         let font_id = expect_args!(args, [int])?;
-        if self.assets.fonts.get_asset(font_id).is_some() {
-            self.draw_font_id = font_id;
-        } else {
-            self.draw_font_id = -1;
-        }
+        self.draw_font_id = if self.assets.fonts.get_asset(font_id).is_some() {font_id} else {-1};
         Ok(Default::default())
     }
 
@@ -2185,13 +2203,7 @@ impl Game {
                 Err(e) => return Err(gml::Error::FunctionError("surface_create".into(), e.into())),
             },
         };
-        if let Some(id) = self.surfaces.iter().position(|x| x.is_none()) {
-            self.surfaces[id] = Some(surf);
-            Ok(id.into())
-        } else {
-            self.surfaces.push(Some(surf));
-            Ok((self.surfaces.len() - 1).into())
-        }
+        Ok(self.surfaces.put(surf).into())
     }
 
     pub fn surface_create_ext(args: &[Value]) -> gml::Result<Value> {
@@ -2205,31 +2217,30 @@ impl Game {
         if self.surface_target == Some(surf_id) {
             self.surface_reset_target(&[])?;
         }
-        if let Some(surf) = self.surfaces.get_asset(surf_id) {
+        if let Some(surf) = self.surfaces.remove(surf_id) {
             self.renderer.delete_sprite(surf.atlas_ref);
-            self.surfaces[surf_id as usize] = None;
         }
         Ok(Default::default())
     }
 
     pub fn surface_exists(&self, args: &[Value]) -> gml::Result<Value> {
         let surf_id = expect_args!(args, [int])?;
-        Ok(self.surfaces.get_asset(surf_id).is_some().into())
+        Ok(self.surfaces.get(surf_id).is_some().into())
     }
 
     pub fn surface_get_width(&self, args: &[Value]) -> gml::Result<Value> {
         let surf_id = expect_args!(args, [int])?;
-        if let Some(surf) = self.surfaces.get_asset(surf_id) { Ok(surf.width.into()) } else { Ok((-1).into()) }
+        if let Some(surf) = self.surfaces.get(surf_id) { Ok(surf.width.into()) } else { Ok((-1).into()) }
     }
 
     pub fn surface_get_height(&self, args: &[Value]) -> gml::Result<Value> {
         let surf_id = expect_args!(args, [int])?;
-        if let Some(surf) = self.surfaces.get_asset(surf_id) { Ok(surf.height.into()) } else { Ok((-1).into()) }
+        if let Some(surf) = self.surfaces.get(surf_id) { Ok(surf.height.into()) } else { Ok((-1).into()) }
     }
 
     pub fn surface_get_texture(&mut self, args: &[Value]) -> gml::Result<Value> {
         let surf_id = expect_args!(args, [int])?;
-        if let Some(surf) = self.surfaces.get_asset(surf_id) {
+        if let Some(surf) = self.surfaces.get(surf_id) {
             Ok(self.renderer.get_texture_id(surf.atlas_ref).into())
         } else {
             Ok((-1).into())
@@ -2238,7 +2249,7 @@ impl Game {
 
     pub fn surface_set_target(&mut self, args: &[Value]) -> gml::Result<Value> {
         let surf_id = expect_args!(args, [int])?;
-        if let Some(surf) = self.surfaces.get_asset(surf_id) {
+        if let Some(surf) = self.surfaces.get(surf_id) {
             self.renderer.set_target(surf.atlas_ref);
             self.surface_target = Some(surf_id);
             if self.surface_fix && self.room.views_enabled {
@@ -2299,7 +2310,7 @@ impl Game {
     pub fn draw_surface_ext(&mut self, args: &[Value]) -> gml::Result<Value> {
         let (surf_id, x, y, xscale, yscale, rot, colour, alpha) =
             expect_args!(args, [int, real, real, real, real, real, int, real])?;
-        if let Some(surf) = self.surfaces.get_asset(surf_id) {
+        if let Some(surf) = self.surfaces.get(surf_id) {
             self.renderer.draw_sprite(
                 surf.atlas_ref,
                 x.into(),
@@ -2316,7 +2327,7 @@ impl Game {
 
     pub fn draw_surface_stretched(&mut self, args: &[Value]) -> gml::Result<Value> {
         let (surf_id, x, y, w, h) = expect_args!(args, [int, any, any, real, real])?;
-        if let Some(surf) = self.surfaces.get_asset(surf_id) {
+        if let Some(surf) = self.surfaces.get(surf_id) {
             let xscale = w / surf.width.into();
             let yscale = h / surf.height.into();
             self.draw_surface_ext(&[
@@ -2336,7 +2347,7 @@ impl Game {
 
     pub fn draw_surface_stretched_ext(&mut self, args: &[Value]) -> gml::Result<Value> {
         let (surf_id, x, y, w, h, colour, alpha) = expect_args!(args, [int, any, any, real, real, any, any])?;
-        if let Some(surf) = self.surfaces.get_asset(surf_id) {
+        if let Some(surf) = self.surfaces.get(surf_id) {
             let xscale = w / surf.width.into();
             let yscale = h / surf.height.into();
             self.draw_surface_ext(&[surf_id.into(), x, y, xscale.into(), yscale.into(), 0.into(), colour, alpha])
@@ -2353,7 +2364,7 @@ impl Game {
     pub fn draw_surface_part_ext(&mut self, args: &[Value]) -> gml::Result<Value> {
         let (surf_id, l, t, w, h, x, y, xscale, yscale, colour, alpha) =
             expect_args!(args, [int, real, real, real, real, real, real, real, real, int, real])?;
-        if let Some(surf) = self.surfaces.get_asset(surf_id) {
+        if let Some(surf) = self.surfaces.get(surf_id) {
             self.renderer.draw_sprite_partial(
                 surf.atlas_ref,
                 l.into(),
@@ -2375,7 +2386,7 @@ impl Game {
     pub fn draw_surface_general(&mut self, args: &[Value]) -> gml::Result<Value> {
         let (surf_id, l, t, w, h, x, y, xscale, yscale, angle, col1, col2, col3, col4, alpha) =
             expect_args!(args, [int, real, real, real, real, real, real, real, real, real, int, int, int, int, real])?;
-        if let Some(surf) = self.surfaces.get_asset(surf_id) {
+        if let Some(surf) = self.surfaces.get(surf_id) {
             self.renderer.draw_sprite_general(
                 surf.atlas_ref,
                 l.into(),
@@ -2406,7 +2417,7 @@ impl Game {
     pub fn draw_surface_tiled_ext(&mut self, args: &[Value]) -> gml::Result<Value> {
         let (surf_id, x, y, xscale, yscale, colour, alpha) =
             expect_args!(args, [int, real, real, real, real, int, real])?;
-        if let Some(surf) = self.surfaces.get_asset(surf_id) {
+        if let Some(surf) = self.surfaces.get(surf_id) {
             self.renderer.draw_sprite_tiled(
                 surf.atlas_ref,
                 x.into(),
@@ -2427,7 +2438,7 @@ impl Game {
         if Some(surf_id) == self.surface_target {
             self.renderer.flush_queue();
         }
-        if let Some(surf) = self.surfaces.get_asset(surf_id) {
+        if let Some(surf) = self.surfaces.get(surf_id) {
             let mut image =
                 RgbaImage::from_vec(surf.width, surf.height, self.renderer.dump_sprite(surf.atlas_ref).into()).unwrap();
             asset::sprite::process_image(&mut image, false, false, true);
@@ -2445,7 +2456,7 @@ impl Game {
         if Some(surf_id) == self.surface_target {
             self.renderer.flush_queue();
         }
-        if let Some(surf) = self.surfaces.get_asset(surf_id) {
+        if let Some(surf) = self.surfaces.get(surf_id) {
             let x = x.max(0);
             let y = y.max(0);
             let w = w.min(surf.width as i32 - x);
@@ -2463,14 +2474,24 @@ impl Game {
         }
     }
 
-    pub fn surface_getpixel(&mut self, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 3
-        unimplemented!("Called unimplemented kernel function surface_getpixel")
+    pub fn surface_getpixel(&mut self, args: &[Value]) -> gml::Result<Value> {
+        let (surf_id, x, y) = expect_args!(args, [int, int, int])?;
+        if Some(surf_id) == self.surface_target {
+            self.renderer.flush_queue();
+        }
+        if let Some(surf) = self.surfaces.get(surf_id) {
+            let (x, y) = (x.max(0), y.max(0));
+            if (x as u32 >= surf.width) || (y as u32 >= surf.height) { return Ok(Default::default()); }
+            let data = self.renderer.dump_sprite_part(surf.atlas_ref, x, y, 1, 1);
+            Ok(u32::from_le_bytes([data[0], data[1], data[2], 0]).into())
+        } else {
+            Ok(Default::default())
+        }
     }
 
     pub fn surface_copy(&mut self, args: &[Value]) -> gml::Result<Value> {
         let (dest_id, x, y, src_id) = expect_args!(args, [int, int, int, int])?;
-        if let (Some(src), Some(dst)) = (self.surfaces.get_asset(src_id), self.surfaces.get_asset(dest_id)) {
+        if let (Some(src), Some(dst)) = (self.surfaces.get(src_id), self.surfaces.get(dest_id)) {
             self.renderer.copy_surface(dst.atlas_ref, x, y, src.atlas_ref, 0, 0, src.width as _, src.height as _);
         }
         Ok(Default::default())
@@ -2479,44 +2500,58 @@ impl Game {
     pub fn surface_copy_part(&mut self, args: &[Value]) -> gml::Result<Value> {
         let (dest_id, dest_x, dest_y, src_id, src_x, src_y, width, height) =
             expect_args!(args, [int, int, int, int, int, int, int, int])?;
-        if let (Some(src), Some(dst)) = (self.surfaces.get_asset(src_id), self.surfaces.get_asset(dest_id)) {
+        if let (Some(src), Some(dst)) = (self.surfaces.get(src_id), self.surfaces.get(dest_id)) {
             self.renderer.copy_surface(dst.atlas_ref, dest_x, dest_y, src.atlas_ref, src_x, src_y, width, height);
         }
         Ok(Default::default())
     }
 
-    pub fn action_path_old(&mut self, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 3
-        unimplemented!("Called unimplemented kernel function action_path_old")
-    }
-
-    pub fn action_set_sprite(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
-        let (sprite, scale) = expect_args!(args, [int, real])?;
-        let instance = self.room.instance_list.get(context.this);
-        instance.sprite_index.set(sprite);
-        instance.image_xscale.set(scale);
-        instance.image_yscale.set(scale);
+    pub fn action_path_old(args: &[Value]) -> gml::Result<Value> {
+        // In GM 8.0, 8.1.141 and 8.1.218 this does not even set the result value explicitly.
+        expect_args!(args, [any, any, any])?;
         Ok(Default::default())
     }
 
-    pub fn action_draw_font(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function action_draw_font")
+    pub fn action_set_sprite(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let (sprite_idx, scale) = expect_args!(args, [int, real])?;
+        let instance = self.room.instance_list.get(context.this);
+
+        if let Some(sprite) = self.assets.sprites.get_asset(sprite_idx) {
+            instance.set_sprite_index(sprite_idx, sprite.frames.len());
+
+            if f64::from(scale) > 0.0 {
+                instance.image_xscale.set(scale);
+                instance.image_yscale.set(scale);
+            }
+
+            Ok(Default::default())
+        } else {
+            Err(gml::Error::FunctionError("action_set_sprite".into(), "Trying to set non-existing sprite.".into()))
+        }
     }
 
-    pub fn action_draw_font_old(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 6
-        unimplemented!("Called unimplemented kernel function action_draw_font_old")
+    pub fn action_draw_font(args: &[Value]) -> gml::Result<Value> {
+        // In GM 8.0, 8.1.141 and 8.1.218 this does not even set the result value explicitly.
+        expect_args!(args, [any])?;
+        Ok(Default::default())
     }
 
-    pub fn action_fill_color(&mut self, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function action_fill_color")
+    pub fn action_draw_font_old(args: &[Value]) -> gml::Result<Value> {
+        // In GM 8.0, 8.1.141 and 8.1.218 this does not even set the result value explicitly.
+        expect_args!(args, [any, any, any, any, any, any])?;
+        Ok(Default::default())
     }
 
-    pub fn action_line_color(&mut self, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function action_line_color")
+    pub fn action_fill_color(args: &[Value]) -> gml::Result<Value> {
+        // In GM 8.0, 8.1.141 and 8.1.218 this does not even set the result value explicitly.
+        expect_args!(args, [any])?;
+        Ok(Default::default())
+    }
+
+    pub fn action_line_color(args: &[Value]) -> gml::Result<Value> {
+        // In GM 8.0, 8.1.141 and 8.1.218 this does not even set the result value explicitly.
+        expect_args!(args, [any])?;
+        Ok(Default::default())
     }
 
     pub fn action_highscore(args: &[Value]) -> gml::Result<Value> {
@@ -2875,13 +2910,26 @@ impl Game {
     }
 
     pub fn action_sprite_set(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
-        let (sprite_id, image_index, image_speed) = expect_args!(args, [int, real, real])?;
+        let (sprite_idx, image_index, image_speed) = expect_args!(args, [int, real, real])?;
         let instance = self.room.instance_list.get(context.this);
-        instance.bbox_is_stale.set(true);
-        instance.sprite_index.set(sprite_id);
-        instance.image_index.set(image_index);
-        instance.image_speed.set(image_speed);
-        Ok(Default::default())
+
+        if let Some(sprite) = self.assets.sprites.get_asset(sprite_idx) {
+            if sprite_idx != instance.sprite_index.get() {
+                instance.sprite_index.set(sprite_idx);
+                instance.bbox_is_stale.set(true);
+            }
+
+            if f64::from(image_index) >= 0.0 {
+                instance.image_index.set(image_index);
+            } else if sprite.frames.len() as f64 <= instance.image_index.get().floor().into() {
+                instance.image_index.set(0.0.into());
+            }
+
+            instance.image_speed.set(image_speed);
+            Ok(Default::default())
+        } else {
+            Err(gml::Error::FunctionError("action_sprite_set".into(), "Trying to set non-existing sprite.".into()))
+        }
     }
 
     pub fn action_sprite_transform(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
@@ -3568,7 +3616,6 @@ impl Game {
 
     pub fn action_set_cursor(&mut self, args: &[Value]) -> gml::Result<Value> {
         let (sprite_id, show_window_cursor) = expect_args!(args, [int, bool])?;
-        let _ = (sprite_id, show_window_cursor);
         self.cursor_sprite = sprite_id;
         let cursor = if show_window_cursor {
             Cursor::Arrow // GM8 seems to always resets to default cursor on call of this function
@@ -4928,7 +4975,7 @@ impl Game {
 
     pub fn mp_grid_destroy(&mut self, args: &[Value]) -> gml::Result<Value> {
         let id = expect_args!(args, [int])?;
-        if self.mpgrids.delete(id) {
+        if self.mpgrids.remove(id).is_some() {
             Ok(Default::default())
         } else {
             Err(gml::Error::FunctionError(
@@ -5435,9 +5482,15 @@ impl Game {
         Ok(Default::default())
     }
 
-    pub fn instance_sprite(&mut self, _context: &mut Context, _args: &[Value]) -> gml::Result<Value> {
-        // Expected arg count: 1
-        unimplemented!("Called unimplemented kernel function instance_sprite")
+    pub fn instance_sprite(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
+        let sprite_idx = expect_args!(args, [int])?;
+        let instance = self.room.instance_list.get(context.this);
+        if let Some(sprite) = self.assets.sprites.get_asset(sprite_idx) {
+            instance.set_sprite_index(sprite_idx, sprite.frames.len());
+            Ok(Default::default())
+        } else {
+            Err(gml::Error::FunctionError("instance_sprite".into(), "Trying to set non-existing sprite.".into()))
+        }
     }
 
     pub fn position_empty(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
@@ -5864,7 +5917,7 @@ impl Game {
             .map_or(Err(file::Error::InvalidFile(handle)), |f| f.flush())
             .map_err(|e| gml::Error::FunctionError("file_bin_close".into(), e.to_string()))?;
 
-        if self.binary_files.delete(handle - 1) {
+        if self.binary_files.remove(handle - 1).is_some() {
             Ok(Default::default())
         } else {
             Err(gml::Error::FunctionError("file_bin_close".into(), file::Error::InvalidFile(handle).to_string()))
@@ -5958,8 +6011,9 @@ impl Game {
             .map_or(Err(file::Error::InvalidFile(handle)), |f| f.flush())
             .map_err(|e| gml::Error::FunctionError("file_text_close".into(), e.to_string()))?;
 
-        // NB: .delete() MUST be called - beware the short-circuit evaluation here!
-        if self.text_files.delete(handle - 1) || (1..=c).contains(&handle) {
+        // NB: Beware the short-circuit evaluation here - .remove() MUST be called!
+        if self.text_files.remove(handle - 1).is_some() || (1..=c).contains(&handle) {
+            // GM does not throw an error if the handle is in valid range.
             Ok(Default::default())
         } else {
             Err(gml::Error::FunctionError("file_text_close".into(), file::Error::InvalidFile(handle).to_string()))
@@ -8357,7 +8411,7 @@ impl Game {
         if self.surface_target == Some(surf_id) {
             self.renderer.flush_queue();
         }
-        if let Some(surf) = self.surfaces.get_asset(surf_id) {
+        if let Some(surf) = self.surfaces.get(surf_id) {
             let x = x.max(0);
             let y = y.max(0);
             let width = width.min(surf.width as i32 - x);
@@ -8410,7 +8464,7 @@ impl Game {
         let (sprite_id, surf_id, x, y, width, height, removeback, smooth) =
             expect_args!(args, [int, int, int, int, int, int, bool, bool])?;
         if let Some(sprite) = self.assets.sprites.get_asset_mut(sprite_id) {
-            if let Some(surf) = self.surfaces.get_asset(surf_id) {
+            if let Some(surf) = self.surfaces.get(surf_id) {
                 // get image
                 let x = x.max(0);
                 let y = y.max(0);
@@ -8840,7 +8894,7 @@ impl Game {
         if self.surface_target == Some(surf_id) {
             self.renderer.flush_queue();
         }
-        if let Some(surf) = self.surfaces.get_asset(surf_id) {
+        if let Some(surf) = self.surfaces.get(surf_id) {
             let x = x.max(0);
             let y = y.max(0);
             let width = width.min(surf.width as i32 - x);
@@ -11050,7 +11104,7 @@ impl Game {
 
     pub fn ds_stack_destroy(&mut self, args: &[Value]) -> gml::Result<Value> {
         let id = expect_args!(args, [int])?;
-        if self.stacks.delete(id) {
+        if self.stacks.remove(id).is_some() {
             Ok(Default::default())
         } else {
             Err(gml::Error::FunctionError("ds_stack_destroy".into(), ds::Error::NonexistentStructure(id).into()))
@@ -11185,7 +11239,7 @@ impl Game {
 
     pub fn ds_queue_destroy(&mut self, args: &[Value]) -> gml::Result<Value> {
         let id = expect_args!(args, [int])?;
-        if self.queues.delete(id) {
+        if self.queues.remove(id).is_some() {
             Ok(Default::default())
         } else {
             Err(gml::Error::FunctionError("ds_queue_destroy".into(), ds::Error::NonexistentStructure(id).into()))
@@ -11295,7 +11349,7 @@ impl Game {
 
     pub fn ds_list_destroy(&mut self, args: &[Value]) -> gml::Result<Value> {
         let id = expect_args!(args, [int])?;
-        if self.lists.delete(id) {
+        if self.lists.remove(id).is_some() {
             Ok(Default::default())
         } else {
             Err(gml::Error::FunctionError("ds_list_destroy".into(), ds::Error::NonexistentStructure(id).into()))
@@ -11518,7 +11572,7 @@ impl Game {
 
     pub fn ds_map_destroy(&mut self, args: &[Value]) -> gml::Result<Value> {
         let id = expect_args!(args, [int])?;
-        if self.maps.delete(id) {
+        if self.maps.remove(id).is_some() {
             Ok(Default::default())
         } else {
             Err(gml::Error::FunctionError("ds_map_destroy".into(), ds::Error::NonexistentStructure(id).into()))
@@ -11735,7 +11789,7 @@ impl Game {
 
     pub fn ds_priority_destroy(&mut self, args: &[Value]) -> gml::Result<Value> {
         let id = expect_args!(args, [int])?;
-        if self.priority_queues.delete(id) {
+        if self.priority_queues.remove(id).is_some() {
             Ok(Default::default())
         } else {
             Err(gml::Error::FunctionError("ds_priority_destroy".into(), ds::Error::NonexistentStructure(id).into()))
@@ -12002,7 +12056,7 @@ impl Game {
 
     pub fn ds_grid_destroy(&mut self, args: &[Value]) -> gml::Result<Value> {
         let id = expect_args!(args, [int])?;
-        if self.grids.delete(id) {
+        if self.grids.remove(id).is_some() {
             Ok(Default::default())
         } else {
             Err(gml::Error::FunctionError("ds_grid_destroy".into(), ds::Error::NonexistentStructure(id).into()))
@@ -13370,27 +13424,18 @@ impl Game {
 
     pub fn d3d_model_create(&mut self, args: &[Value]) -> gml::Result<Value> {
         expect_args!(args, [])?;
-        let model = Default::default();
-        if let Some(id) = self.models.iter().position(|x| x.is_none()) {
-            self.models[id] = Some(model);
-            Ok(id.into())
-        } else {
-            self.models.push(Some(model));
-            Ok((self.models.len() - 1).into())
-        }
+        Ok(self.models.put(Default::default()).into())
     }
 
     pub fn d3d_model_destroy(&mut self, args: &[Value]) -> gml::Result<Value> {
         let model_id = expect_args!(args, [int])?;
-        if self.models.get_asset(model_id).is_some() {
-            self.models[model_id as usize] = None;
-        }
+        self.models.remove(model_id);
         Ok(Default::default())
     }
 
     pub fn d3d_model_clear(&mut self, args: &[Value]) -> gml::Result<Value> {
         let model_id = expect_args!(args, [int])?;
-        if let Some(model) = self.models.get_asset_mut(model_id) {
+        if let Some(model) = self.models.get_mut(model_id) {
             *model = Default::default();
         }
         Ok(Default::default())
@@ -13505,7 +13550,7 @@ impl Game {
             }
             Ok(model::Model { old_draw_colour: None, commands, cache: None })
         }
-        if let Some(model) = self.models.get_asset_mut(model_id) {
+        if let Some(model) = self.models.get_mut(model_id) {
             match load_model(&fname) {
                 Ok(new_model) => *model = new_model,
                 Err(e) => println!("WARNING: d3d_model_load failed: {}", e),
@@ -13530,7 +13575,7 @@ impl Game {
             file.flush()?;
             Ok(())
         }
-        if let Some(model) = self.models.get_asset(model_id) {
+        if let Some(model) = self.models.get(model_id) {
             if let Err(e) = save_model(model, &fname) {
                 println!("WARNING: d3d_model_save failed: {}", e);
             }
@@ -13541,7 +13586,7 @@ impl Game {
     pub fn d3d_model_draw(&mut self, args: &[Value]) -> gml::Result<Value> {
         let (model_id, x, y, z, tex_id) = expect_args!(args, [int, real, real, real, int])?;
         let atlas_ref = self.renderer.get_texture_from_id(tex_id as _);
-        if let Some(model) = self.models.get_asset_mut(model_id) {
+        if let Some(model) = self.models.get_mut(model_id) {
             // translate according to given position
             let old_model_matrix = self.renderer.get_model_matrix();
             #[rustfmt::skip]
@@ -13759,7 +13804,7 @@ impl Game {
 
     pub fn d3d_model_primitive_begin(&mut self, args: &[Value]) -> gml::Result<Value> {
         let (model_id, kind) = expect_args!(args, [int, int])?;
-        if let Some(model) = self.models.get_asset_mut(model_id) {
+        if let Some(model) = self.models.get_mut(model_id) {
             model.commands.push(model::Command::Begin(kind.into()));
         }
         Ok(Default::default())
@@ -13767,7 +13812,7 @@ impl Game {
 
     pub fn d3d_model_primitive_end(&mut self, args: &[Value]) -> gml::Result<Value> {
         let model_id = expect_args!(args, [int])?;
-        if let Some(model) = self.models.get_asset_mut(model_id) {
+        if let Some(model) = self.models.get_mut(model_id) {
             model.commands.push(model::Command::End);
         }
         Ok(Default::default())
@@ -13775,7 +13820,7 @@ impl Game {
 
     pub fn d3d_model_vertex(&mut self, args: &[Value]) -> gml::Result<Value> {
         let (model_id, x, y, z) = expect_args!(args, [int, real, real, real])?;
-        if let Some(model) = self.models.get_asset_mut(model_id) {
+        if let Some(model) = self.models.get_mut(model_id) {
             model.commands.push(model::Command::Vertex {
                 pos: [x, y, z],
                 normal: [0.into(); 3],
@@ -13787,7 +13832,7 @@ impl Game {
 
     pub fn d3d_model_vertex_color(&mut self, args: &[Value]) -> gml::Result<Value> {
         let (model_id, x, y, z, col, alpha) = expect_args!(args, [int, real, real, real, int, real])?;
-        if let Some(model) = self.models.get_asset_mut(model_id) {
+        if let Some(model) = self.models.get_mut(model_id) {
             model.commands.push(model::Command::VertexColour {
                 pos: [x, y, z],
                 normal: [0.into(); 3],
@@ -13800,7 +13845,7 @@ impl Game {
 
     pub fn d3d_model_vertex_texture(&mut self, args: &[Value]) -> gml::Result<Value> {
         let (model_id, x, y, z, xtex, ytex) = expect_args!(args, [int, real, real, real, real, real])?;
-        if let Some(model) = self.models.get_asset_mut(model_id) {
+        if let Some(model) = self.models.get_mut(model_id) {
             model.commands.push(model::Command::Vertex {
                 pos: [x, y, z],
                 normal: [0.into(); 3],
@@ -13813,7 +13858,7 @@ impl Game {
     pub fn d3d_model_vertex_texture_color(&mut self, args: &[Value]) -> gml::Result<Value> {
         let (model_id, x, y, z, xtex, ytex, col, alpha) =
             expect_args!(args, [int, real, real, real, real, real, int, real])?;
-        if let Some(model) = self.models.get_asset_mut(model_id) {
+        if let Some(model) = self.models.get_mut(model_id) {
             model.commands.push(model::Command::VertexColour {
                 pos: [x, y, z],
                 normal: [0.into(); 3],
@@ -13826,7 +13871,7 @@ impl Game {
 
     pub fn d3d_model_vertex_normal(&mut self, args: &[Value]) -> gml::Result<Value> {
         let (model_id, x, y, z, nx, ny, nz) = expect_args!(args, [int, real, real, real, real, real, real])?;
-        if let Some(model) = self.models.get_asset_mut(model_id) {
+        if let Some(model) = self.models.get_mut(model_id) {
             model.commands.push(model::Command::Vertex {
                 pos: [x, y, z],
                 normal: [nx, ny, nz],
@@ -13839,7 +13884,7 @@ impl Game {
     pub fn d3d_model_vertex_normal_color(&mut self, args: &[Value]) -> gml::Result<Value> {
         let (model_id, x, y, z, nx, ny, nz, col, alpha) =
             expect_args!(args, [int, real, real, real, real, real, real, int, real])?;
-        if let Some(model) = self.models.get_asset_mut(model_id) {
+        if let Some(model) = self.models.get_mut(model_id) {
             model.commands.push(model::Command::VertexColour {
                 pos: [x, y, z],
                 normal: [nx, ny, nz],
@@ -13853,7 +13898,7 @@ impl Game {
     pub fn d3d_model_vertex_normal_texture(&mut self, args: &[Value]) -> gml::Result<Value> {
         let (model_id, x, y, z, nx, ny, nz, xtex, ytex) =
             expect_args!(args, [int, real, real, real, real, real, real, real, real])?;
-        if let Some(model) = self.models.get_asset_mut(model_id) {
+        if let Some(model) = self.models.get_mut(model_id) {
             model.commands.push(model::Command::Vertex {
                 pos: [x, y, z],
                 normal: [nx, ny, nz],
@@ -13866,7 +13911,7 @@ impl Game {
     pub fn d3d_model_vertex_normal_texture_color(&mut self, args: &[Value]) -> gml::Result<Value> {
         let (model_id, x, y, z, nx, ny, nz, xtex, ytex, col, alpha) =
             expect_args!(args, [int, real, real, real, real, real, real, real, real, int, real])?;
-        if let Some(model) = self.models.get_asset_mut(model_id) {
+        if let Some(model) = self.models.get_mut(model_id) {
             model.commands.push(model::Command::VertexColour {
                 pos: [x, y, z],
                 normal: [nx, ny, nz],
@@ -13880,7 +13925,7 @@ impl Game {
     pub fn d3d_model_block(&mut self, args: &[Value]) -> gml::Result<Value> {
         let (model_id, x1, y1, z1, x2, y2, z2, hrepeat, vrepeat) =
             expect_args!(args, [int, real, real, real, real, real, real, real, real])?;
-        if let Some(model) = self.models.get_asset_mut(model_id) {
+        if let Some(model) = self.models.get_mut(model_id) {
             model.commands.push(model::Command::Block {
                 pos1: [x1, y1, z1],
                 pos2: [x2, y2, z2],
@@ -13893,7 +13938,7 @@ impl Game {
     pub fn d3d_model_cylinder(&mut self, args: &[Value]) -> gml::Result<Value> {
         let (model_id, x1, y1, z1, x2, y2, z2, hrepeat, vrepeat, closed, steps) =
             expect_args!(args, [int, real, real, real, real, real, real, real, real, bool, int])?;
-        if let Some(model) = self.models.get_asset_mut(model_id) {
+        if let Some(model) = self.models.get_mut(model_id) {
             model.commands.push(model::Command::Cylinder {
                 pos1: [x1, y1, z1],
                 pos2: [x2, y2, z2],
@@ -13908,7 +13953,7 @@ impl Game {
     pub fn d3d_model_cone(&mut self, args: &[Value]) -> gml::Result<Value> {
         let (model_id, x1, y1, z1, x2, y2, z2, hrepeat, vrepeat, closed, steps) =
             expect_args!(args, [int, real, real, real, real, real, real, real, real, bool, int])?;
-        if let Some(model) = self.models.get_asset_mut(model_id) {
+        if let Some(model) = self.models.get_mut(model_id) {
             model.commands.push(model::Command::Cone {
                 pos1: [x1, y1, z1],
                 pos2: [x2, y2, z2],
@@ -13923,7 +13968,7 @@ impl Game {
     pub fn d3d_model_ellipsoid(&mut self, args: &[Value]) -> gml::Result<Value> {
         let (model_id, x1, y1, z1, x2, y2, z2, hrepeat, vrepeat, steps) =
             expect_args!(args, [int, real, real, real, real, real, real, real, real, int])?;
-        if let Some(model) = self.models.get_asset_mut(model_id) {
+        if let Some(model) = self.models.get_mut(model_id) {
             model.commands.push(model::Command::Ellipsoid {
                 pos1: [x1, y1, z1],
                 pos2: [x2, y2, z2],
@@ -13937,7 +13982,7 @@ impl Game {
     pub fn d3d_model_wall(&mut self, args: &[Value]) -> gml::Result<Value> {
         let (model_id, x1, y1, z1, x2, y2, z2, hrepeat, vrepeat) =
             expect_args!(args, [int, real, real, real, real, real, real, real, real])?;
-        if let Some(model) = self.models.get_asset_mut(model_id) {
+        if let Some(model) = self.models.get_mut(model_id) {
             model.commands.push(model::Command::Wall {
                 pos1: [x1, y1, z1],
                 pos2: [x2, y2, z2],
@@ -13950,7 +13995,7 @@ impl Game {
     pub fn d3d_model_floor(&mut self, args: &[Value]) -> gml::Result<Value> {
         let (model_id, x1, y1, z1, x2, y2, z2, hrepeat, vrepeat) =
             expect_args!(args, [int, real, real, real, real, real, real, real, real])?;
-        if let Some(model) = self.models.get_asset_mut(model_id) {
+        if let Some(model) = self.models.get_mut(model_id) {
             model.commands.push(model::Command::Floor {
                 pos1: [x1, y1, z1],
                 pos2: [x2, y2, z2],

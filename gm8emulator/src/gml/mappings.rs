@@ -1,6 +1,6 @@
 use crate::{
     game::Game,
-    gml::{Function, InstanceVariable},
+    gml::{self, Function, InstanceVariable},
 };
 use phf::{phf_map, phf_ordered_map};
 
@@ -846,6 +846,7 @@ pub const INSTANCE_VARIABLES: [(&str, InstanceVariable); 166] = [
     ("async_load", InstanceVariable::AsyncLoad),
 ];
 
+#[inline(always)]
 pub fn get_instance_variable_by_name(name: &[u8]) -> Option<&InstanceVariable> {
     std::str::from_utf8(name).ok().and_then(|n| INSTANCE_VARIABLES.iter().find(|(s, _)| *s == n).map(|(_, v)| v))
 }
@@ -1063,12 +1064,12 @@ pub const FUNCTIONS: phf::OrderedMap<&'static str, Function> = phf_ordered_map! 
     "surface_getpixel" => Function::Engine(Game::surface_getpixel),
     "surface_copy" => Function::Engine(Game::surface_copy),
     "surface_copy_part" => Function::Engine(Game::surface_copy_part),
-    "action_path_old" => Function::Engine(Game::action_path_old),
+    "action_path_old" => Function::Pure(Game::action_path_old),
     "action_set_sprite" => Function::Runtime(Game::action_set_sprite),
-    "action_draw_font" => Function::Runtime(Game::action_draw_font),
-    "action_draw_font_old" => Function::Runtime(Game::action_draw_font_old),
-    "action_fill_color" => Function::Engine(Game::action_fill_color),
-    "action_line_color" => Function::Engine(Game::action_line_color),
+    "action_draw_font" => Function::Pure(Game::action_draw_font),
+    "action_draw_font_old" => Function::Pure(Game::action_draw_font_old),
+    "action_fill_color" => Function::Pure(Game::action_fill_color),
+    "action_line_color" => Function::Pure(Game::action_line_color),
     "action_highscore" => Function::Pure(Game::action_highscore),
     "action_move" => Function::Runtime(Game::action_move),
     "action_set_motion" => Function::Runtime(Game::action_set_motion),
@@ -2136,3 +2137,10 @@ pub const FUNCTIONS: phf::OrderedMap<&'static str, Function> = phf_ordered_map! 
     "d3d_model_wall" => Function::Engine(Game::d3d_model_wall),
     "d3d_model_floor" => Function::Engine(Game::d3d_model_floor),
 };
+
+#[inline(always)]
+pub fn find_function_by_address<T>(func: &gml::FunctionPtr<T>) -> Option<(usize, &str)> {
+    FUNCTIONS.entries().enumerate()
+        .find(|(_, (_, &v))| v.addr() == std::ptr::from_ref(&func.0) as *const ())
+        .map(|(i, (&k, _))| (i, k))
+}

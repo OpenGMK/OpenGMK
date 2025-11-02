@@ -28,7 +28,8 @@ use crate::{
     },
     render::{atlas::AtlasRef, PrimitiveType, RendererState},
     types::Colour,
-    imgui, input,
+    imgui_utils::*,
+    input,
 };
 use ramen::{
     event::Event,
@@ -39,6 +40,11 @@ use std::{
     fs::File,
     path::PathBuf,
     time::Instant,
+};
+use imgui::{
+    self,
+    DrawCmd,
+    internal::RawWrapper,
 };
 
 use super::replay::FrameRng;
@@ -125,7 +131,7 @@ struct UIState<'g> {
     modal_window_handler: Option<usize>,
 
     /// Position of the context menu
-    context_menu_pos: imgui::Vec2<f32>,
+    context_menu_pos: Vec2<f32>,
 
     /// Cached reports on the current state of any instances the user is "watching"
     instance_reports: Vec<(i32, Option<InstanceReport>)>,
@@ -165,7 +171,7 @@ struct UIState<'g> {
 
     win_frame_height: f32,
     win_border_size: f32,
-    win_padding: imgui::Vec2<f32>,
+    win_padding: Vec2<f32>,
 }
 
 #[derive(Clone, Copy, PartialEq)]
@@ -271,7 +277,7 @@ impl KeyState {
         };
     }
 
-    fn menu(&mut self, frame: &mut imgui::Frame) -> bool {
+    fn menu(&mut self, frame: &imgui::Ui) -> bool {
         if self.is_held() {
             if frame.menu_item("(Keep Held)") {
                 *self = KeyState::Held;
@@ -334,16 +340,16 @@ impl KeyState {
 
     /// Draws the coloured rectangle according to the current state of the button.
     /// Doesn't render any text on it.
-    pub fn draw_keystate(&self, frame: &mut imgui::Frame, position: imgui::Vec2<f32>, size: imgui::Vec2<f32>) {
-        let wpos = frame.window_position();
-        let alpha = if frame.item_hovered() { 255 } else { 190 };
-        let r1_min = position + wpos;
-        let r1_max = r1_min + imgui::Vec2((size.0 / 2.0).floor(), size.1);
-        let r2_min = imgui::Vec2(position.0 + (size.0 / 2.0).floor(), position.1) + wpos;
-        let r2_max = position + size + wpos;
+    pub fn draw_keystate(&self, frame: &imgui::Ui, position: Vec2<f32>, size: Vec2<f32>) {
+        let window_position: Vec2<f32> = frame.window_pos().into();
+        let alpha = if frame.is_item_hovered() { 255 } else { 190 };
+        let r1_min = position + window_position;
+        let r1_max = r1_min + Vec2((size.0 / 2.0).floor(), size.1);
+        let r2_min = Vec2(position.0 + (size.0 / 2.0).floor(), position.1) + window_position;
+        let r2_max = position + size + window_position;
         match self {
-            KeyState::Neutral => frame.rect(position + wpos, position + size + wpos, BTN_NEUTRAL_COL, alpha),
-            KeyState::Held => frame.rect(position + wpos, position + size + wpos, BTN_HELD_COL, alpha),
+            KeyState::Neutral => frame.rect(position + window_position, position + size + window_position, BTN_NEUTRAL_COL, alpha),
+            KeyState::Held => frame.rect(position + window_position, position + size + window_position, BTN_HELD_COL, alpha),
             KeyState::NeutralWillPress => {
                 frame.rect(r1_min, r1_max, BTN_NEUTRAL_COL, alpha);
                 frame.rect(r2_min, r2_max, BTN_HELD_COL, alpha);
@@ -373,7 +379,7 @@ impl KeyState {
                 frame.rect(r2_min, r2_max, BTN_NTRIPLE_COL, alpha);
             },
         }
-        frame.rect_outline(position + wpos, position + size + wpos, Colour::new(0.4, 0.4, 0.65), u8::MAX);
+        frame.rect_outline(position + window_position, position + size + window_position, Colour::new(0.4, 0.4, 0.65), u8::MAX);
     }
 
     pub fn push_key_inputs(&self, key: u8, inputs: &mut Vec<replay::Input>) {
@@ -501,31 +507,31 @@ impl Game {
         let mut config = ProjectConfig::from_file_or_default(&config_path);
         let mut replay = Replay::new(if let GameClock::SpoofedNanos(t) = self.clock {t} else {0}, self.rand.seed());
 
-        let mut context = imgui::Context::new();
-        context.make_current();
-        let io = context.io();
-        io.setup_default_keymap();
+        let mut ini_filename = project_path.clone();
+        ini_filename.push("imgui.ini");
 
-        let ini_filename = {
-            let mut path = project_path.clone();
-            path.push("imgui.ini\0");
-            path.into_os_string().into_string().expect("Bad project file path")
-        };
-        unsafe {
-            (*cimgui_sys::igGetIO()).IniFilename = ini_filename.as_ptr() as _;
-        }
-        io.set_display_size(imgui::Vec2(f32::from(config.ui_width), f32::from(config.ui_height)));
+        let mut context = imgui::Context::create();
+        context.set_clipboard_backend(EmuClipboardProvider);
+        context.set_ini_filename(ini_filename);
+
+        let io = context.io_mut();
+        io.display_size = [f32::from(config.ui_width), f32::from(config.ui_height)];
 
         // TODO probably don't store these textures in the same places as the game textures
-        let imgui::FontData { data: fdata, size: (fwidth, fheight) } = io.font_data();
-        let mut font = self
+        let fonts = context.fonts();
+        let font_tex = fonts.build_rgba32_texture();
+        let font = self
             .renderer
-            .upload_sprite(fdata.into(), fwidth as _, fheight as _, 0, 0)
+            .upload_sprite(font_tex.data.into(), font_tex.width as _, font_tex.height as _, 0, 0)
             .expect("Failed to upload UI font");
-        io.set_texture_id((&mut font as *mut AtlasRef).cast());
 
+        if font.0 < 0 {
+            panic!("Failed to upload UI font");
+        } else {
+            fonts.tex_id = imgui::TextureId::new(font.0 as usize);
+        }
+        
         let mut clean_state = true;
-
         // Generate white grid sprite. Color is blended in when drawn.
         // It's not entirely accurate to the K3 one anymore, someone's probably going to be upset at that.
         let grid = (0i32..(64 * 64 * 4))
@@ -552,6 +558,7 @@ impl Game {
         let ui_renderer_state = RendererState {
             model_matrix: self.renderer.get_model_matrix(),
             alpha_blending: true,
+            colour_blending: true,
             blend_mode: self.renderer.get_blend_mode(),
             pixel_interpolation: true,
             texture_repeat: false,
@@ -814,7 +821,7 @@ impl Game {
             game_renderer_state: renderer_state,
             clear_context_menu: false,
             context_menu_window: None,
-            context_menu_pos: imgui::Vec2(0.0, 0.0),
+            context_menu_pos: Vec2(0.0, 0.0),
             run_until_frame: None,
             clean_state,
             clean_state_previous: clean_state,
@@ -829,7 +836,7 @@ impl Game {
             windows,
             win_border_size: 0.0,
             win_frame_height: 0.0,
-            win_padding: imgui::Vec2(0.0, 0.0),
+            win_padding: Vec2(0.0, 0.0),
             modal_window_handler: None,
         }.run(&mut context);
     }
@@ -841,8 +848,8 @@ impl UIState<'_> {
             let time_start = Instant::now();
 
             // refresh io state
-            let io = context.io();
-            io.set_mouse_wheel(0.0);
+            let io = context.io_mut();
+            io.mouse_wheel = 0.0;
             self.clear_context_menu = false;
 
             // poll window events
@@ -851,12 +858,12 @@ impl UIState<'_> {
             }
 
             // present imgui
-            let fps_text = format!("FPS: {}", io.framerate().round());
-            self.win_frame_height = context.frame_height();
-            self.win_border_size = context.window_border_size();
-            self.win_padding = context.window_padding();
+            let fps_text = format!("FPS: {}", io.framerate.round());
+            self.win_border_size = context.style().window_border_size;
+            self.win_padding = context.style().window_padding.into();
             let mut frame = context.new_frame();
-
+            self.win_frame_height = frame.frame_height();
+            
             // ImGui windows
             // todo: maybe separate control logic from the windows at some point so we can close control/savestate/input windows
             //       and still have the keyboard shortcuts and everything working. Collapsing them is good enough for now.
@@ -866,7 +873,7 @@ impl UIState<'_> {
 
             // Show error/info message if there is one
             if let Some(err) = &self.err_string {
-                if !frame.popup(err) {
+                if !frame.popup_notification(err) {
                     if self.startup_successful {
                         self.err_string = None;
                     } else {
@@ -876,11 +883,11 @@ impl UIState<'_> {
             }
 
             // Done
-            frame.render();
+            //context.render();
             self.update_grid_colour();
             self.render_ui_frame(context);
 
-            context.io().set_delta_time(time_start.elapsed().as_micros() as f32 / 1000000.0);
+            context.io_mut().delta_time = time_start.elapsed().as_micros() as f32 / 1000000.0;
         }
 
         self.save_config();
@@ -927,50 +934,59 @@ impl UIState<'_> {
             Some(self.config.ui_height.into()),
         );
 
-        let draw_data = context.draw_data();
-        debug_assert!(draw_data.Valid);
-        let cmd_list_count = usize::try_from(draw_data.CmdListsCount).unwrap_or(0);
-        for list_id in 0..cmd_list_count {
-            let draw_list = unsafe { &**draw_data.CmdLists.add(list_id) };
-            let cmd_count = usize::try_from(draw_list.CmdBuffer.Size).unwrap_or(0);
-            let vertex_buffer = draw_list.VtxBuffer.Data;
-            let index_buffer = draw_list.IdxBuffer.Data;
-            for cmd_id in 0..cmd_count {
-                let command = unsafe { &*draw_list.CmdBuffer.Data.add(cmd_id) };
-                let vertex_buffer = unsafe { vertex_buffer.add(command.VtxOffset as usize) };
-                let index_buffer = unsafe { index_buffer.add(command.IdxOffset as usize) };
-                if let Some(f) = command.UserCallback {
-                    unsafe { f(draw_list, command) };
-                } else {
-                    // TODO: don't use the primitive builder for this, it allocates a lot and
-                    // also doesn't do instanced drawing I think?
-                    self.game.renderer.reset_primitive_2d(
-                        PrimitiveType::TriList,
-                        if command.TextureId.is_null() {
-                            None
-                        } else {
-                            Some(unsafe { *(command.TextureId as *mut AtlasRef) })
-                        },
-                    );
-
-                    for i in 0..(command.ElemCount as usize) {
-                        let vert = unsafe { *(vertex_buffer.add(usize::from(*index_buffer.add(i)))) };
-                        self.game.renderer.vertex_2d(
-                            f64::from(vert.pos.x) - 0.5,
-                            f64::from(vert.pos.y) - 0.5,
-                            vert.uv.x.into(),
-                            vert.uv.y.into(),
-                            (vert.col & 0xFFFFFF) as _,
-                            f64::from(vert.col >> 24) / 255.0,
+        let draw_data = context.render();
+        for draw_list in draw_data.draw_lists() {
+            //let draw_list: &DrawList = draw_list;
+            let vertex_buffer = draw_list.vtx_buffer();
+            let index_buffer = draw_list.idx_buffer();
+            for cmd in draw_list.commands() {
+                match cmd {
+                    DrawCmd::Elements {
+                        count,
+                        cmd_params
+                    } => {
+                        // TODO: don't use the primitive builder for this, it allocates a lot and
+                        // also doesn't do instanced drawing I think?
+                        self.game.renderer.reset_primitive_2d(
+                            PrimitiveType::TriList,
+                            if cmd_params.texture_id.id() == 0 {
+                                None
+                            } else {
+                                Some(AtlasRef(cmd_params.texture_id.id() as i32))
+                            },
                         );
-                    }
 
-                    let clip_x = command.ClipRect.x as i32;
-                    let clip_y = command.ClipRect.y as i32;
-                    let clip_w = (command.ClipRect.z - command.ClipRect.x) as i32 + 1;
-                    let clip_h = (command.ClipRect.w - command.ClipRect.y) as i32 + 1;
-                    self.game.renderer.set_view(clip_x, clip_y, clip_w, clip_h, 0.0, clip_x, clip_y, clip_w, clip_h);
-                    self.game.renderer.draw_primitive_2d();
+                        for i in 0..count {
+                            let vert: imgui::DrawVert = vertex_buffer[
+                                cmd_params.vtx_offset +
+                                usize::from(index_buffer[i + cmd_params.idx_offset])
+                            ];
+                            self.game.renderer.vertex_2d(
+                                f64::from(vert.pos[0]) - 0.5,
+                                f64::from(vert.pos[1]) - 0.5,
+                                vert.uv[0].into(),
+                                vert.uv[1].into(),
+                                i32::from(vert.col[0]) |
+                                (i32::from(vert.col[1]) << 8) |
+                                (i32::from(vert.col[2]) << 16),
+                                f64::from(vert.col[3]) / 255.0,
+                            );
+                        }
+
+                        let clip_x = cmd_params.clip_rect[0] as i32;
+                        let clip_y = cmd_params.clip_rect[1] as i32;
+                        let clip_w = (cmd_params.clip_rect[2] - cmd_params.clip_rect[0]) as i32 + 1;
+                        let clip_h = (cmd_params.clip_rect[3] - cmd_params.clip_rect[1]) as i32 + 1;
+                        self.game.renderer.set_view(clip_x, clip_y, clip_w, clip_h, 0.0, clip_x, clip_y, clip_w, clip_h);
+                        self.game.renderer.draw_primitive_2d();
+                    }
+                    DrawCmd::RawCallback {
+                        callback,
+                        raw_cmd
+                    } => {
+                        unsafe { callback(draw_list.raw(), raw_cmd) };
+                    }
+                    DrawCmd::ResetRenderState => {}
                 }
             }
         }
@@ -978,9 +994,9 @@ impl UIState<'_> {
         self.game.renderer.finish(self.config.ui_width.into(), self.config.ui_height.into(), self.grid_colour_background);
     }
 
-    /// Pulls new window events from operating system and updates config, imgui and renderer accordingly.
+    /// Polls new window events from operating system and updates config, imgui and renderer accordingly.
     /// Returns false if the program should exit (eg. the 'X' button was pressed), otherwise true.
-    fn poll_window_events(&mut self, io: &mut imgui::IO) -> bool {
+    fn poll_window_events(&mut self, io: &mut imgui::Io) -> bool {
         self.game.window.poll_events();
         for event in self.game.window.events().into_iter().copied() {
             match event {
@@ -1001,12 +1017,14 @@ impl UIState<'_> {
                             self.setting_mouse_pos = false;
                         }
                     }
-                    let vk = input::ramen2vk(key);
-                    io.set_key(usize::from(vk), state);
+                    
+                    if let Some(key) = input::ramen2imgui(key) {
+                        io.add_key_event(key, state);
+                    }
                     match key {
-                        Key::LeftShift | Key::RightShift => io.set_shift(state),
-                        Key::LeftControl | Key::RightControl => io.set_ctrl(state),
-                        Key::LeftAlt | Key::RightAlt => io.set_alt(state),
+                        Key::LeftShift | Key::RightShift => io.add_key_event(imgui::Key::ModShift, state),
+                        Key::LeftControl | Key::RightControl => io.add_key_event(imgui::Key::ModCtrl, state),
+                        Key::LeftAlt | Key::RightAlt => io.add_key_event(imgui::Key::ModAlt, state),
                         _ => (),
                     }
                 },
@@ -1014,19 +1032,19 @@ impl UIState<'_> {
                     io.add_input_character(chr);
                 },
                 Event::MouseMove((x, y)) => {
-                    io.set_mouse(imgui::Vec2(x as f32, y as f32));
+                    io.mouse_pos = [x as f32, y as f32];
                 },
                 ev @ Event::MouseDown(btn) | ev @ Event::MouseUp(btn) => usize::try_from(input::ramen2mb(btn))
                     .ok()
                     .and_then(|x| x.checked_sub(1))
                     .into_iter()
-                    .for_each(|x| io.set_mouse_button(x, matches!(ev, Event::MouseDown(_)))),
-                Event::ScrollUp => io.set_mouse_wheel(1.0),
-                Event::ScrollDown => io.set_mouse_wheel(-1.0),
+                    .for_each(|x| io.mouse_down[x] = matches!(ev, Event::MouseDown(_))),
+                Event::ScrollUp => io.add_mouse_wheel_event([0.0, 1.0]),
+                Event::ScrollDown => io.add_mouse_wheel_event([0.0, -1.0]),
                 Event::Resize((width, height)) => {
                     self.config.ui_width = u16::try_from(width).unwrap_or(u16::MAX);
                     self.config.ui_height = u16::try_from(height).unwrap_or(u16::MAX);
-                    io.set_display_size(imgui::Vec2(width as f32, height as f32));
+                    io.display_size = [f32::from(width), f32::from(height)];
                     self.game.renderer.resize_framebuffer(width as _, height as _, false);
                     self.clear_context_menu = true;
                 },
@@ -1047,7 +1065,7 @@ impl UIState<'_> {
 
     /// Updates all imgui windows (including the context menus and menu bar)
     /// Returns false if the application should exit
-    fn update_windows(&mut self, frame: &mut imgui::Frame, fps_text: &String) -> bool {
+    fn update_windows(&mut self, frame: &mut imgui::Ui, fps_text: &String) -> bool {
 
         // Update menu bar
         if !self.show_menu_bar(frame) {
@@ -1142,7 +1160,7 @@ impl UIState<'_> {
             match self.windows.get_mut(index) {
                 Some((win, _)) => {
                     display_info.frame.begin_context_menu(self.context_menu_pos);
-                    if !display_info.frame.window_focused() || !win.show_context_menu(&mut display_info) {
+                    if !display_info.frame.is_window_focused() || !win.show_context_menu(&mut display_info) {
                         win.context_menu_close();
                         self.context_menu_window = None;
                     }

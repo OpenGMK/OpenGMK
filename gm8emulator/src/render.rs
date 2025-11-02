@@ -112,11 +112,12 @@ pub struct PrimitiveBuilder {
     vertices: Vec<Vertex>,
     ptype: PrimitiveType,
     atlas_ref: AtlasRect,
+    textured: bool,
 }
 
 impl PrimitiveBuilder {
-    fn new(atlas_ref: AtlasRect, ptype: PrimitiveType) -> Self {
-        Self { vertices: Vec::new(), ptype, atlas_ref }
+    fn new(atlas_ref: AtlasRect, ptype: PrimitiveType, textured: bool) -> Self {
+        Self { vertices: Vec::new(), ptype, atlas_ref, textured }
     }
 
     fn push_vertex_raw(&mut self, v: Vertex) -> &mut Self {
@@ -149,6 +150,7 @@ impl PrimitiveBuilder {
     }
 
     fn push_vertex(&mut self, pos: [f32; 3], tex_coord: [f32; 2], blend: [f32; 4], normal: [f32; 3]) -> &mut Self {
+        let tex_coord = if self.textured { tex_coord } else { [f32::NAN; 2] };
         self.push_vertex_raw(Vertex { pos, tex_coord, blend, normal, atlas_xywh: self.atlas_ref.into() });
         self
     }
@@ -328,6 +330,8 @@ pub trait RendererTrait {
     fn dump_sprite_part(&self, texture: AtlasRef, part_x: i32, part_y: i32, part_w: i32, part_h: i32) -> Box<[u8]>;
     fn get_alpha_blending(&self) -> bool;
     fn set_alpha_blending(&mut self, alphablend: bool);
+    fn get_colour_blending(&self) -> bool;
+    fn set_colour_blending(&mut self, modulate: bool);
     fn get_blend_mode(&self) -> (BlendType, BlendType);
     fn set_blend_mode(&mut self, src: BlendType, dst: BlendType);
     fn get_pixel_interpolation(&self) -> bool;
@@ -579,6 +583,10 @@ impl Renderer {
 
     pub fn delete_sprite(&mut self, atlas_ref: AtlasRef) {
         self.0.delete_sprite(atlas_ref)
+    }
+
+    pub fn check_texture_id(&self, id: i32) -> bool {
+        self.0.get_rect(AtlasRef(id)).is_some()
     }
 
     pub fn set_vsync(&self, vsync: bool) {
@@ -976,6 +984,14 @@ impl Renderer {
         self.0.set_alpha_blending(alphablend)
     }
 
+    pub fn get_colour_blending(&self) -> bool {
+        self.0.get_colour_blending()
+    }
+
+    pub fn set_colour_blending(&mut self, modulate: bool) {
+        self.0.set_colour_blending(modulate)
+    }
+
     pub fn get_blend_mode(&self) -> (BlendType, BlendType) {
         self.0.get_blend_mode()
     }
@@ -1132,6 +1148,7 @@ impl Renderer {
         RendererState {
             model_matrix: self.get_model_matrix(),
             alpha_blending: self.get_alpha_blending(),
+            colour_blending: self.get_colour_blending(),
             blend_mode: self.get_blend_mode(),
             pixel_interpolation: self.get_pixel_interpolation(),
             texture_repeat: self.get_texture_repeat(),
@@ -1158,6 +1175,7 @@ impl Renderer {
     pub fn set_state(&mut self, state: &RendererState) {
         self.set_model_matrix(state.model_matrix);
         self.set_alpha_blending(state.alpha_blending);
+        self.set_colour_blending(state.colour_blending);
         self.set_blend_mode(state.blend_mode.0, state.blend_mode.1);
         self.set_pixel_interpolation(state.pixel_interpolation);
         self.set_texture_repeat(state.texture_repeat);
@@ -1187,6 +1205,7 @@ impl Renderer {
 pub struct RendererState {
     pub model_matrix: [f32; 16],
     pub alpha_blending: bool,
+    pub colour_blending: bool,
     pub blend_mode: (BlendType, BlendType),
     pub pixel_interpolation: bool,
     pub texture_repeat: bool,
