@@ -1,5 +1,5 @@
 use imgui::{InputTextCallback, InputTextCallbackHandler};
-use crate::{game::{recording::window::DisplayInformation, replay::FrameRng}};
+use crate::{game::{recording::window::EmulatorContext, replay::FrameRng}};
 use super::{DialogState, Dialog};
 
 pub struct StringInputPopup {
@@ -31,8 +31,8 @@ impl InputTextCallbackHandler for CallbackHandler {
 }
 
 impl Dialog for StringInputPopup {
-    fn show(&mut self, info: &mut DisplayInformation) -> DialogState {
-        let DisplayInformation {
+    fn show(&mut self, info: &mut EmulatorContext) -> DialogState {
+        let EmulatorContext {
             frame,
             keybindings,
             ..
@@ -97,7 +97,7 @@ impl StringInputPopup {
 }
 
 impl Dialog for RNGSelect {
-    fn show(&mut self, info: &mut DisplayInformation) -> DialogState {
+    fn show(&mut self, info: &mut EmulatorContext) -> DialogState {
         match self.input.show(info) {
             DialogState::Submit => {
                 let str = self.input.get_string();

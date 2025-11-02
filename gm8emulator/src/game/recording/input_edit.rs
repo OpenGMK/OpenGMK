@@ -12,7 +12,7 @@ use crate::{
             window::{
                 Window,
                 Openable,
-                DisplayInformation
+                EmulatorContext
             },
             keybinds::Binding,
         },
@@ -91,7 +91,7 @@ impl Window for InputEditWindow {
         Some(super::WindowKind::InputEditor)
     }
 
-    fn show_window(&mut self, info: &mut DisplayInformation) {
+    fn show_window(&mut self, info: &mut EmulatorContext) {
         // todo: figure out a better system for when to update this.
         if self.last_frame != info.config.current_frame || !self.updated {
             self.updated = true;
@@ -226,7 +226,7 @@ impl Window for InputEditWindow {
         Self::window_name().to_owned()
     }
 
-    fn show_context_menu(&mut self, info: &mut DisplayInformation) -> bool {
+    fn show_context_menu(&mut self, info: &mut EmulatorContext) -> bool {
         self.display_context_menu(info)
     }
 
@@ -235,7 +235,7 @@ impl Window for InputEditWindow {
         self.is_selecting = MouseSelection::None;
     }
 
-    fn handle_modal(&mut self, info: &mut DisplayInformation) -> bool {
+    fn handle_modal(&mut self, info: &mut EmulatorContext) -> bool {
         let mut any_open = false;
         match self.rng_select.show(info) {
             DialogState::Submit => {
@@ -375,8 +375,8 @@ impl InputEditWindow {
         }
     }
 
-    fn display_context_menu(&mut self, info: &mut DisplayInformation) -> bool {
-        let DisplayInformation {
+    fn display_context_menu(&mut self, info: &mut EmulatorContext) -> bool {
+        let EmulatorContext {
             frame,
             replay,
             new_mouse_pos,
@@ -581,10 +581,10 @@ impl InputEditWindow {
         }
     }
 
-    fn draw_input_rows(&mut self, info: &mut DisplayInformation) {
+    fn draw_input_rows(&mut self, info: &mut EmulatorContext) {
         let set_mouse_bind_pressed = info.keybind_pressed(Binding::SetMouse);
         
-        let DisplayInformation {
+        let EmulatorContext {
             replay,
             frame,
             config,
@@ -762,7 +762,7 @@ impl InputEditWindow {
         }
     }
 
-    fn check_selection(&mut self, info: &mut DisplayInformation) {
+    fn check_selection(&mut self, info: &mut EmulatorContext) {
         match self.is_selecting {
             MouseSelection::Left => {
                 if info.frame.is_mouse_released(imgui::MouseButton::Left) {

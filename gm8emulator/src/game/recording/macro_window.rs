@@ -3,7 +3,7 @@ use crate::{
     game::recording::{
             KeyState,
             keybinds::Binding,
-            window::{Window, Openable, DisplayInformation},
+            window::{Window, Openable, EmulatorContext},
         },
 };
 
@@ -43,7 +43,7 @@ impl Window for MacroWindow {
         format!("Macro {}", self.id+1)
     }
 
-    fn show_window(&mut self, info: &mut DisplayInformation) {
+    fn show_window(&mut self, info: &mut EmulatorContext) {
         self.show_macro_windows(info);
     }
 
@@ -78,7 +78,7 @@ impl MacroWindow {
         }
     }
 
-    fn show_macro_windows(&mut self, info: &mut DisplayInformation) {
+    fn show_macro_windows(&mut self, info: &mut EmulatorContext) {
         let keybind_pressed = info.keybind_pressed(Binding::ToggleMacros);
         let config = &info.config;
         let frame = info.frame;

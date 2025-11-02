@@ -1,7 +1,7 @@
 use imgui::ListBox;
 
 use crate::{
-    game::recording::window::{ Window, Openable, DisplayInformation },
+    game::recording::window::{ Window, Openable, EmulatorContext },
     gml::{ Context, Value }
 };
 
@@ -44,8 +44,8 @@ impl Window for ConsoleWindow {
         format!("Console {}", self.id+1)
     }
 
-    fn show_window(&mut self, info: &mut DisplayInformation) {
-        let DisplayInformation {
+    fn show_window(&mut self, info: &mut EmulatorContext) {
+        let EmulatorContext {
             config,
             frame,
             game,

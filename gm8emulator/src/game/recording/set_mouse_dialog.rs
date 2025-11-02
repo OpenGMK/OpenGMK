@@ -1,7 +1,7 @@
 use crate::{
     game::recording::window::{
         Window,
-        DisplayInformation
+        EmulatorContext
     }
 };
 
@@ -26,7 +26,7 @@ impl Window for SetMouseDialog {
         "Set Mouse".to_owned()
     }
 
-    fn show_window(&mut self, info: &mut DisplayInformation) {
+    fn show_window(&mut self, info: &mut EmulatorContext) {
         let frame = info.frame;
 
         let mut is_open = self.is_open;

@@ -5,7 +5,7 @@ use crate::{
         recording::{
             instance_report::InstanceReport,
             set_mouse_dialog::{SetMouseDialog, MouseDialogResult},
-            window::{Window, DisplayInformation},
+            window::{Window, EmulatorContext},
         },
     },
 };
@@ -32,7 +32,7 @@ impl Window for GameWindow {
         "Game".to_owned()
     }
 
-    fn show_window(&mut self, info: &mut DisplayInformation) {
+    fn show_window(&mut self, info: &mut EmulatorContext) {
         if *info.game_running {
             self.display_window(info);
         } else {
@@ -42,7 +42,7 @@ impl Window for GameWindow {
 
     fn is_open(&self) -> bool { true }
 
-    fn show_context_menu(&mut self, info: &mut DisplayInformation) -> bool {
+    fn show_context_menu(&mut self, info: &mut EmulatorContext) -> bool {
         self.display_context_menu(info)
     }
 }
@@ -63,7 +63,7 @@ impl GameWindow {
         }
     }
 
-    fn display_window(&mut self, info: &mut DisplayInformation) {
+    fn display_window(&mut self, info: &mut EmulatorContext) {
         if *info.setting_mouse_pos {
             if self.set_screencover_focus {
                 info.frame.set_next_window_focus();
@@ -159,7 +159,7 @@ impl GameWindow {
         );
     }
 
-    fn display_context_menu(&mut self, info: &mut DisplayInformation) -> bool {
+    fn display_context_menu(&mut self, info: &mut EmulatorContext) -> bool {
         for (label, id) in self.context_menu_options.as_ref().unwrap() {
             if info.frame.menu_item(&label) {
                 if !info.config.watched_ids.contains(&id) {
@@ -176,7 +176,7 @@ impl GameWindow {
     }
 
     /// Gets all the instances the mouse is hovered over and puts them in a context menu
-    fn set_context_menu_instances(&mut self, info: &mut DisplayInformation) {
+    fn set_context_menu_instances(&mut self, info: &mut EmulatorContext) {
         unsafe {
             imgui::sys::igSetWindowFocus_Nil();
         }

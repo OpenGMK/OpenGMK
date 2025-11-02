@@ -1,7 +1,7 @@
 use crate::{
     game::{
         recording::{
-            keybinds::Binding, window::{DisplayInformation, Window}, InputMode, KeyState
+            keybinds::Binding, window::{EmulatorContext, Window}, InputMode, KeyState
         }, replay::{self, Frame, FrameRng}, Game, GameClock, SceneChange
     }, imgui_utils::{UiCustomFunction, Vec2}
 };
@@ -20,7 +20,7 @@ impl Window for ControlWindow {
         "Control".to_owned()
     }
 
-    fn show_window(&mut self, info: &mut DisplayInformation) {
+    fn show_window(&mut self, info: &mut EmulatorContext) {
         info.frame
             .window(self.name())
             .position([8.0, 8.0], imgui::Condition::FirstUseEver)
@@ -163,7 +163,7 @@ impl Window for ControlWindow {
 
     fn is_open(&self) -> bool { true }
 
-    fn show_context_menu(&mut self, info: &mut DisplayInformation) -> bool {
+    fn show_context_menu(&mut self, info: &mut EmulatorContext) -> bool {
         let mut context_menu_open = true;
 
         let current_increment = if let Some(FrameRng::Increment(amount)) = info.new_rand { *amount } else { 0 };
@@ -199,7 +199,7 @@ impl Window for ControlWindow {
         context_menu_open
     }
 
-    fn handle_modal(&mut self, info: &mut DisplayInformation) -> bool {
+    fn handle_modal(&mut self, info: &mut EmulatorContext) -> bool {
         match self.rng_select.show(info) {
             DialogState::Submit => {
                 *info.new_rand = self.rng_select.get_result();
@@ -221,7 +221,7 @@ impl ControlWindow {
         }
     }
 
-    fn update_texts(&mut self, info: &mut DisplayInformation) {
+    fn update_texts(&mut self, info: &mut EmulatorContext) {
         self.rerecord_text = format!("Re-Records: {}", info.config.rerecords);
         if let Some(rand) = info.new_rand {
             self.seed_text = match *rand {
@@ -247,7 +247,7 @@ impl ControlWindow {
         }
     }
 
-    fn advance_frame(&mut self, info: &mut DisplayInformation) {
+    fn advance_frame(&mut self, info: &mut EmulatorContext) {
         info.game.input.mouse_step();
 
         let frame: &mut Frame;

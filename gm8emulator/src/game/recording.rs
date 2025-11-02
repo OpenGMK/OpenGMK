@@ -19,7 +19,7 @@ use crate::{
             instance_report::InstanceReport,
             window::{
                 Window,
-                DisplayInformation,
+                EmulatorContext,
                 Openable,
             },
         },
@@ -1074,7 +1074,7 @@ impl UIState<'_> {
         
         self.keybindings.update_disable_bindings();
 
-        let mut display_info = DisplayInformation {
+        let mut context = EmulatorContext {
             game: self.game,
             frame,
             game_running: &mut self.game_running,
@@ -1118,25 +1118,25 @@ impl UIState<'_> {
 
         for (index, (win, focus)) in self.windows.iter_mut().enumerate() {
             if *focus {
-                display_info.frame.set_next_window_focus();
+                context.frame.set_next_window_focus();
                 *focus = false;
             }
-            win.show_window(&mut display_info);
+            win.show_window(&mut context);
 
             if !self.clear_context_menu {
-                if display_info.context_menu_clear_requested() {
+                if context.context_menu_clear_requested() {
                     self.clear_context_menu = true;
-                } else if display_info.context_menu_requested() {
+                } else if context.context_menu_requested() {
                     new_context_menu_window = Some(index);
-                    self.context_menu_pos = display_info.frame.mouse_pos();
+                    self.context_menu_pos = context.frame.mouse_pos();
                 }
             }
-            display_info.reset_context_menu_state(self.clear_context_menu);
+            context.reset_context_menu_state(self.clear_context_menu);
 
-            if let Some(modal) = display_info._modal_dialog {
+            if let Some(modal) = context._modal_dialog {
                 new_modal_window = Some((index, modal));
             }
-            display_info._modal_dialog = None;
+            context._modal_dialog = None;
         }
 
         if self.clear_context_menu {
@@ -1159,14 +1159,14 @@ impl UIState<'_> {
             let index = self.context_menu_window.unwrap();
             match self.windows.get_mut(index) {
                 Some((win, _)) => {
-                    display_info.frame.begin_context_menu(self.context_menu_pos);
-                    if !display_info.frame.is_window_focused() || !win.show_context_menu(&mut display_info) {
+                    context.frame.begin_context_menu(self.context_menu_pos);
+                    if !context.frame.is_window_focused() || !win.show_context_menu(&mut context) {
                         win.context_menu_close();
                         self.context_menu_window = None;
                     }
-                    display_info.frame.end();
+                    context.frame.end();
 
-                    if let Some(modal) = display_info._modal_dialog {
+                    if let Some(modal) = context._modal_dialog {
                         new_modal_window = Some((index, modal));
                     }
                 },
@@ -1177,13 +1177,13 @@ impl UIState<'_> {
         if let Some((modal_index, name)) = new_modal_window {
             // If we have requested a new modal window, set handling window index and open it
             self.modal_window_handler = Some(modal_index);
-            display_info.frame.open_popup(name);
+            context.frame.open_popup(name);
         }
 
         if let Some(index) = self.modal_window_handler {
             match self.windows.get_mut(index) {
                 Some((win, _)) => {
-                    if !win.handle_modal(&mut display_info) {
+                    if !win.handle_modal(&mut context) {
                         self.modal_window_handler = None;
                     }
                 },

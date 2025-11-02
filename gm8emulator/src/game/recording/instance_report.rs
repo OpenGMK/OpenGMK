@@ -3,7 +3,7 @@ use crate::{
     instance::Field,
     game::{
         Game,
-        recording::window::{Window, DisplayInformation},
+        recording::window::{Window, EmulatorContext},
     },
     render::atlas::AtlasRef,
 };
@@ -128,10 +128,10 @@ impl Window for InstanceReportWindow {
         format!("Instance Reports ({})", self.report_count)
     }
 
-    fn show_window(&mut self, info: &mut DisplayInformation) {
+    fn show_window(&mut self, info: &mut EmulatorContext) {
         let previous_len = info.config.watched_ids.len();
         {
-            let DisplayInformation {
+            let EmulatorContext {
                 game,
                 frame,
                 config,

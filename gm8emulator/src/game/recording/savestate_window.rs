@@ -1,7 +1,7 @@
 use crate::{
     imgui_utils::*,
     game::recording::{
-        window::{Window, DisplayInformation},
+        window::{Window, EmulatorContext},
         keybinds::Binding,
     },
     types::Colour,
@@ -20,7 +20,7 @@ impl Window for SaveStateWindow {
         "Savestates".to_owned()
     }
 
-    fn show_window(&mut self, info: &mut DisplayInformation) {
+    fn show_window(&mut self, info: &mut EmulatorContext) {
         info.frame
             .window("Savestates")
             .position([306.0, 8.0], imgui::Condition::FirstUseEver)

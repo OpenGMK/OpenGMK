@@ -10,7 +10,7 @@ use crate::{
 };
 use std::path::PathBuf;
 
-pub struct DisplayInformation<'a> {
+pub struct EmulatorContext<'a> {
     pub game: &'a mut Game,
     pub frame: &'a imgui::Ui,
     pub game_running: &'a mut bool,
@@ -54,7 +54,7 @@ pub trait WindowType {
     fn window_type_self(&self) -> std::any::TypeId;
 }
 pub trait Window: WindowType {
-    fn show_window(&mut self, info: &mut DisplayInformation);
+    fn show_window(&mut self, info: &mut EmulatorContext);
 
     fn is_open(&self) -> bool;
 
@@ -66,13 +66,13 @@ pub trait Window: WindowType {
     fn stored_kind(&self) -> Option<WindowKind> { None }
 
     /// Displays the context menu. Returns false if the context menu is not open anymore.
-    fn show_context_menu(&mut self, _info: &mut DisplayInformation) -> bool { false }
+    fn show_context_menu(&mut self, _info: &mut EmulatorContext) -> bool { false }
 
     /// Runs when an open context menu on this window is closed.
     fn context_menu_close(&mut self) { }
 
     /// Handles potential modal windows that can be opened from this window. Returns true if any of the modal windows are currently open, false otherwise
-    fn handle_modal(&mut self, _info: &mut DisplayInformation) -> bool { false }
+    fn handle_modal(&mut self, _info: &mut EmulatorContext) -> bool { false }
 }
 impl<T> WindowType for T
     where T: Window + 'static
@@ -94,7 +94,7 @@ pub trait Openable<T>: Window
     fn open(id: usize) -> Self;
 }
 
-impl DisplayInformation<'_> {
+impl EmulatorContext<'_> {
     pub fn update_instance_reports(&mut self) {
         *self.instance_reports = self.config.watched_ids.iter().map(|id| (*id, InstanceReport::new(self.game, *id))).collect();
     }

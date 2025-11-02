@@ -1,6 +1,6 @@
 use crate::{
     game::recording::window::{
-        DisplayInformation,
+        EmulatorContext,
         Openable,
         Window}, imgui_key_utils::{
         ImGuiKeyDef,
@@ -227,7 +227,7 @@ impl Window for KeybindWindow {
         "Keybindings".to_owned()
     }
 
-    fn show_window(&mut self, info: &mut DisplayInformation) {
+    fn show_window(&mut self, info: &mut EmulatorContext) {
         unsafe { imgui::sys::igPushStyleVar_Vec2(imgui::sys::ImGuiStyleVar_WindowPadding.try_into().unwrap(), Vec2(0.0, 4.0).into()); }
         let mut is_open = self.is_open;
         info.frame

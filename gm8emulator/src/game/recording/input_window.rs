@@ -6,7 +6,7 @@ use crate::{
         KeyState,
         InputMode,
         keybinds::Binding,
-        window::{Window, DisplayInformation},
+        window::{Window, EmulatorContext},
     },
     types::Colour,
 };
@@ -27,13 +27,13 @@ impl Window for InputWindows {
         "Input".to_owned()
     }
 
-    fn show_window(&mut self, info: &mut DisplayInformation) {
+    fn show_window(&mut self, info: &mut EmulatorContext) {
         self.show_input_windows(info);
     }
 
     fn is_open(&self) -> bool { true }
     
-    fn show_context_menu(&mut self, info: &mut DisplayInformation) -> bool {
+    fn show_context_menu(&mut self, info: &mut EmulatorContext) -> bool {
         self.display_context_menu(info)
     }
 
@@ -56,7 +56,7 @@ impl InputWindows {
         self.request_context_menu = true;
     }
 
-    fn show_input_windows(&mut self, info: &mut DisplayInformation) {
+    fn show_input_windows(&mut self, info: &mut EmulatorContext) {
         let config = &info.config;
         let frame = info.frame;
 
@@ -87,7 +87,7 @@ impl InputWindows {
     }
 
     /// Renders the keyboard state menu into an imgui window
-    fn render_keyboard_window(&mut self, info: &mut DisplayInformation) {
+    fn render_keyboard_window(&mut self, info: &mut EmulatorContext) {
         let win_frame_height = info.win_frame_height;
         let win_padding = info.win_padding;
         let frame = info.frame;
@@ -427,7 +427,7 @@ impl InputWindows {
     }
 
     /// Renders the mouse state menu into an imgui window
-    fn render_mouse_window(&mut self, info: &mut DisplayInformation) {
+    fn render_mouse_window(&mut self, info: &mut EmulatorContext) {
         let frame = info.frame;
 
         frame.rect(
@@ -470,14 +470,14 @@ impl InputWindows {
     /// Renders a single keyboard control button
     fn render_keyboard_button(
         &mut self,
-        info: &mut DisplayInformation,
+        info: &mut EmulatorContext,
         name: &str,
         size: Vec2<f32>,
         x: f32,
         y: f32,
         code: ramen::input::Key,
     ) {
-        let DisplayInformation {
+        let EmulatorContext {
             frame,
             keyboard_state,
             config,
@@ -544,8 +544,8 @@ impl InputWindows {
     }
 
     /// Renders a single mouse control button
-    fn render_mouse_button(&mut self, info: &mut DisplayInformation, name: &str, size: Vec2<f32>, x: f32, y: f32, button: i8) {
-        let DisplayInformation {
+    fn render_mouse_button(&mut self, info: &mut EmulatorContext, name: &str, size: Vec2<f32>, x: f32, y: f32, button: i8) {
+        let EmulatorContext {
             frame,
             mouse_state,
             ..
@@ -587,7 +587,7 @@ impl InputWindows {
         frame.text_centered(name, Vec2(x, y) + Vec2(size.0 / 2.0, size.1 / 2.0));
     }
 
-    fn display_context_menu(&mut self, info: &mut DisplayInformation) -> bool {
+    fn display_context_menu(&mut self, info: &mut EmulatorContext) -> bool {
         match self.context_menu_type {
             Some(ContextMenuType::Key(key)) => {
                 let key_state = &mut info.keyboard_state[usize::from(input::ramen2vk(key))];
