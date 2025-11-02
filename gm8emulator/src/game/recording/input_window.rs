@@ -581,12 +581,12 @@ impl InputWindows {
     /// Renders a single "dummy" button which does nothing, used only to fill space on the keyboard layout
     fn render_dummy_button(&mut self, frame: &imgui::Ui, name: &str, size: Vec2<f32>, x: f32, y: f32) {
         let pos = Vec2::from(frame.window_pos());
-        frame.invisible_button_with_size_and_pos(name, pos, Vec2(x, y));
+        frame.invisible_button_with_size_and_pos(name, size, Vec2(x, y));
         frame.rect(Vec2(x, y) + pos, Vec2(x, y) + size + pos, recording::BTN_NEUTRAL_COL, 190);
         frame.rect_outline(Vec2(x, y) + pos, Vec2(x, y) + size + pos, Colour::new(0.4, 0.4, 0.65), u8::MAX);
         frame.text_centered(name, Vec2(x, y) + Vec2(size.0 / 2.0, size.1 / 2.0));
     }
-
+    
     fn display_context_menu(&mut self, info: &mut EmulatorContext) -> bool {
         match self.context_menu_type {
             Some(ContextMenuType::Key(key)) => {
