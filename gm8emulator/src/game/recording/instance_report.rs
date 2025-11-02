@@ -8,6 +8,7 @@ use crate::{
     render::atlas::AtlasRef,
 };
 use std::ops::Index;
+use imgui::TextureId;
 
 pub struct InstanceReport {
     object_name: String,
@@ -236,7 +237,6 @@ impl InstanceReportWindow {
                 })
             {
                 if sprite.width <= 48 && sprite.height <= 48 {
-                    let i = self.instance_images.len();
                     self.instance_images.push(atlas_ref);
                     let Vec2(win_x, win_y) = frame.window_pos().into();
                     let win_w = frame.window_size()[0];
@@ -244,20 +244,14 @@ impl InstanceReportWindow {
                     let center_y = win_y + 46.0;
                     let min_x = center_x - (sprite.width / 2) as f32;
                     let min_y = center_y - (sprite.height / 2) as f32;
-                    unsafe {
-                        imgui::sys::ImDrawList_AddImage(
-                            imgui::sys::igGetWindowDrawList(),
-                            self.instance_images.as_mut_ptr().add(i) as _,
-                            imgui::sys::ImVec2 { x: min_x, y: min_y },
-                            imgui::sys::ImVec2 { 
-                                x: min_x + sprite.width as f32,
-                                y: min_y + sprite.height as f32
-                            },
-                            imgui::sys::ImVec2 { x: 0.0, y: 0.0 },
-                            imgui::sys::ImVec2 { x: 1.0, y: 1.0 },
-                            instance.image_blend.get() as u32 | 0xFF000000,
-                        );
-                    }
+                    frame.get_window_draw_list()
+                        .add_image(
+                            TextureId::new(atlas_ref.0 as usize),
+                            [min_x, min_y],
+                            [min_x+sprite.width as f32, min_y+sprite.height as f32]
+                        )
+                        .col(instance.image_blend.get() as u32 | 0xFF000000)
+                        .build();
                 }
             }
         }
