@@ -1,8 +1,10 @@
-use imgui::{self, ImColor32, TableColumnSetup};
+use imgui::{self, ImColor32, TableColumnSetup, WindowToken};
 use clipboard::{
     ClipboardProvider,
     ClipboardContext
 };
+use crate::types::Colour;
+
 
 #[derive(Clone, Copy)]
 pub struct Vec2<T>(pub T, pub T);
@@ -54,11 +56,20 @@ where
     }
 }
 
-use crate::types::Colour;
+impl Into<ImColor32> for Colour {
+    fn into(self) -> ImColor32 {
+        imgui::ImColor32::from_rgba_f32s(
+            self.r as f32,
+            self.g as f32,
+            self.b as f32,
+            1.0
+        )
+    }
+}
+
 
 pub trait UiCustomFunction {
-    fn begin_context_menu(&self, pos: Vec2<f32>);
-    fn end(&self);
+    fn begin_context_menu(&self, pos: Vec2<f32>) -> WindowToken;
     fn button_with_size_and_pos(&self, name: &str, size: Vec2<f32>, position: Vec2<f32>) -> bool;
     fn invisible_button_with_size_and_pos(&self, name: &str, size: Vec2<f32>, position: Vec2<f32>) -> bool;
     fn coloured_text(&self, text: &str, col: Colour);
@@ -73,7 +84,8 @@ pub trait UiCustomFunction {
     fn rect_outline(&self, min: Vec2<f32>, max: Vec2<f32>, colour: Colour, alpha: u8);
     fn get_held_keys(&self, include_mouse: bool, include_modifiers: bool) -> Vec<imgui::Key>;
     fn set_next_window_focus(&self);
-    fn begin_screen_cover(&self);
+    fn focus_current_window(&self);
+    fn begin_screen_cover(&self, focus: bool) -> imgui::WindowToken;
     fn popup_notification(&self, message: &str) -> bool;
     fn text_centered_float(&self, text: &str, center: Vec2<f32>);
 }
@@ -136,18 +148,28 @@ fn index_to_imgui(index: usize, include_mouse: bool, include_modifiers: bool) ->
 }
 
 impl UiCustomFunction for imgui::Ui {
-    fn begin_context_menu(&self, pos: Vec2<f32>) {
+    fn begin_context_menu(&self, pos: Vec2<f32>) -> WindowToken {
+        let token = self.window("__popup")
+            .title_bar(false)
+            .resizable(false)
+            .movable(false)
+            .scroll_bar(false)
+            .scrollable(false)
+            .collapsible(false)
+            .always_auto_resize(true)
+            .save_settings(false)
+            .begin()
+            .expect("Failed to create context menu");
+
+        let size: Vec2<f32> = self.window_size().into();
+        let display_size: Vec2<f32> = self.io().display_size.into();
         unsafe {
-            c::igBegin("__popup\0".as_ptr() as _, std::ptr::null_mut(), 0b1_0111_1111);
-            let mut size = std::mem::MaybeUninit::uninit();
-            c::igGetWindowSize(size.as_mut_ptr());
-            let size = size.assume_init();
             c::igSetWindowPos_Str(
                 "__popup\0".as_ptr() as _,
                 c::ImVec2 {
-                    x: pos.0.min((*c::igGetIO()).DisplaySize.x - size.x),
-                    y: if pos.1 + size.y > (*c::igGetIO()).DisplaySize.y && pos.1 >= size.y {
-                        pos.1 - size.y
+                    x: pos.0.min(display_size.0 - size.0),
+                    y: if pos.1 + size.1 > display_size.1 && pos.1 >= size.1 {
+                        pos.1 - size.1
                     } else {
                         pos.1
                     },
@@ -158,10 +180,7 @@ impl UiCustomFunction for imgui::Ui {
                 c::igSetWindowFocus_Nil();
             }
         }
-    }
-
-    fn end(&self) {
-        unsafe { c::igEnd() };
+        token
     }
 
     fn button_with_size_and_pos(&self, name: &str, size: Vec2<f32>, position: Vec2<f32>) -> bool {
@@ -197,32 +216,20 @@ impl UiCustomFunction for imgui::Ui {
     }
 
     fn mouse_pos(&self) -> Vec2<f32> {
-        unsafe {
-            let mut pos = std::mem::MaybeUninit::uninit();
-            c::igGetMousePos(pos.as_mut_ptr());
-            pos.assume_init().into()
-        }
+        self.io().mouse_pos.into()
     }
 
     fn rect(&self, min: Vec2<f32>, max: Vec2<f32>, colour: Colour, alpha: u8) {
-        let colour: ImColor32 = imgui::ImColor32::from_rgba_f32s(
-            colour.r as f32,
-            colour.g as f32,
-            colour.b as f32,
-            (alpha as f32) / 255.
-        );
+        let mut colour: ImColor32 = colour.into();
+        colour.a = alpha;
         let min: [f32; 2] = [min.0, min.1];
         let max: [f32; 2] = [max.0, max.1];
         self.get_window_draw_list().add_rect(min, max, colour).filled(true).build();
     }
 
     fn rect_outline(&self, min: Vec2<f32>, max: Vec2<f32>, colour: Colour, alpha: u8) {
-        let colour: ImColor32 = imgui::ImColor32::from_rgba_f32s(
-            colour.r as f32,
-            colour.g as f32,
-            colour.b as f32,
-            (alpha as f32) / 255.
-        );
+        let mut colour: ImColor32 = colour.into();
+        colour.a = alpha;
         let min: [f32; 2] = [min.0, min.1];
         let max: [f32; 2] = [max.0, max.1];
         self.get_window_draw_list().add_rect(min, max, colour).build();
@@ -230,6 +237,10 @@ impl UiCustomFunction for imgui::Ui {
 
     fn set_next_window_focus(&self) {
         unsafe { c::igSetNextWindowFocus(); }
+    }
+
+    fn focus_current_window(&self) {
+        unsafe { c::igSetWindowFocus_Nil(); }
     }
 
     fn get_held_keys(&self, include_mouse: bool, include_modifiers: bool) -> Vec<imgui::Key> {
@@ -253,54 +264,52 @@ impl UiCustomFunction for imgui::Ui {
     }
 
 
-    fn begin_screen_cover(&self) {
-        unsafe {
-            //c::igSetNextWindowFocus();
-            c::igSetNextWindowSize((*c::igGetIO()).DisplaySize, 0);
-            c::igSetNextWindowPos(Vec2(0.0, 0.0).into(), 0, Vec2(0.0, 0.0).into());
-            c::igBegin("__cover\0".as_ptr() as _, std::ptr::null_mut(), 0b0001_0011_1111);
-        }
+    fn begin_screen_cover(&self, focus: bool) -> imgui::WindowToken {
+        self.window("__cover")
+            .title_bar(false)
+            .resizable(false)
+            .movable(false)
+            .scroll_bar(false)
+            .collapsible(false)
+            .save_settings(false)
+            .focused(focus)
+            .size(self.io().display_size, imgui::Condition::Always)
+            .position([0.0, 0.0], imgui::Condition::Always)
+            .begin()
+            .expect("Error creating cover window")
     }
 
     fn popup_notification(&self, message: &str) -> bool {
-        unsafe {
-            c::igSetNextWindowFocus();
-            self.begin_screen_cover();
-            if self.is_window_hovered() && self.is_mouse_clicked(imgui::MouseButton::Left) {
-                c::igEnd();
-                false
-            } else {
-                c::igEnd();
-                let screen_size = (*c::igGetIO()).DisplaySize;
-                c::igSetNextWindowFocus();
-                c::igSetNextWindowPos(
-                    Vec2(f32::from(screen_size.x) / 2.0, f32::from(screen_size.y) / 2.0).into(),
-                    0,
-                    Vec2(0.5, 0.5).into(),
-                );
-                c::igBegin("Information\0".as_ptr() as _, std::ptr::null_mut(), 0b0001_0111_1110);
-                self.text(message);
-                c::igEnd();
-                true
-            }
+        let cover = self.begin_screen_cover(true);
+        if self.is_window_hovered() && self.is_mouse_clicked(imgui::MouseButton::Left) {
+            false
+        } else {
+            cover.end();
+            let screen_size = self.io().display_size;
+            self.window("Information")
+                .resizable(false)
+                .movable(false)
+                .scroll_bar(false)
+                .scrollable(false)
+                .collapsible(false)
+                .focused(true)
+                .position([screen_size[0] / 2.0, screen_size[1] / 2.0], imgui::Condition::Always)
+                .position_pivot([0.5, 0.5])
+                .build(|| {
+                    self.text(message);
+                });
+            true
         }
     }
     
     fn text_centered_float(&self, text: &str, center: Vec2<f32>) {
         let size = self.calc_text_size(text);
         let size = Vec2((size[0]+16.0) / 2.0, (size[1]+16.0) / 2.0);
-        let pos: c::ImVec2 = (center - size).into();
+        let pos = [center.0 - size.0, center.1 - size.1];
         self.window("__float")
             .flags(imgui::WindowFlags::from_bits(0b100_0000_0011_1111_1111).unwrap()) // Note: previous code used the 0x20000 flag which doesn't seem to exist anymore. I'm not sure what that was for.
+            .position(pos, imgui::Condition::Always)
             .build(|| {
-                unsafe {
-                    c::igSetWindowPos_Str(
-                        "__float\0".as_ptr() as _,
-                        pos,
-                        0,
-                    );
-                }
-
                 self.text(text);
             });
     }

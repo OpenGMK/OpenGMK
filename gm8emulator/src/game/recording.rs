@@ -1159,12 +1159,12 @@ impl UIState<'_> {
             let index = self.context_menu_window.unwrap();
             match self.windows.get_mut(index) {
                 Some((win, _)) => {
-                    context.frame.begin_context_menu(self.context_menu_pos);
+                    let context_menu = context.frame.begin_context_menu(self.context_menu_pos);
                     if !context.frame.is_window_focused() || !win.show_context_menu(&mut context) {
                         win.context_menu_close();
                         self.context_menu_window = None;
                     }
-                    context.frame.end();
+                    context_menu.end();
 
                     if let Some(modal) = context._modal_dialog {
                         new_modal_window = Some((index, modal));

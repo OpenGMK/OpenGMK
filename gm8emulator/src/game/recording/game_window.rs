@@ -65,26 +65,19 @@ impl GameWindow {
 
     fn display_window(&mut self, info: &mut EmulatorContext) {
         if *info.setting_mouse_pos {
-            if self.set_screencover_focus {
-                info.frame.set_next_window_focus();
-            }
-            
-            info.frame.begin_screen_cover();
+            let cover = info.frame.begin_screen_cover(self.set_screencover_focus);
             let screencover_focused = info.frame.is_window_focused();
-            info.frame.end();
+            cover.end();
 
             if self.set_screencover_focus {
-                unsafe {
-                    imgui::sys::igSetNextWindowCollapsed(false, 0);
-                    imgui::sys::igSetNextWindowFocus();
-                }
+                info.frame.set_next_window_focus();
             }
 
             if info.config.set_mouse_using_textbox {
                 self.mouse_dialog.init_if_closed(info.new_mouse_pos.unwrap_or_else(|| {
                     // Take the mouse x/y from the previous frame if we don't have one set for this frame
                     // Technically it would be better if it took the current frame if it existed, the previous if not and (0, 0) if neither exist but if we're in a state where the current frame already exists we're most likely in read-only anyway and can't edit the mouse using this window. (TODO: allow editing current frame using this window too?)
-                    if let Some(current_frame) = info.replay.get_frame(info.config.current_frame-1) {
+                    if let Some(current_frame) = info.replay.get_frame(info.config.current_frame.checked_sub(1).unwrap_or(0)) {
                         (current_frame.mouse_x, current_frame.mouse_y)
                     } else {
                         (0, 0,)
@@ -177,9 +170,7 @@ impl GameWindow {
 
     /// Gets all the instances the mouse is hovered over and puts them in a context menu
     fn set_context_menu_instances(&mut self, info: &mut EmulatorContext) {
-        unsafe {
-            imgui::sys::igSetWindowFocus_Nil();
-        }
+        info.frame.focus_current_window();
         let offset = Vec2::from(info.frame.window_pos()) + Vec2(info.win_border_size, info.win_frame_height);
         let Vec2(x, y) = info.frame.mouse_pos() - offset;
         let (x, y) = info.game.translate_screen_to_room(x as _, y as _);
@@ -198,7 +189,7 @@ impl GameWindow {
                 let id = instance.id.get();
                 let description = match info.game.assets.objects.get_asset(instance.object_index.get()) {
                     Some(obj) => format!("{} ({})", obj.name, id.to_string()),
-                    None => format!("<deleted object> ({})", id.to_string()),
+                    None => format!("<deleted instance> ({})", id.to_string()),
                 };
                 options.push((description, id));
             }

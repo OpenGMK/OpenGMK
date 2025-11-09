@@ -10,6 +10,7 @@ use crate::{
     },
     types::Colour,
 };
+use imgui::StyleColor;
 use ramen::input::Key;
 
 pub enum ContextMenuType {
@@ -450,17 +451,10 @@ impl InputWindows {
         }
 
         if let Some((x, y)) = info.new_mouse_pos {
-            unsafe {
-                imgui::sys::igPushStyleColor_Vec4(
-                    imgui::sys::ImGuiCol_Text as _,
-                    imgui::sys::ImVec4 { x: 1.0, y: 0.5, z: 0.5, w: 1.0 },
-                );
-            }
+            let color_stack = frame.push_style_color(StyleColor::Text, [1.0, 0.5, 0.5, 1.0]);
             frame.text_centered(&format!("x: {}*", x), Vec2(225.0, 80.0));
             frame.text_centered(&format!("y: {}*", y), Vec2(225.0, 96.0));
-            unsafe {
-                imgui::sys::igPopStyleColor(1);
-            }
+            color_stack.end();
         } else {
             frame.text_centered(&format!("x: {}", info.game.input.mouse_x()), Vec2(225.0, 80.0));
             frame.text_centered(&format!("y: {}", info.game.input.mouse_y()), Vec2(225.0, 96.0));
@@ -495,15 +489,11 @@ impl InputWindows {
                     state.click();
                 }
                 if frame.is_mouse_clicked(imgui::MouseButton::Right) && hovered {
-                    unsafe {
-                        imgui::sys::igSetWindowFocus_Nil();
-                    }
+                    frame.focus_current_window();
                     self.request_context_menu(ContextMenuType::Key(code));
                 }
                 if frame.is_mouse_clicked(imgui::MouseButton::Middle) && hovered {
-                    unsafe {
-                        imgui::sys::igSetWindowFocus_Nil();
-                    }
+                    frame.focus_current_window();
                     *state = if state.is_held() { KeyState::HeldWillDouble } else { KeyState::NeutralWillDouble };
                 }
             },
@@ -536,9 +526,7 @@ impl InputWindows {
         state.draw_keystate(*frame, Vec2(x, y), size);
         frame.text_centered(name, Vec2(x, y) + Vec2(size.0 / 2.0, size.1 / 2.0));
         if hovered {
-            unsafe {
-                imgui::sys::igSetCursorPos(imgui::sys::ImVec2 { x: 8.0, y: 22.0 });
-            }
+            frame.set_cursor_pos([8.0, 22.0]);
             frame.text(state.repr());
         }
     }
@@ -557,23 +545,17 @@ impl InputWindows {
         }
         let hovered = frame.is_item_hovered();
         if frame.is_mouse_clicked(imgui::MouseButton::Right) && hovered {
-            unsafe {
-                imgui::sys::igSetWindowFocus_Nil();
-            }
+            frame.focus_current_window();
             self.request_context_menu(ContextMenuType::Mouse(button));
         }
         if frame.is_mouse_clicked(imgui::MouseButton::Middle) && hovered {
-            unsafe {
-                imgui::sys::igSetWindowFocus_Nil();
-            }
+            frame.focus_current_window();
             *state = if state.is_held() { KeyState::HeldWillDouble } else { KeyState::NeutralWillDouble };
         }
         state.draw_keystate(*frame, Vec2(x, y), size);
         frame.text_centered(name, Vec2(x, y) + Vec2(size.0 / 2.0, size.1 / 2.0));
         if hovered {
-            unsafe {
-                imgui::sys::igSetCursorPos(imgui::sys::ImVec2 { x: 8.0, y: 22.0 });
-            }
+            frame.set_cursor_pos([8.0, 22.0]);
             frame.text(state.repr());
         }
     }

@@ -1,3 +1,5 @@
+use imgui::StyleColor;
+
 use crate::{
     game::recording::window::{
         Window,
@@ -35,6 +37,7 @@ impl Window for SetMouseDialog {
             .size([400.0, 105.0], imgui::Condition::Always)
             .resizable(false)
             .opened(&mut is_open)
+            .collapsible(false)
             .build(|| {
                 Self::draw_text_sameline_validated(frame, true, &"X Position");
                 frame.input_int("##xpos", &mut self.x)
@@ -85,11 +88,11 @@ impl SetMouseDialog {
 
     fn draw_text_sameline_validated(frame: &imgui::Ui, valid: bool, text: &str) {
         if !valid {
-            unsafe { imgui::sys::igPushStyleColor_Vec4(imgui::sys::ImGuiCol_Text as _, imgui::sys::ImVec4 { x: 1.0, y: 0.5, z: 0.5, w: 1.0 }); }
-        }
-        frame.text(text);
-        if !valid {
-            unsafe { imgui::sys::igPopStyleColor(1); }
+            let color = frame.push_style_color(StyleColor::Text, [1.0, 0.5, 0.5, 1.0]);
+            frame.text(text);
+            color.end();
+        } else {
+            frame.text(text);
         }
         frame.same_line();
     }

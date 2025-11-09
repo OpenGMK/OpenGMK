@@ -1,22 +1,13 @@
 use crate::{
-    imgui_utils::*,
-    input::Button,
     game::{
-        replay::{
-            Input,
-            Replay,
-            FrameRng,
-        },
         recording::{
-            KeyState,
-            window::{
-                Window,
-                Openable,
-                EmulatorContext
-            },
-            keybinds::Binding,
-        },
-    },
+            KeyState, keybinds::Binding, window::{
+                EmulatorContext, Openable, Window
+            }
+        }, replay::{
+            FrameRng, Input, Replay
+        }
+    }, imgui_utils::*, input::Button
 };
 
 use super::popup_dialog::{string_input::RNGSelect, Dialog, DialogState};
@@ -59,8 +50,66 @@ pub struct InputEditWindow {
     context_menu_keystate: KeyState,
 
     rng_select: RNGSelect,
+}
+
+struct RowColorStack<'a> {
+    ui: &'a Ui,
+    row_color: Option<ColorStackToken<'a>>,
+    row_color_alt : Option<ColorStackToken<'a>>,
 
     last_table_color: TableColor,
+}
+
+impl RowColorStack<'_> {
+    fn new(ui: &Ui) -> RowColorStack {
+        RowColorStack {
+            ui,
+            row_color: None,
+            row_color_alt: None,
+            last_table_color: TableColor::NONE
+        }
+    }
+
+    fn drop_current_colors(&mut self) {
+        if let Some(alt_color) = std::mem::take(&mut self.row_color_alt) {
+            std::mem::drop(alt_color);
+        }
+        if let Some(color) = std::mem::take(&mut self.row_color) {
+            std::mem::drop(color);
+        }
+    }
+
+    /// Sets the row color and alternative row color.
+    pub fn set_table_colors(&mut self, color: [f32; 4], color_alt: [f32; 4]) {
+        self.drop_current_colors();
+        self.row_color = Some(self.ui.push_style_color(StyleColor::TableRowBg, color));
+        self.row_color_alt = Some(self.ui.push_style_color(StyleColor::TableRowBgAlt, color_alt));
+    }
+
+    pub fn set_table_color(&mut self, color: TableColor) {
+        if self.last_table_color != color {
+            self.last_table_color = color;
+            match color {
+                TableColor::NONE => {},
+                TableColor::DISABLED => self.set_table_colors(BGCOLOR_DISABLED, BGCOLOR_DISABLED_ALT),
+                TableColor::SELECTED => self.set_table_colors(BGCOLOR_SELECTED, BGCOLOR_SELECTED_ALT),
+                TableColor::CURRENT => self.set_table_colors(BGCOLOR_CURRENT, BGCOLOR_CURRENT_ALT),
+                TableColor::DEFAULT => {
+                    self.drop_current_colors();
+                },
+            }
+        }
+    }
+
+    fn end(self) {
+        // Left empty for drop
+    }
+}
+
+impl Drop for RowColorStack<'_> {
+    fn drop(&mut self) {
+        self.drop_current_colors();
+    }
 }
 
 const INPUT_TABLE_WIDTH: f32 = 50.0;
@@ -76,15 +125,16 @@ const TABLE_CLIPPING: f32 = TOTAL_INPUT_TABLE_HEIGHT*2.0;
 macro_rules! rgb {
     ($r:expr, $g:expr, $b:expr) => {
         // create rgb value with 0.5 alpha
-        0x80000000|($b&0xFF)<<16|($g&0xFF)<<8|($r&0xFF)
+        //0x80000000|($b&0xFF)<<16|($g&0xFF)<<8|($r&0xFF)
+        [($r as f32) / 255.0, ($g as f32) / 255.0, ($b as f32) / 255.0, 0.5]
     };
 }
-const BGCOLOR_CURRENT: u32 = rgb!(145, 210, 145);
-const BGCOLOR_CURRENT_ALT: u32 = rgb!(120, 165, 121);
-const BGCOLOR_DISABLED: u32 = rgb!(210, 145, 145);
-const BGCOLOR_DISABLED_ALT: u32 = rgb!(165, 120, 120);
-const BGCOLOR_SELECTED: u32 = rgb!(244, 231, 90);
-const BGCOLOR_SELECTED_ALT: u32 = rgb!(232, 223, 127);
+const BGCOLOR_CURRENT: [f32; 4] = rgb!(145, 210, 145);
+const BGCOLOR_CURRENT_ALT: [f32; 4] = rgb!(120, 165, 121);
+const BGCOLOR_DISABLED: [f32; 4] = rgb!(210, 145, 145);
+const BGCOLOR_DISABLED_ALT: [f32; 4] = rgb!(165, 120, 120);
+const BGCOLOR_SELECTED: [f32; 4] = rgb!(244, 231, 90);
+const BGCOLOR_SELECTED_ALT: [f32; 4] = rgb!(232, 223, 127);
 
 impl Window for InputEditWindow {
     fn stored_kind(&self) -> Option<super::WindowKind> {
@@ -122,17 +172,14 @@ impl Window for InputEditWindow {
             *info.new_mouse_pos = None;
         }
 
-        unsafe { imgui::sys::igPushStyleVar_Vec2(imgui::sys::ImGuiStyleVar_WindowPadding as _, Vec2(0.0, 0.0).into()); }
         let mut is_open = self.is_open;
+        let window_padding_style_var = info.frame.push_style_var(StyleVar::WindowPadding([0.0, 0.0]));
         info.frame.window(Self::window_name())
             .opened(&mut is_open)
             .build(|| {
                 info.frame.set_cursor_pos([0.0, INPUT_TABLE_YPOS]);
-                unsafe {
-                    imgui::sys::igPushStyleVar_Vec2(imgui::sys::ImGuiStyleVar_CellPadding as _, Vec2(TABLE_PADDING, 0.0).into());
-                }
-                self.push_current_row_colors();
-
+                let cell_padding_style_var = info.frame.push_style_var(StyleVar::CellPadding([TABLE_PADDING, 0.0]));
+                
                 let mut table_size = info.frame.window_size();
                 table_size[1] -= INPUT_TABLE_YPOS;
 
@@ -148,6 +195,8 @@ impl Window for InputEditWindow {
                         table_size,
                         0.0
                 ) {
+                    let mut row_color_stack = RowColorStack::new(info.frame);
+
                     info.frame.table_setup_column_with(TableColumnSetup::with_flags("Frame", TableColumnFlags::NO_REORDER));
                     for key in self.keys.iter() {
                         if let Ok(button) = Button::try_from(*key) {
@@ -166,15 +215,13 @@ impl Window for InputEditWindow {
 
                     self.scroll_y = info.frame.scroll_y();
 
-                    self.draw_input_rows(info);
+                    self.draw_input_rows(info, &mut row_color_stack);
                     self.check_selection(info);
-
+                    
+                    row_color_stack.end();
                     table_token.end();
                 }
-                unsafe {
-                    imgui::sys::igPopStyleColor(2); // ImGuiCol_TableRowBg, ImGuiCol_TableRowBgAlt, pushed in self.push_current_row_colors()
-                    imgui::sys::igPopStyleVar(1); // ImGuiStyleVar_CellPadding
-                }
+                cell_padding_style_var.end();
 
                 let hovered_text = if self.is_selecting != MouseSelection::None {
                     let count = self.selection_start_index.abs_diff(self.selection_end_index)+1;
@@ -189,25 +236,19 @@ impl Window for InputEditWindow {
                 };
 
                 if let Some(text) = hovered_text {
-                    unsafe {
-                        imgui::sys::igSetCursorPos(Vec2(8.0, 22.0).into());
-                    }
+                    info.frame.set_cursor_pos([8.0, 22.0]);
                     info.frame.text(text.as_str());
                     self.hovered_text = None;
                 }
 
                 let text = "Single Frame Mouse Editing:";
-                unsafe {
-                    let c_text = std::ffi::CString::new(text).expect("CString::new failed");
-                    let mut size = std::mem::MaybeUninit::uninit();
-                    imgui::sys::igCalcTextSize(size.as_mut_ptr(), c_text.as_ptr(), std::ptr::null(), false, -1.0);
-                    let size = size.assume_init();
-                    
-                    // Technically igGetFrameHeightWithSpacing returns it with ItemSpacing.y instead of ItemInnerSpacing.x but
-                    //   those are the same at the moment and i can't be bothered to figure out how to get ItemInnerSpacing.x right now. :)
-                    let x = info.frame.window_size()[0] - imgui::sys::igGetFrameHeightWithSpacing() - size.x;
-                    imgui::sys::igSetCursorPos(Vec2(x-8.0, 22.0).into());
-                }
+                let size = info.frame.calc_text_size(text);
+                // Technically igGetFrameHeightWithSpacing returns it with ItemSpacing.y instead of ItemInnerSpacing.x but
+                //   those are the same at the moment and I can't be bothered to figure out how to get ItemInnerSpacing.x right now. :)
+                let height = info.frame.frame_height_with_spacing();
+                let x = info.frame.window_size()[0] - height - size[0];
+                info.frame.set_cursor_pos([x-8.0, 22.0]);
+
                 info.frame.text(text);
                 info.frame.same_line();
                 info.frame.checkbox("##mouse", &mut self.single_frame_mouse);
@@ -215,7 +256,7 @@ impl Window for InputEditWindow {
         );
         self.is_open = is_open;
 
-        unsafe { imgui::sys::igPopStyleVar(1); } // ImGuiStyleVar__ImGuiStyleVar_WindowPadding
+        window_padding_style_var.end();
     }
 
     fn is_open(&self) -> bool {
@@ -300,13 +341,11 @@ impl InputEditWindow {
             context_menu_keystate: KeyState::Neutral,
 
             rng_select: RNGSelect::new("Pick RNG"),
-
-            last_table_color: TableColor::NONE,
         }
     }
 
     fn update_mouse_position_for_frame(&mut self, frame: usize, end_frame: Option<usize>, x: i32, y: i32, replay: &mut Replay) {
-        // If we want to set a new mouse position and aren't setting the mouse position anymore, update the frames accordingly
+        // Update the mouse position for the current frame or a range of frames. If setting just the current frame, update all following frames with the same mouse position if self.single_mouse_frame is not set.
         if let Some(replay_frame) = replay.get_frame_mut(frame) {
             if self.single_frame_mouse && end_frame.is_none() {
                 // Update just this frame
@@ -335,46 +374,6 @@ impl InputEditWindow {
         }
     }
     
-    /// pushes the current row color and alternative row color on the color style stack.
-    /// Used to be able to set the color directly to something else. Colors are applied on either the next next_row() call or the next end_table() call
-    ///   depending on where the visible region ends. The active color needs to live long enough for either of them.
-    ///
-    /// (I'll be upset if there's no better way to do this, but I can't think of one right now so here we are.)
-    fn push_current_row_colors(&self) {
-        unsafe {
-            imgui::sys::igPushStyleColor_U32(imgui::sys::ImGuiCol_TableRowBg as _, imgui::sys::igGetColorU32_Col(imgui::sys::ImGuiCol_TableRowBg as _, 1.0));
-            imgui::sys::igPushStyleColor_U32(imgui::sys::ImGuiCol_TableRowBgAlt as _, imgui::sys::igGetColorU32_Col(imgui::sys::ImGuiCol_TableRowBgAlt as _, 1.0));
-        }
-    }
-
-    /// Sets the row color and alternative row color. Expects 2 items to be on the current color style stack.
-    /// This needs to be done so that the current color can live long enough.
-    fn set_table_colors(&self, color: u32, color_alt: u32) {
-        unsafe {
-            imgui::sys::igPopStyleColor(2);
-            imgui::sys::igPushStyleColor_U32(imgui::sys::ImGuiCol_TableRowBg as _, color);
-            imgui::sys::igPushStyleColor_U32(imgui::sys::ImGuiCol_TableRowBgAlt as _, color_alt);
-        }
-    }
-
-    fn set_table_color(&mut self, color: TableColor) {
-        if self.last_table_color != color {
-            self.last_table_color = color;
-            match color {
-                TableColor::NONE => {},
-                TableColor::DISABLED => self.set_table_colors(BGCOLOR_DISABLED, BGCOLOR_DISABLED_ALT),
-                TableColor::SELECTED => self.set_table_colors(BGCOLOR_SELECTED, BGCOLOR_SELECTED_ALT),
-                TableColor::CURRENT => self.set_table_colors(BGCOLOR_CURRENT, BGCOLOR_CURRENT_ALT),
-                TableColor::DEFAULT => {
-                    // remove whatever is currently on the stack
-                    unsafe { imgui::sys::igPopStyleColor(2); }
-                    // and push the default colors
-                    self.push_current_row_colors();
-                },
-            }
-        }
-    }
-
     fn display_context_menu(&mut self, info: &mut EmulatorContext) -> bool {
         let EmulatorContext {
             frame,
@@ -581,7 +580,7 @@ impl InputEditWindow {
         }
     }
 
-    fn draw_input_rows(&mut self, info: &mut EmulatorContext) {
+    fn draw_input_rows(&mut self, info: &mut EmulatorContext, row_color_stack: &mut RowColorStack) {
         let set_mouse_bind_pressed = info.keybind_pressed(Binding::SetMouse);
         
         let EmulatorContext {
@@ -606,10 +605,9 @@ impl InputEditWindow {
             frame.table_next_row_with_height(TableRowFlags::empty(), clipped_above * TOTAL_INPUT_TABLE_HEIGHT);
         }
 
-        self.last_table_color = TableColor::NONE;
         let start_index = clipped_above as usize;
         if start_index < config.current_frame {
-            self.set_table_color(TableColor::DISABLED);
+            row_color_stack.set_table_color(TableColor::DISABLED);
         }
         for i in start_index..(clipped_below as usize) {
             frame.table_next_row_with_height(TableRowFlags::empty(), TOTAL_INPUT_TABLE_HEIGHT);
@@ -617,11 +615,11 @@ impl InputEditWindow {
             if self.is_selecting != MouseSelection::None && self.selection_column.is_none() 
                 && i >= usize::min(self.selection_start_index, self.selection_end_index)
                 && i <= usize::max(self.selection_start_index, self.selection_end_index) {
-                    self.set_table_color(TableColor::SELECTED);
+                    row_color_stack.set_table_color(TableColor::SELECTED);
             } else if i == config.current_frame {
-                self.set_table_color(TableColor::CURRENT);
+                row_color_stack.set_table_color(TableColor::CURRENT);
             } else if i > config.current_frame {
-                self.set_table_color(TableColor::DEFAULT)
+                row_color_stack.set_table_color(TableColor::DEFAULT)
             }
 
             frame.table_set_column_index(0);

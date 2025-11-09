@@ -8,15 +8,14 @@ use crate::{
     }, imgui_utils::{
         TableColumnSetupCustomFunction,
         UiCustomFunction,
-        Vec2
     }
 };
-use imgui::{TableColumnFlags, TableColumnSetup, TableFlags};
+use imgui::{StyleVar, TableColumnFlags, TableColumnSetup, TableFlags};
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
 use std::{
     fmt::{Display, Formatter, Error},
-    convert::{ From, TryInto },
+    convert::{ From },
     fs::File,
     path::PathBuf,
     default::Default,
@@ -227,8 +226,8 @@ impl Window for KeybindWindow {
         "Keybindings".to_owned()
     }
 
-    fn show_window(&mut self, info: &mut EmulatorContext) {
-        unsafe { imgui::sys::igPushStyleVar_Vec2(imgui::sys::ImGuiStyleVar_WindowPadding.try_into().unwrap(), Vec2(0.0, 4.0).into()); }
+fn show_window(&mut self, info: &mut EmulatorContext) {
+        let window_padding_style = info.frame.push_style_var(StyleVar::WindowPadding([0.0, 4.0]));
         let mut is_open = self.is_open;
         info.frame
             .window("Keybindings")
@@ -252,7 +251,7 @@ impl Window for KeybindWindow {
                 }
             });
         self.is_open = is_open;
-        unsafe { imgui::sys::igPopStyleVar(1); }
+        window_padding_style.end();
 
         // disable all bindings while recording a new one.
         if matches!(self.current_binding, Some(_)) {

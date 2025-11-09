@@ -1,3 +1,5 @@
+use imgui::StyleColor;
+
 use crate::{
     imgui_utils::*,
     game::recording::{
@@ -64,19 +66,11 @@ impl Window for SaveStateWindow {
                     info.frame.rect(min + pos, min + rect_size + pos, Colour::new(1.0, 1.0, 1.0), 15);
                 }
                 for i in 0..self.capacity {
-                    unsafe {
-                        imgui::sys::igPushStyleColor_Vec4(
-                            imgui::sys::ImGuiCol_Button as _,
-                            imgui::sys::ImVec4 { x: 0.98, y: 0.59, z: 0.26, w: 0.4 });
-                        imgui::sys::igPushStyleColor_Vec4(
-                            imgui::sys::ImGuiCol_ButtonHovered as _,
-                            imgui::sys::ImVec4 { x: 0.98, y: 0.59, z: 0.26, w: 1.0 }
-                        );
-                        imgui::sys::igPushStyleColor_Vec4(
-                            imgui::sys::ImGuiCol_ButtonActive as _,
-                            imgui::sys::ImVec4 { x: 0.98, y: 0.53, z: 0.06, w: 1.0 }
-                        );
-                    }
+                    // Is this really the way to handle multiple values pushed on the stack in this lib?
+                    let button_color = info.frame.push_style_color(StyleColor::Button, [0.98, 0.59, 0.26, 0.4]);
+                    let button_hovered_color = info.frame.push_style_color(StyleColor::ButtonHovered, [0.98, 0.59, 0.26, 1.0]);
+                    let button_active_color = info.frame.push_style_color(StyleColor::ButtonActive, [0.98, 0.53, 0.06, 1.0]);
+
                     let y = (24 * i + 21) as f32;
                     if i == info.config.quicksave_slot {
                         let min = Vec2(0.0, (i * 24) as f32);
@@ -88,9 +82,9 @@ impl Window for SaveStateWindow {
                         info.savestate_save(i);
                     }
 
-                    unsafe {
-                        imgui::sys::igPopStyleColor(3);
-                    }
+                    button_active_color.end();
+                    button_hovered_color.end();
+                    button_color.end();
 
                     if info.savestate_exists(i) {
                         if info.frame.button_with_size_and_pos(&self.load_text[i], Vec2(60.0, 20.0), Vec2(75.0, y)) && *info.startup_successful {
