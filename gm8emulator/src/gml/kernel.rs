@@ -4492,9 +4492,9 @@ impl Game {
     }
 
     pub fn move_contact_solid(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
-        let (direction, max_distance) = expect_args!(args, [real, int])?;
-        let max_distance = if max_distance > 0 {
-            max_distance
+        let (direction, max_distance) = expect_args!(args, [real, real])?;
+        let max_distance = if max_distance > Real::from(0.0) {
+            max_distance.round().to_i32()
         } else {
             1000 // GML default
         };
@@ -4529,9 +4529,9 @@ impl Game {
     }
 
     pub fn move_contact_all(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
-        let (direction, max_distance) = expect_args!(args, [real, int])?;
-        let max_distance = if max_distance > 0 {
-            max_distance
+        let (direction, max_distance) = expect_args!(args, [real, real])?;
+        let max_distance = if max_distance > Real::from(0.0) {
+            max_distance.round().to_i32()
         } else {
             1000 // GML default
         };
@@ -4566,9 +4566,9 @@ impl Game {
     }
 
     pub fn move_outside_solid(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
-        let (direction, max_distance) = expect_args!(args, [real, int])?;
-        let max_distance = if max_distance > 0 {
-            max_distance
+        let (direction, max_distance) = expect_args!(args, [real, real])?;
+        let max_distance = if max_distance > Real::from(0.0) {
+            max_distance.round().to_i32()
         } else {
             1000 // GML default
         };
@@ -4598,9 +4598,9 @@ impl Game {
     }
 
     pub fn move_outside_all(&mut self, context: &mut Context, args: &[Value]) -> gml::Result<Value> {
-        let (direction, max_distance) = expect_args!(args, [real, int])?;
-        let max_distance = if max_distance > 0 {
-            max_distance
+        let (direction, max_distance) = expect_args!(args, [real, real])?;
+        let max_distance = if max_distance > Real::from(0.0) {
+            max_distance.round().to_i32()
         } else {
             1000 // GML default
         };
