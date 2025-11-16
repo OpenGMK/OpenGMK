@@ -2,7 +2,7 @@ use crate::{game::external::dll, gml, math::Real};
 use serde::{Deserialize, Serialize};
 use std::fmt::{self, Display};
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Eq, PartialEq, Debug, Clone, Serialize, Deserialize)]
 pub enum Value {
     Real(Real),
     Str(gml::String),
