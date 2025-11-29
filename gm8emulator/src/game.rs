@@ -2281,7 +2281,7 @@ impl Game {
                     let render_state = self.renderer.state();
                     let mut new_replay = replay.clone();
                     new_replay.truncate_frames(frame_count);
-                    match SaveState::from(&mut self, new_replay, render_state, clean_state)
+                    match SaveState::from(&self, new_replay, render_state, clean_state)
                         .save_to_file(bin, &mut savestate::Buffer::new())
                     {
                         Ok(()) => break Ok(()),
