@@ -1,9 +1,12 @@
 use crate::{
     game::{
         recording::{
-            keybinds::Binding, window::{EmulatorContext, Window}, InputMode, KeyState
-        }, replay::{self, Frame, FrameRng}, Game, GameClock, SceneChange
-    }, imgui_utils::{UiCustomFunction, Vec2}
+            keybinds::Binding, window::{EmulatorContext, Window}, InputMode, KeyState,
+        },
+        replay::{self, Frame, FrameRng},
+        Game, GameClock, SceneChange,
+    },
+    imgui_utils::{UiCustomFunction, Vec2},
 };
 
 use super::popup_dialog::{string_input::RNGSelect, Dialog, DialogState};
@@ -12,7 +15,7 @@ pub struct ControlWindow {
     seed_text: String,
     rerecord_text: String,
     rng_select: RNGSelect,
-    seed_base: (i32, i32, i32)
+    seed_base: (i32, i32, i32),
 }
 
 impl Window for ControlWindow {
@@ -42,16 +45,16 @@ impl Window for ControlWindow {
 
                 if (info.frame.button_with_size("Advance", [content_width, 20.0])
                     || info.keybind_pressed(Binding::Advance)
-                    || run_until_frame)
-                    && *info.game_running
+                    || run_until_frame
+                  ) && *info.game_running
                     && info.err_string.is_none()
                 {
                     self.advance_frame(info);
                 }
 
                 if (info.frame.button_with_size("Quick Save", [content_width, 20.0])
-                    || info.keybind_pressed(Binding::Quicksave))
-                    && *info.game_running
+                    || info.keybind_pressed(Binding::Quicksave)
+                  ) && *info.game_running
                     && info.err_string.is_none()
                 {
                     info.savestate_save(info.config.quicksave_slot);
@@ -98,10 +101,9 @@ impl Window for ControlWindow {
                 info.frame.text(&self.rerecord_text);
                 info.frame.text(&info.fps_text);
 
-                let keyboard_label = if info.config.full_keyboard {
-                    "Simple Keyboard###KeyboardLayout"
-                } else {
-                    "Full Keyboard###KeyboardLayout"
+                let keyboard_label = match info.config.full_keyboard {
+                    true => "Simple Keyboard###KeyboardLayout",
+                    false => "Full Keyboard###KeyboardLayout",
                 };
                 if info.frame.button_with_size(keyboard_label, [content_width, 20.0]) 
                     || info.keybind_pressed(Binding::ToggleKeyboard)
@@ -125,7 +127,7 @@ impl Window for ControlWindow {
 
                 let read_only_label = match info.config.is_read_only {
                     true => "Switch to Read/Write###IsReadOnly",
-                    false => "Switch to Read-Only###IsReadOnly",
+                    false => "Switch to Read-only###IsReadOnly",
                 };
                 if info.frame.button_with_size(read_only_label, [content_width, 20.0]) 
                     || info.keybind_pressed(Binding::ToggleReadOnly)
@@ -136,7 +138,7 @@ impl Window for ControlWindow {
 
                 let mouse_set_label = match info.config.set_mouse_using_textbox {
                     true => "Set Mouse: textbox###mouse_set_label",
-                    false => "Set mouse: clicking###mouse_set_label",
+                    false => "Set Mouse: clicking###mouse_set_label",
                 };
                 if info.frame.button_with_size(mouse_set_label, [content_width, 20.0]) 
                 {
@@ -161,7 +163,9 @@ impl Window for ControlWindow {
         );
     }
 
-    fn is_open(&self) -> bool { true }
+    fn is_open(&self) -> bool {
+        true
+    }
 
     fn show_context_menu(&mut self, info: &mut EmulatorContext) -> bool {
         let mut context_menu_open = true;
@@ -240,7 +244,7 @@ impl ControlWindow {
                         *info.new_rand = None; // Unset new seed if the game's seed is already set to it
                     }
                     format!("Seed: {}", new_seed)
-                }
+                },
             }
         } else {
             self.seed_text = format!("Seed: {}", info.game.rand.seed());
@@ -260,7 +264,7 @@ impl ControlWindow {
                 .clone();
             frame = &mut current_frame;
         } else {
-            if info.config.is_read_only == true {
+            if info.config.is_read_only {
                 // at the end of the current replay while in read-only mode
                 // don't advance?
                 // switch to read/write?
@@ -279,7 +283,6 @@ impl ControlWindow {
             }
 
             let new_frame = info.replay.new_frame();
-
             self.update_keyboard_state(info.keyboard_state, new_frame);
             self.update_mouse_state(info.mouse_state, new_frame);
 

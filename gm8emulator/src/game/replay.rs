@@ -45,7 +45,9 @@ impl FrameRng {
             FrameRng::Override(seed) => FrameRng::Override(seed.wrapping_sub(1))
         };
 
-        !matches!(*self, FrameRng::Increment(0)) // Return false if we would not actually change the seed at all (0 increments). We can't identify this situation for Override since we don't know the original seed
+        // Return false if we would not actually change the seed at all (0 increments).
+        // We can't identify this situation for Override since we don't know the original seed.
+        !matches!(*self, FrameRng::Increment(0))
     }
 }
 

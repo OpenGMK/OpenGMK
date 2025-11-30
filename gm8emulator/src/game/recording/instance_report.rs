@@ -1,10 +1,10 @@
 use crate::{
-    imgui_utils::*,
-    instance::Field,
     game::{
         Game,
         recording::window::{Window, EmulatorContext},
     },
+    imgui_utils::*,
+    instance::Field,
     render::atlas::AtlasRef,
 };
 use std::ops::Index;
@@ -156,7 +156,9 @@ impl Window for InstanceReportWindow {
         self.report_count = info.config.watched_ids.len();
     }
 
-    fn is_open(&self) -> bool { true }
+    fn is_open(&self) -> bool {
+        true
+    }
 }
 
 impl InstanceReportWindow {

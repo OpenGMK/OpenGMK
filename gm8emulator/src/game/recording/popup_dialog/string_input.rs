@@ -11,12 +11,13 @@ pub struct StringInputPopup {
 
 pub struct RNGSelect {
     input: StringInputPopup,
-    result: Option<FrameRng>
+    result: Option<FrameRng>,
 }
 
 struct CallbackHandler {
     pub char_limit: Option<usize>,
 }
+
 impl InputTextCallbackHandler for CallbackHandler {
     fn on_edit(&mut self, mut data: imgui::TextCallbackData) {
         if let Some(char_limit) = self.char_limit {
@@ -116,11 +117,11 @@ impl Dialog for RNGSelect {
                             }
                             DialogState::Submit
                         },
-                        Err(_) => DialogState::Invalid
+                        Err(_) => DialogState::Invalid,
                     }
                 }
             },
-            state => state
+            state => state,
         }
     }
 

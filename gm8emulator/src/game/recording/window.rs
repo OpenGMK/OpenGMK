@@ -1,11 +1,16 @@
 use crate::{
-    imgui_utils::Vec2,
     game::{
-        Game,
-        recording::{WindowKind, KeyState, ProjectConfig, instance_report::InstanceReport, keybinds::{Keybindings, Binding}, popup_dialog::Dialog},
+        recording::{
+            keybinds::{Keybindings, Binding},
+            instance_report::InstanceReport,
+            popup_dialog::Dialog,
+            WindowKind, KeyState, ProjectConfig,
+        },
         replay::{Replay, FrameRng},
         savestate::{self, SaveState},
+        Game,
     },
+    imgui_utils::Vec2,
     render::RendererState,
 };
 use std::path::PathBuf;
@@ -53,6 +58,7 @@ pub struct EmulatorContext<'a> {
 pub trait WindowType {
     fn window_type_self(&self) -> std::any::TypeId;
 }
+
 pub trait Window: WindowType {
     fn show_window(&mut self, info: &mut EmulatorContext);
 
@@ -74,6 +80,7 @@ pub trait Window: WindowType {
     /// Handles potential modal windows that can be opened from this window. Returns true if any of the modal windows are currently open, false otherwise
     fn handle_modal(&mut self, _info: &mut EmulatorContext) -> bool { false }
 }
+
 impl<T> WindowType for T
     where T: Window + 'static
 {

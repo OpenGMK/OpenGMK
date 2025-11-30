@@ -40,7 +40,9 @@ impl Window for GameWindow {
         }
     }
 
-    fn is_open(&self) -> bool { true }
+    fn is_open(&self) -> bool {
+        true
+    }
 
     fn show_context_menu(&mut self, info: &mut EmulatorContext) -> bool {
         self.display_context_menu(info)
@@ -161,7 +163,7 @@ impl GameWindow {
                     info.config.save();
                 }
                 self.context_menu_options = None;
-                break
+                break;
             }
         }
 
@@ -180,10 +182,8 @@ impl GameWindow {
         while let Some(handle) = iter.next(&info.game.room.instance_list) {
             let instance = info.game.room.instance_list.get(handle);
             instance.update_bbox(info.game.get_instance_mask_sprite(handle));
-            if x >= instance.bbox_left.get()
-            && x <= instance.bbox_right.get()
-            && y >= instance.bbox_top.get()
-            && y <= instance.bbox_bottom.get()
+            if x >= instance.bbox_left.get() && x <= instance.bbox_right.get()
+              && y >= instance.bbox_top.get() && y <= instance.bbox_bottom.get()
             {
                 use crate::game::GetAsset;
                 let id = instance.id.get();

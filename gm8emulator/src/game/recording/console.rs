@@ -1,8 +1,8 @@
 use imgui::ListBox;
 
 use crate::{
-    game::recording::window::{ Window, Openable, EmulatorContext },
-    gml::{ Context, Value }
+    game::recording::window::{Window, Openable, EmulatorContext},
+    gml::{Context, Value},
 };
 
 pub struct ConsoleWindow {
@@ -31,6 +31,7 @@ impl Openable<Self> for ConsoleWindow {
         new_console
     }
 }
+
 impl Window for ConsoleWindow {
     fn stored_kind(&self) -> Option<super::WindowKind> {
         Some(super::WindowKind::Console(self.id))
@@ -75,16 +76,13 @@ impl Window for ConsoleWindow {
 
                 // width = window width - padding - (width of checkbox + item x spacing) - (width of run button + item x spacing)
                 let width = window_size[0] - content_position[0] * 2.0 - 58.0 - 28.0;
-                if width > 0.0 {
-                    // checkbox and run button are visible
-                    frame.set_next_item_width(width);
+                frame.set_next_item_width(if width > 0.0 {
+                    width // checkbox and run button are visible
                 } else if width > -58.0 {
-                    // only checkbox is visible
-                    frame.set_next_item_width(width+58.0);
+                    width + 58.0 // only checkbox is visible
                 } else if width > -58.0 - 28.0 {
-                    // nothing is visible
-                    frame.set_next_item_width(width+58.0+28.0)
-                }
+                    width + 58.0 + 28.0 // nothing is visible
+                });
 
                 let pressed_enter = frame.input_text("##consoleinput", &mut self.input_string)
                                         .enter_returns_true(true)

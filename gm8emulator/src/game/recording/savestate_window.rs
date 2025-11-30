@@ -100,7 +100,9 @@ impl Window for SaveStateWindow {
         );
     }
 
-    fn is_open(&self) -> bool { true }
+    fn is_open(&self) -> bool {
+        true
+    }
 }
 
 impl SaveStateWindow {

@@ -1,6 +1,4 @@
 use crate::{
-    imgui_utils::*,
-    input,
     game::recording::{
         self,
         KeyState,
@@ -8,13 +6,16 @@ use crate::{
         keybinds::Binding,
         window::{Window, EmulatorContext},
     },
+    imgui_utils::*,
+    input,
     types::Colour,
 };
 use imgui::StyleColor;
 use ramen::input::Key;
 
 pub enum ContextMenuType {
-    Key(Key), Mouse(i8)
+    Key(Key),
+    Mouse(i8),
 }
 
 pub struct InputWindows {
@@ -32,7 +33,9 @@ impl Window for InputWindows {
         self.show_input_windows(info);
     }
 
-    fn is_open(&self) -> bool { true }
+    fn is_open(&self) -> bool {
+        true
+    }
     
     fn show_context_menu(&mut self, info: &mut EmulatorContext) -> bool {
         self.display_context_menu(info)

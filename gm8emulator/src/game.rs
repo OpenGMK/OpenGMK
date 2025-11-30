@@ -2275,7 +2275,8 @@ impl Game {
             if self.frame_limit_at > 0 && frame_count == self.frame_limit_at || frame_count == replay.frame_count() {
                 if let Some(bin) = &output_bin {
                     if start_save_path.is_some() {
-                        // Store the current framebuffer since it's used by the savestate. Only matters if there already is a framebuffer stored which is the case when loading a savestate.
+                        // Store the current framebuffer since it's used by the savestate.
+                        // Only matters if there already is a framebuffer stored which is the case when loading a savestate.
                         self.renderer.resize_framebuffer(self.renderer.stored_size().0, self.renderer.stored_size().1, true);
                     }
                     let render_state = self.renderer.state();

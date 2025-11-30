@@ -1,13 +1,13 @@
 use crate::{
     game::{
         recording::{
-            KeyState, keybinds::Binding, window::{
-                EmulatorContext, Openable, Window
-            }
-        }, replay::{
-            FrameRng, Input, Replay
-        }
-    }, imgui_utils::*, input::Button
+            window::{EmulatorContext, Openable, Window},
+            keybinds::Binding, KeyState,
+        },
+        replay::{FrameRng, Input, Replay},
+    },
+    imgui_utils::*,
+    input::Button,
 };
 
 use super::popup_dialog::{string_input::RNGSelect, Dialog, DialogState};
@@ -23,7 +23,7 @@ enum MouseSelection {
 }
 #[derive(PartialEq, Eq, Copy, Clone)]
 enum TableColor {
-    DISABLED, CURRENT, SELECTED, DEFAULT, NONE
+    DISABLED, CURRENT, SELECTED, DEFAULT, NONE,
 }
 pub struct InputEditWindow {
     is_open: bool,
@@ -119,8 +119,7 @@ const INPUT_TABLE_HEIGHT: f32 = 20.0;
 const INPUT_TABLE_YPOS: f32 = 44.0;
 const TABLE_PADDING: f32 = 2.0;
 const TOTAL_INPUT_TABLE_HEIGHT: f32 = INPUT_TABLE_HEIGHT + TABLE_PADDING * 2.0; // total height = table height + top padding + bottom padding
-// draw 2 elements above and below the visible region.
-const TABLE_CLIPPING: f32 = TOTAL_INPUT_TABLE_HEIGHT*2.0;
+const TABLE_CLIPPING: f32 = TOTAL_INPUT_TABLE_HEIGHT*2.0; // draw 2 elements above and below the visible region
 
 macro_rules! rgb {
     ($r:expr, $g:expr, $b:expr) => {
@@ -192,8 +191,8 @@ impl Window for InputEditWindow {
                         | TableFlags::NO_PAD_OUTER_X
                         | TableFlags::NO_PAD_INNER_X
                         | TableFlags::SCROLL_Y,
-                        table_size,
-                        0.0
+                    table_size,
+                    0.0
                 ) {
                     let mut row_color_stack = RowColorStack::new(info.frame);
 
@@ -293,9 +292,12 @@ impl Window for InputEditWindow {
                 self.is_selecting = MouseSelection::None; // Once the dialog is submitted, stop displaying the selection
             },
             DialogState::Open => {
-                self.is_selecting = MouseSelection::Fixed; // Kind of a hack but the dialog can only be opened with the right-click context menu by selecting certain frames. Closing the context menu hides the selection so we show it again for as long as the dialog is open
                 any_open = true;
-            }
+
+                // Kind of a hack but the dialog can only be opened with the right-click context menu by selecting certain frames.
+                // Closing the context menu hides the selection so we show it again for as long as the dialog is open
+                self.is_selecting = MouseSelection::Fixed;
+            },
             _ => self.is_selecting = MouseSelection::None, // Once the dialog is closed, stop displaying the selection (Closed, Cancelled, Invalid, etc)
         };
 
@@ -345,7 +347,8 @@ impl InputEditWindow {
     }
 
     fn update_mouse_position_for_frame(&mut self, frame: usize, end_frame: Option<usize>, x: i32, y: i32, replay: &mut Replay) {
-        // Update the mouse position for the current frame or a range of frames. If setting just the current frame, update all following frames with the same mouse position if self.single_mouse_frame is not set.
+        // Update the mouse position for the current frame or a range of frames.
+        // If setting just the current frame, update all following frames with the same mouse position if self.single_mouse_frame is not set.
         if let Some(replay_frame) = replay.get_frame_mut(frame) {
             if self.single_frame_mouse && end_frame.is_none() {
                 // Update just this frame
@@ -457,27 +460,27 @@ impl InputEditWindow {
     }
 
     fn any_button_menu(&self, frame: &imgui::Ui) -> Option<KeyState> {
-        if frame.menu_item("Release") {
-            Some(KeyState::HeldWillRelease)
+        Some(if frame.menu_item("Release") {
+            KeyState::HeldWillRelease
         } else if frame.menu_item("Release, Press") {
-            Some(KeyState::HeldWillDouble)
+            KeyState::HeldWillDouble
         } else if frame.menu_item("Release, Press, Release") {
-            Some(KeyState::HeldWillTriple)
+            KeyState::HeldWillTriple
         } else if frame.menu_item("Tap Every Frame") {
-            Some(KeyState::HeldDoubleEveryFrame)
+            KeyState::HeldDoubleEveryFrame
         } else if frame.menu_item("Press") {
-            Some(KeyState::NeutralWillPress)
+            KeyState::NeutralWillPress
         } else if frame.menu_item("Press, Release") {
-            Some(KeyState::NeutralWillDouble)
+            KeyState::NeutralWillDouble
         } else if frame.menu_item("Press, Release, Press") {
-            Some(KeyState::NeutralWillTriple)
+            KeyState::NeutralWillTriple
         } else if frame.menu_item("Tap Every Frame") {
-            Some(KeyState::NeutralDoubleEveryFrame)
+            KeyState::NeutralDoubleEveryFrame
         } else if frame.menu_item("Cactus-Release") {
-            Some(KeyState::NeutralWillCactus)
+            KeyState::NeutralWillCactus
         } else {
-            None
-        }
+            return None;
+        })
     }
 
     fn update_replay_keystate(&mut self, frame_index: usize, key_index: usize, new_keystate: KeyState, replay: &mut Replay) {
@@ -614,8 +617,9 @@ impl InputEditWindow {
 
             if self.is_selecting != MouseSelection::None && self.selection_column.is_none() 
                 && i >= usize::min(self.selection_start_index, self.selection_end_index)
-                && i <= usize::max(self.selection_start_index, self.selection_end_index) {
-                    row_color_stack.set_table_color(TableColor::SELECTED);
+                && i <= usize::max(self.selection_start_index, self.selection_end_index)
+            {
+                row_color_stack.set_table_color(TableColor::SELECTED);
             } else if i == config.current_frame {
                 row_color_stack.set_table_color(TableColor::CURRENT);
             } else if i > config.current_frame {
@@ -812,7 +816,7 @@ impl InputEditWindow {
                 replay.insert_new_frame(index);
             }
 
-            self.update_keys(replay)
+            self.update_keys(replay);
         }
     }
 
@@ -870,18 +874,22 @@ impl InputEditWindow {
         }
         
         *state = match state {
-                    KeyState::Held => if pressed { /* this one is not currently possible to enter in tas mode */ KeyState::Held } else { KeyState::HeldWillRelease },
-                    KeyState::HeldWillRelease => if pressed { KeyState::HeldWillDouble } else { invalid!() },
-                    KeyState::HeldWillDouble => if pressed { invalid!() } else { KeyState::HeldWillTriple },
-                    KeyState::HeldWillTriple => invalid!(),
+            KeyState::Held => if pressed {
+                KeyState::Held // this one is not currently possible to enter in tas mode
+            } else {
+                KeyState::HeldWillRelease
+            },
+            KeyState::HeldWillRelease => if pressed { KeyState::HeldWillDouble } else { invalid!() },
+            KeyState::HeldWillDouble => if pressed { invalid!() } else { KeyState::HeldWillTriple },
+            KeyState::HeldWillTriple => invalid!(),
 
-                    KeyState::Neutral => if pressed { KeyState::NeutralWillPress } else { KeyState::NeutralWillCactus },
-                    KeyState::NeutralWillPress => if pressed { invalid!() } else { KeyState::NeutralWillDouble },
-                    KeyState::NeutralWillDouble => if pressed { KeyState::NeutralWillTriple } else { invalid!() },
-                    KeyState::NeutralWillTriple => invalid!(),
+            KeyState::Neutral => if pressed { KeyState::NeutralWillPress } else { KeyState::NeutralWillCactus },
+            KeyState::NeutralWillPress => if pressed { invalid!() } else { KeyState::NeutralWillDouble },
+            KeyState::NeutralWillDouble => if pressed { KeyState::NeutralWillTriple } else { invalid!() },
+            KeyState::NeutralWillTriple => invalid!(),
 
-                    _ => if pressed { KeyState::NeutralWillPress } else { KeyState::HeldWillRelease },
-                };
+             _ => if pressed { KeyState::NeutralWillPress } else { KeyState::HeldWillRelease },
+        };
     }
 
     fn update_keystate_front(&mut self, frame_index: usize, key_index: usize, start_pressed: bool) -> &KeyState{

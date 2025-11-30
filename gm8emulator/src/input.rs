@@ -4,10 +4,10 @@ use std::{
     fmt::{
         Display,
         Error,
-        Formatter
+        Formatter,
     },
     convert::TryFrom,
-    num::NonZeroI32
+    num::NonZeroI32,
 };
 
 const KEY_MAX: usize = u8::max_value() as usize + 1;
@@ -683,7 +683,6 @@ impl TryFrom<u8> for Button {
             _ => Err(()),
         }
     }
-
 }
 
 impl TryFrom<ramen::input::Key> for Button {

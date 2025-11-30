@@ -1,10 +1,10 @@
 use crate::{
-    input::Button,
     game::recording::{
-            KeyState,
-            keybinds::Binding,
-            window::{Window, Openable, EmulatorContext},
-        },
+        KeyState,
+        keybinds::Binding,
+        window::{Window, Openable, EmulatorContext},
+    },
+    input::Button,
 };
 
 pub struct MacroWindow {
@@ -47,8 +47,11 @@ impl Window for MacroWindow {
         self.show_macro_windows(info);
     }
 
-    fn is_open(&self) -> bool { self.is_open }
+    fn is_open(&self) -> bool {
+        self.is_open
+    }
 }
+
 impl Openable<Self> for MacroWindow {
     fn window_name() -> &'static str {
         "Macro Window"

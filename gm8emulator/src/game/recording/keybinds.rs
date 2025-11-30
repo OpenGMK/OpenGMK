@@ -1,21 +1,14 @@
 use crate::{
-    game::recording::window::{
-        EmulatorContext,
-        Openable,
-        Window}, imgui_key_utils::{
-        ImGuiKeyDef,
-        ImguiKeyCustomFunctions
-    }, imgui_utils::{
-        TableColumnSetupCustomFunction,
-        UiCustomFunction,
-    }
+    game::recording::window::{EmulatorContext, Openable, Window},
+    imgui_key_utils::{ImGuiKeyDef, ImguiKeyCustomFunctions},
+    imgui_utils::{TableColumnSetupCustomFunction, UiCustomFunction},
 };
 use imgui::{StyleVar, TableColumnFlags, TableColumnSetup, TableFlags};
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
 use std::{
     fmt::{Display, Formatter, Error},
-    convert::{ From },
+    convert::From,
     fs::File,
     path::PathBuf,
     default::Default,
@@ -37,6 +30,7 @@ pub enum Binding {
     ToggleMacros,
     SetMouse,
 }
+
 impl Display for Binding {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
         match self {
@@ -56,6 +50,7 @@ impl Display for Binding {
         }
     }
 }
+
 impl Binding {
     fn default_binding(&self) -> Option<KeyCombination> {
         match self {
@@ -85,17 +80,12 @@ pub struct KeyCombination {
     #[serde_as(as = "Vec<ImGuiKeyDef>")]
     keycodes: Vec<imgui::Key>,
 }
+
 impl Display for KeyCombination {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
-        if self.ctrl {
-            f.write_str("Ctrl+")?;
-        }
-        if self.alt {
-            f.write_str("Alt+")?;
-        }
-        if self.shift {
-            f.write_str("Shift+")?;
-        }
+        if self.ctrl { f.write_str("Ctrl+")?; }
+        if self.alt { f.write_str("Alt+")?; }
+        if self.shift { f.write_str("Shift+")?; }
 
         for (index, key) in self.keycodes.iter().enumerate() {
             key.fmt(f)?;
@@ -208,6 +198,7 @@ impl Default for Keybindings {
         }
     }
 }
+
 impl Openable<Self> for KeybindWindow {
     fn window_name() -> &'static str {
         "Keybindings"
@@ -217,6 +208,7 @@ impl Openable<Self> for KeybindWindow {
         Self::new()
     }
 }
+
 impl Window for KeybindWindow {
     fn stored_kind(&self) -> Option<super::WindowKind> {
         Some(super::WindowKind::Keybindings)
@@ -226,7 +218,7 @@ impl Window for KeybindWindow {
         "Keybindings".to_owned()
     }
 
-fn show_window(&mut self, info: &mut EmulatorContext) {
+    fn show_window(&mut self, info: &mut EmulatorContext) {
         let window_padding_style = info.frame.push_style_var(StyleVar::WindowPadding([0.0, 4.0]));
         let mut is_open = self.is_open;
         info.frame
@@ -331,22 +323,14 @@ impl KeybindWindow {
                 }
             } else {
                 // figure out which keys have been newly pressed
-                let new_keys: Vec<imgui::Key> = keys.iter().filter_map(|key| {
-                    if !self.last_keycodes.contains(key) {
-                        Some(*key)
-                    } else {
-                        None
-                    }
-                }).collect();
+                let new_keys: Vec<imgui::Key> = keys.iter().filter_map(|key|
+                    if !self.last_keycodes.contains(key) { Some(*key) } else { None }
+                ).collect();
                 if new_keys.len() > 0 {
                     // setup new keys, order them by when they were pressed, filter buttons that are no longer pressed
-                    self.last_keycodes = self.last_keycodes.iter().chain(new_keys.iter()).filter_map(|key| {
-                        if keys.contains(key) {
-                            Some(*key)
-                        } else {
-                            None
-                        }
-                    }).collect();
+                    self.last_keycodes = self.last_keycodes.iter().chain(new_keys.iter()).filter_map(|key|
+                        if keys.contains(key) { Some(*key) } else { None }
+                    ).collect();
                     self.current_keys = KeyCombination::from(&self.last_keycodes);
                 }
             }

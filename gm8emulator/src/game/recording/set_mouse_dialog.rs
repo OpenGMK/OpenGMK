@@ -1,10 +1,8 @@
 use imgui::StyleColor;
 
-use crate::{
-    game::recording::window::{
-        Window,
-        EmulatorContext
-    }
+use crate::game::recording::window::{
+    Window,
+    EmulatorContext,
 };
 
 #[derive(Copy, Clone)]
@@ -71,7 +69,9 @@ impl Window for SetMouseDialog {
         }
     }
 
-    fn is_open(&self) -> bool { self.is_open }
+    fn is_open(&self) -> bool {
+        self.is_open
+    }
 }
 
 impl SetMouseDialog {
