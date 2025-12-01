@@ -1,6 +1,7 @@
 use imgui::ListBox;
 
 use crate::{
+    imgui_utils::UiCustomFunction,
     game::recording::window::{Window, Openable, EmulatorContext},
     gml::{Context, Value},
 };
@@ -75,13 +76,18 @@ impl Window for ConsoleWindow {
                 });
 
                 // width = window width - padding - (width of checkbox + item x spacing) - (width of run button + item x spacing)
-                let width = window_size[0] - content_position[0] * 2.0 - 58.0 - 28.0;
-                frame.set_next_item_width(if width > 0.0 {
-                    width // checkbox and run button are visible
-                } else if width > -58.0 {
-                    width + 58.0 // only checkbox is visible
-                } else if width > -58.0 - 28.0 {
-                    width + 58.0 + 28.0 // nothing is visible
+                let item_spacing_x = frame.item_spacing().0;
+                let checkbox_width = frame.frame_height() + item_spacing_x; // imgui uses frame_height to determine the size of the checkbox. without any label there is no additional padding to consider
+                let run_button_width = Self::RUN_BUTTON_WIDTH + item_spacing_x;
+                let width = window_size[0] - content_position[0] * 2.0 - checkbox_width - run_button_width - Self::TEXTBOX_MIN_WIDTH;
+                frame.set_next_item_width(if width >= 0.0 {
+                    width+Self::TEXTBOX_MIN_WIDTH // checkbox and run button are visible
+                } else if width >= -run_button_width {
+                    width+run_button_width+Self::TEXTBOX_MIN_WIDTH // only checkbox is visible
+                } else if width >= -run_button_width - checkbox_width {
+                    width+checkbox_width+run_button_width+Self::TEXTBOX_MIN_WIDTH // nothing is visible
+                } else {
+                    Self::TEXTBOX_MIN_WIDTH // Shouldn't really happen since the minimum content width is bigger than the current minimum textbox width
                 });
 
                 let pressed_enter = frame.input_text("##consoleinput", &mut self.input_string)
@@ -97,18 +103,20 @@ impl Window for ConsoleWindow {
 
                 frame.same_line();
                 let mut run_code = pressed_enter;
-                if width > 0.0 {
-                    run_code = frame.button_with_size("Run", [50.0, 20.0]) || run_code;
+                if width >= 0.0 {
+                    run_code = frame.button_with_size("Run", [Self::RUN_BUTTON_WIDTH, 20.0]) || run_code;
                     frame.same_line();
                 }
 
-                frame.checkbox("##runcode", &mut self.run_code);
-                if self.last_frame != config.current_frame || self.last_rerecords != config.rerecords {
-                    run_code = run_code || self.run_code;
-                    self.last_frame = config.current_frame;
-                    self.last_rerecords = config.rerecords;
+                if width >= -run_button_width {
+                    frame.checkbox("##runcode", &mut self.run_code);
+                    if self.last_frame != config.current_frame || self.last_rerecords != config.rerecords {
+                        run_code = run_code || self.run_code;
+                        self.last_frame = config.current_frame;
+                        self.last_rerecords = config.rerecords;
+                    }
                 }
-
+                    
                 if run_code {
                     if self.input_string.starts_with('/') || self.input_string.starts_with('.') {
                         // see if it's a known command
@@ -155,6 +163,9 @@ impl Window for ConsoleWindow {
 }
 
 impl ConsoleWindow {
+    const RUN_BUTTON_WIDTH: f32 = 50.0;
+    const TEXTBOX_MIN_WIDTH: f32 = 15.0;
+
     pub fn new() -> Self {
         Self {
             input_string: String::with_capacity(256),

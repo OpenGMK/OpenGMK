@@ -88,6 +88,7 @@ pub trait UiCustomFunction {
     fn begin_screen_cover(&self, focus: bool) -> imgui::WindowToken;
     fn popup_notification(&self, message: &str) -> bool;
     fn text_centered_float(&self, text: &str, center: Vec2<f32>);
+    fn item_spacing(&self) -> Vec2<f32>;
 }
 
 pub trait TableColumnSetupCustomFunction<Name: AsRef<str>> {
@@ -312,6 +313,12 @@ impl UiCustomFunction for imgui::Ui {
             .build(|| {
                 self.text(text);
             });
+    }
+
+    fn item_spacing(&self) -> Vec2<f32> {
+        unsafe {
+            self.style().item_spacing.into()
+        }
     }
 }
 
