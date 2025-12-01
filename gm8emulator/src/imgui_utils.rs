@@ -308,7 +308,20 @@ impl UiCustomFunction for imgui::Ui {
         let size = Vec2((size[0]+16.0) / 2.0, (size[1]+16.0) / 2.0);
         let pos = [center.0 - size.0, center.1 - size.1];
         self.window("__float")
-            .flags(imgui::WindowFlags::from_bits(0b100_0000_0011_1111_1111).unwrap()) // Note: previous code used the 0x20000 flag which doesn't seem to exist anymore. I'm not sure what that was for.
+            // Note: Previous code used the 0x20000 flag which doesn't seem to exist (anymore?)
+            //  I unfortunately can't remember what that was for, or whether or not that was a
+            //  mistake or not but it seems to work fine without.
+            .flags(imgui::WindowFlags::NO_TITLE_BAR 
+                 | imgui::WindowFlags::NO_RESIZE     
+                 | imgui::WindowFlags::NO_MOVE
+                 | imgui::WindowFlags::NO_SCROLLBAR
+                 | imgui::WindowFlags::NO_SCROLL_WITH_MOUSE
+                 | imgui::WindowFlags::NO_COLLAPSE
+                 | imgui::WindowFlags::ALWAYS_AUTO_RESIZE
+                 | imgui::WindowFlags::NO_BACKGROUND
+                 | imgui::WindowFlags::NO_SAVED_SETTINGS
+                 | imgui::WindowFlags::NO_MOUSE_INPUTS
+                 | imgui::WindowFlags::NO_NAV_INPUTS) 
             .position(pos, imgui::Condition::Always)
             .build(|| {
                 self.text(text);
