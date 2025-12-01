@@ -78,7 +78,11 @@ impl GameWindow {
             if info.config.set_mouse_using_textbox {
                 self.mouse_dialog.init_if_closed(info.new_mouse_pos.unwrap_or_else(|| {
                     // Take the mouse x/y from the previous frame if we don't have one set for this frame
-                    // Technically it would be better if it took the current frame if it existed, the previous if not and (0, 0) if neither exist but if we're in a state where the current frame already exists we're most likely in read-only anyway and can't edit the mouse using this window. (TODO: allow editing current frame using this window too?)
+                    // Technically it would be better if this took the current frame if it existed,
+                    //   the previous if not and (0, 0) if neither exist but if we're in a state where
+                    //   the current frame already exists we're most likely in read-only anyway and
+                    //   can't edit the mouse using this window regardless.
+                    // TODO: allow editing current frame using this window too?
                     if let Some(current_frame) = info.replay.get_frame(info.config.current_frame.checked_sub(1).unwrap_or(0)) {
                         (current_frame.mouse_x, current_frame.mouse_y)
                     } else {

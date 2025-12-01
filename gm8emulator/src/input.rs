@@ -7,7 +7,6 @@ use std::{
         Formatter,
     },
     convert::TryFrom,
-    num::NonZeroI32,
 };
 
 const KEY_MAX: usize = u8::max_value() as usize + 1;

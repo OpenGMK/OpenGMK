@@ -16,6 +16,7 @@ winres = "0.1"
 [dependencies]
 bincode = "1.2"
 byteorder = "1"
+clipboard = "0.5.0"
 encoding_rs = "0.8.23"
 getopts = "0.2.21"
 getrandom = "0.2"
@@ -34,10 +35,9 @@ rect_packer = "0.2.1"
 rmp3 = { version = "0.3", features = ["float"] }
 rust-ini = "0.17"
 serde = { version = "1.0", features = ["derive", "rc"] }
+serde_with = "3.15.1"
 time = { version = "0.3", features = ["local-offset", "macros"] }
 udon = { git = "https://github.com/Adamcake/udon", features = ["serde-derives", "wav"] }
-clipboard = "0.5.0"
-serde_with = "3.15.1"
 
 [target.'cfg(all(target_os = "windows"))'.dependencies]
 crc32fast = "1.2"

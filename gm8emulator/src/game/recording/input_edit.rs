@@ -45,8 +45,8 @@ pub struct InputEditWindow {
     selection_end_index: usize,
 
     context_menu: bool,
-    /// The indicies for the context menu. First value contains the frame, second value is the column that was clicked on, if it existed
-    context_menu_indicies: (usize, Option<usize>),
+    /// The indices for the context menu. First value contains the frame, second value is the column that was clicked on, if it existed
+    context_menu_indices: (usize, Option<usize>),
     context_menu_keystate: KeyState,
 
     rng_select: RNGSelect,
@@ -72,10 +72,10 @@ impl RowColorStack<'_> {
 
     fn drop_current_colors(&mut self) {
         if let Some(alt_color) = std::mem::take(&mut self.row_color_alt) {
-            std::mem::drop(alt_color);
+            alt_color.end();
         }
         if let Some(color) = std::mem::take(&mut self.row_color) {
-            std::mem::drop(color);
+            color.end();
         }
     }
 
@@ -152,23 +152,20 @@ impl Window for InputEditWindow {
         if self.setting_mouse_pos_for_frame.is_some() && !*info.setting_mouse_pos {
             let frame = self.setting_mouse_pos_for_frame.unwrap();
             if info.config.current_frame <= frame && frame < info.replay.frame_count() {
-                if let Some(new_mouse_pos) = info.new_mouse_pos {
-                    // If we have a new mouse position, set it to that
-                    self.update_mouse_position_for_frame(frame, self.setting_mouse_pos_end_frame, new_mouse_pos.0, new_mouse_pos.1, info.replay);
-                } else {
+                // If we have a new mouse position, set it to that
+                let new_mouse_pos = info.new_mouse_pos.take().unwrap_or_else(|| {
                     // Otherwise if we pressed Escape to unset the mouse, use the previous frames mouse position
-                    let new_mouse_pos = if frame == 0 {
+                    if frame == 0 {
                         (0, 0)
                     } else {
                         let replay_frame = info.replay.get_frame(frame-1).unwrap();
                         (replay_frame.mouse_x, replay_frame.mouse_y)
-                    };
-                    self.update_mouse_position_for_frame(frame, self.setting_mouse_pos_end_frame, new_mouse_pos.0, new_mouse_pos.1, info.replay);
-                }
+                    }
+                });
+                self.update_mouse_position_for_frame(frame, self.setting_mouse_pos_end_frame, new_mouse_pos.0, new_mouse_pos.1, info.replay);
             }
             self.setting_mouse_pos_for_frame = None;
             self.setting_mouse_pos_end_frame = None;
-            *info.new_mouse_pos = None;
         }
 
         let mut is_open = self.is_open;
@@ -224,12 +221,10 @@ impl Window for InputEditWindow {
 
                 let hovered_text = if self.is_selecting != MouseSelection::None {
                     let count = self.selection_start_index.abs_diff(self.selection_end_index)+1;
-
-                    if let Some(text) = self.hovered_text {
-                        Some(format!("{} selected; {}", count, text))
-                    } else {
-                        Some(format!("{} selected", count))
-                    }
+                    Some(match self.hovered_text {
+                        Some(text) => format!("{} selected; {}", count, text),
+                        _ => format!("{} selected", count),
+                    })
                 } else {
                     self.hovered_text.map(String::from)
                 };
@@ -339,7 +334,7 @@ impl InputEditWindow {
             selection_end_index: 0,
 
             context_menu: false,
-            context_menu_indicies: (0, None),
+            context_menu_indices: (0, None),
             context_menu_keystate: KeyState::Neutral,
 
             rng_select: RNGSelect::new("Pick RNG"),
@@ -386,11 +381,11 @@ impl InputEditWindow {
             ..
         } = info;
 
-        if let Some(key_index) = self.context_menu_indicies.1 {
+        if let Some(key_index) = self.context_menu_indices.1 {
             // Context menu is to modify input, show the key context menu
             if self.selection_start_index == self.selection_end_index {
                 if !self.context_menu_keystate.menu(frame) {
-                    let frame_index = self.context_menu_indicies.0;
+                    let frame_index = self.context_menu_indices.0;
 
                     self.update_replay_keystate(frame_index, key_index, self.context_menu_keystate, replay);
 
@@ -648,7 +643,7 @@ impl InputEditWindow {
                         // And set this as the ending index
                         self.selection_end_index = i;
                     } else {
-                        // Otherwise check if the index falls within the selected indicies
+                        // Otherwise check if the index falls within the selected indices
                         within_selection = i >= usize::min(self.selection_start_index, self.selection_end_index) && i <= usize::max(self.selection_start_index, self.selection_end_index);
                     }
                 }
@@ -792,7 +787,7 @@ impl InputEditWindow {
                     if info.request_context_menu() {
                         self.is_selecting = MouseSelection::Fixed;
                         self.context_menu = true;
-                        self.context_menu_indicies = (self.selection_start_index, self.selection_column);
+                        self.context_menu_indices = (self.selection_start_index, self.selection_column);
                         if let Some(index) = self.selection_column {
                             self.context_menu_keystate = self.states[self.selection_start_index][index].clone();
                         }

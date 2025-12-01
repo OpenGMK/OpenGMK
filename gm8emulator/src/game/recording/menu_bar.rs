@@ -5,7 +5,7 @@ use crate::{
         input_edit::InputEditWindow,
         console::ConsoleWindow,
         macro_window::MacroWindow,
-        window::{Openable},
+        window::Openable,
     },
 };
 

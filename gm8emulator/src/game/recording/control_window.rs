@@ -168,39 +168,25 @@ impl Window for ControlWindow {
     }
 
     fn show_context_menu(&mut self, info: &mut EmulatorContext) -> bool {
-        let mut context_menu_open = true;
-
         let current_increment = if let Some(FrameRng::Increment(amount)) = info.new_rand { *amount } else { 0 };
-
-        let new_rand;
-        if info.new_rand.is_some() && info.frame.menu_item("Reset") {
-            new_rand = Some(None);
-            context_menu_open = false;
+        *info.new_rand = if info.new_rand.is_some() && info.frame.menu_item("Reset") {
+            None
         } else if info.frame.menu_item("+1 RNG call") {
-            new_rand = Some(Some(FrameRng::Increment(current_increment+1)));
-            context_menu_open = false;
+            Some(FrameRng::Increment(current_increment+1))
         } else if info.frame.menu_item("+5 RNG calls") {
-            new_rand = Some(Some(FrameRng::Increment(current_increment+5)));
-            context_menu_open = false;
+            Some(FrameRng::Increment(current_increment+5))
         } else if info.frame.menu_item("+10 RNG calls") {
-            new_rand = Some(Some(FrameRng::Increment(current_increment+10)));
-            context_menu_open = false;
+            Some(FrameRng::Increment(current_increment+10))
         } else if info.frame.menu_item("+50 RNG calls") {
-            new_rand = Some(Some(FrameRng::Increment(current_increment+50)));
-            context_menu_open = false;
+            Some(FrameRng::Increment(current_increment+50))
         } else if info.frame.menu_item("Pick RNG") {
             info.request_modal(&mut self.rng_select);
-            new_rand = None;
-            context_menu_open = false;
+            return false;
         } else {
-            new_rand = None;
-        }
+            return true; // Keep context menu open if nothing was clicked
+        };
 
-        if let Some(new_rand) = new_rand {
-            *info.new_rand = new_rand;
-        }
-
-        context_menu_open
+        return false;
     }
 
     fn handle_modal(&mut self, info: &mut EmulatorContext) -> bool {
@@ -265,13 +251,17 @@ impl ControlWindow {
             frame = &mut current_frame;
         } else {
             if info.config.is_read_only {
-                // at the end of the current replay while in read-only mode
-                // don't advance?
-                // switch to read/write?
-                // > add onto it but stay in read-only?
-                // make that a setting?
-                // also todo, pause the playback once it reached the end in read-only mode whenever a real-time toggle has been implemented.
+                // We're advancing at the end of the current replay while in read-only mode, possible options:
+                // don't advance
+                // switch to read/write
+                // => add onto it but stay in read-only
+                // TODO: make that a setting -- Probably the best option but for now I'll go with adding onto it
+                // TODO: pause the playback once it reached the end in read-only mode whenever a real-time mode has been implemented.
 
+                // Assert to make sure we're actually at the end of the replay.
+                // Should always be true unless replay.get_frame() returned None in the middle of the replay
+                //  or we're somehow in a state where the current frame is outside the bounds of the replay.
+                // In both cases something is very much wrong.
                 assert_eq!(info.config.current_frame, info.replay.frame_count());
                 // info.config.is_read_only = false;
                 // info.config.save();

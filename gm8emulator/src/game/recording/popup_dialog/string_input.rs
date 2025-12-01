@@ -102,19 +102,22 @@ impl Dialog for RNGSelect {
         match self.input.show(info) {
             DialogState::Submit => {
                 let str = self.input.get_string();
-                if str.len() == 0 { // If we leave the textbox empty, assume we want to unset the RNG
+                if str.len() == 0 {
+                    // If the textbox was left empty, we'll assume we want to unset the RNG
                     self.result = None;
                     DialogState::Submit
                 } else {
                     match str.parse::<i32>() {
                         Ok(value) => {
-                            if str.starts_with("+") {
+                            self.result = Some(if str.starts_with("+") {
                                 // If the number is prefixed by a +, the RNG should be incremented that many times
-                                self.result = Some(FrameRng::Increment(value));
+                                // Note: There is no limit, in theory it can be set to 4 billion and
+                                //         then get stuck until the emulator stepped the RNG that many times
+                                FrameRng::Increment(value)
                             } else {
                                 // Otherwise just set the seed to that
-                                self.result = Some(FrameRng::Override(value));
-                            }
+                                FrameRng::Override(value)
+                            });
                             DialogState::Submit
                         },
                         Err(_) => DialogState::Invalid,
