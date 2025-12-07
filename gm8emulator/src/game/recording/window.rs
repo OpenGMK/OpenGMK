@@ -49,10 +49,10 @@ pub struct EmulatorContext<'a> {
     pub keybindings: &'a mut Keybindings,
 
     // These probably shouldn't be pub. I just don't know how to initialize the struct otherwise.
-    pub _clear_context_menu: bool,
-    pub _request_context_menu: bool,
-    pub _context_menu_requested: bool,
-    pub _modal_dialog: Option<&'static str>,
+    pub(crate) _clear_context_menu: bool,
+    pub(crate) _request_context_menu: bool,
+    pub(crate) _context_menu_requested: bool,
+    pub(crate) _modal_dialog: Option<&'static str>,
 }
 
 pub trait WindowType {
