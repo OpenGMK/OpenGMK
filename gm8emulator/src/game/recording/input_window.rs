@@ -1,10 +1,9 @@
 use crate::{
     game::recording::{
         self,
-        KeyState,
-        InputMode,
         keybinds::Binding,
-        window::{Window, EmulatorContext},
+        window::{EmulatorContext, Window},
+        InputMode, KeyState,
     },
     imgui_utils::*,
     input,
@@ -36,7 +35,7 @@ impl Window for InputWindows {
     fn is_open(&self) -> bool {
         true
     }
-    
+
     fn show_context_menu(&mut self, info: &mut EmulatorContext) -> bool {
         self.display_context_menu(info)
     }
@@ -103,7 +102,7 @@ impl InputWindows {
                 Colour::new(0.14, 0.14, 0.14),
                 255,
             );
-            
+
             let content_min = win_padding + Vec2(0.0, win_frame_height * 2.0);
             let content_max = Vec2::from(frame.window_size()) - win_padding;
 
@@ -445,7 +444,9 @@ impl InputWindows {
         self.render_mouse_button(info, "Left", button_size, 4.0, 65.0, 0);
         self.render_mouse_button(info, "Middle", button_size, 48.0, 65.0, 2);
         self.render_mouse_button(info, "Right", button_size, 92.0, 65.0, 1);
-        if frame.button_with_size_and_pos("Set Mouse", Vec2(150.0, 20.0), Vec2(150.0, 50.0)) || info.keybind_pressed(Binding::SetMouse) {
+        if frame.button_with_size_and_pos("Set Mouse", Vec2(150.0, 20.0), Vec2(150.0, 50.0))
+            || info.keybind_pressed(Binding::SetMouse)
+        {
             if *info.game_running {
                 *info.setting_mouse_pos = true;
             } else {
@@ -535,7 +536,15 @@ impl InputWindows {
     }
 
     /// Renders a single mouse control button
-    fn render_mouse_button(&mut self, info: &mut EmulatorContext, name: &str, size: Vec2<f32>, x: f32, y: f32, button: i8) {
+    fn render_mouse_button(
+        &mut self,
+        info: &mut EmulatorContext,
+        name: &str,
+        size: Vec2<f32>,
+        x: f32,
+        y: f32,
+        button: i8,
+    ) {
         let EmulatorContext {
             frame,
             mouse_state,
@@ -571,7 +580,7 @@ impl InputWindows {
         frame.rect_outline(Vec2(x, y) + pos, Vec2(x, y) + size + pos, Colour::new(0.4, 0.4, 0.65), u8::MAX);
         frame.text_centered(name, Vec2(x, y) + Vec2(size.0 / 2.0, size.1 / 2.0));
     }
-    
+
     fn display_context_menu(&mut self, info: &mut EmulatorContext) -> bool {
         match self.context_menu_type {
             Some(ContextMenuType::Key(key)) => {
@@ -582,7 +591,7 @@ impl InputWindows {
                 let key_state = &mut info.mouse_state[button as usize];
                 key_state.menu(info.frame)
             },
-            None => { false },
+            None => false,
         }
     }
 }

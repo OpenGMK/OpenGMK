@@ -1,13 +1,13 @@
 use crate::{
-    imgui_utils::*,
     game::{
-        Renderer,
         recording::{
             instance_report::InstanceReport,
-            set_mouse_dialog::{SetMouseDialog, MouseDialogResult},
-            window::{Window, EmulatorContext},
+            set_mouse_dialog::{MouseDialogResult, SetMouseDialog},
+            window::{EmulatorContext, Window},
         },
+        Renderer,
     },
+    imgui_utils::*,
 };
 
 // for imgui callback
@@ -83,10 +83,12 @@ impl GameWindow {
                     //   the current frame already exists we're most likely in read-only anyway and
                     //   can't edit the mouse using this window regardless.
                     // TODO: allow editing current frame using this window too?
-                    if let Some(current_frame) = info.replay.get_frame(info.config.current_frame.checked_sub(1).unwrap_or(0)) {
+                    if let Some(current_frame) =
+                        info.replay.get_frame(info.config.current_frame.checked_sub(1).unwrap_or(0))
+                    {
                         (current_frame.mouse_x, current_frame.mouse_y)
                     } else {
-                        (0, 0,)
+                        (0, 0)
                     }
                 }));
                 self.mouse_dialog.show_window(info);
@@ -99,9 +101,11 @@ impl GameWindow {
                     Some(MouseDialogResult::Cancel) => {
                         *info.setting_mouse_pos = false;
                     },
-                    None => if screencover_focused && !self.set_screencover_focus {
-                        // if we clicked outside the window, cancel setting the mouse
-                        *info.setting_mouse_pos = false;
+                    None => {
+                        if screencover_focused && !self.set_screencover_focus {
+                            // if we clicked outside the window, cancel setting the mouse
+                            *info.setting_mouse_pos = false;
+                        }
                     },
                 }
             }
@@ -111,7 +115,7 @@ impl GameWindow {
             // Next time we open a screencover we need to initially focus that one again
             self.set_screencover_focus = true;
         }
-        
+
         let (w, h) = info.game.renderer.stored_size();
         info.frame
             .window(format!("{}###{}", info.game.get_window_title(), self.name()))
@@ -133,29 +137,33 @@ impl GameWindow {
                 };
                 unsafe extern "C" fn callback(
                     _draw_list: *const imgui::sys::ImDrawList,
-                    ptr: *const imgui::sys::ImDrawCmd
+                    ptr: *const imgui::sys::ImDrawCmd,
                 ) {
                     let data = &*((*ptr).UserCallbackData as *mut GameViewData);
                     (*data.renderer).draw_stored(data.x, data.y, data.w, data.h);
                 }
-                
+
                 info.frame.callback(callback, &mut self.callback_data);
-                
+
                 if *info.setting_mouse_pos && !info.config.set_mouse_using_textbox {
                     let Vec2(mouse_x, mouse_y) = info.frame.mouse_pos();
-                    let position = (-(x + info.win_border_size - mouse_x) as i32, -(y + info.win_frame_height - mouse_y) as i32);
-                    info.frame.text_centered_float(&format!("{}, {}", position.0, position.1), Vec2(mouse_x, mouse_y-15.0));
-                    if info.frame.is_mouse_clicked(imgui::MouseButton::Left) || info.frame.is_mouse_clicked(imgui::MouseButton::Right) || info.frame.is_mouse_clicked(imgui::MouseButton::Middle) {
+                    let position =
+                        (-(x + info.win_border_size - mouse_x) as i32, -(y + info.win_frame_height - mouse_y) as i32);
+                    info.frame
+                        .text_centered_float(&format!("{}, {}", position.0, position.1), Vec2(mouse_x, mouse_y - 15.0));
+                    if info.frame.is_mouse_clicked(imgui::MouseButton::Left)
+                        || info.frame.is_mouse_clicked(imgui::MouseButton::Right)
+                        || info.frame.is_mouse_clicked(imgui::MouseButton::Middle)
+                    {
                         *info.setting_mouse_pos = false;
                         *info.new_mouse_pos = Some(position);
                     }
                 }
-                
+
                 if info.frame.is_window_hovered() && info.frame.is_mouse_clicked(imgui::MouseButton::Right) {
                     self.set_context_menu_instances(info);
                 }
-            }
-        );
+            });
     }
 
     fn display_context_menu(&mut self, info: &mut EmulatorContext) -> bool {
@@ -180,7 +188,7 @@ impl GameWindow {
         let offset = Vec2::from(info.frame.window_pos()) + Vec2(info.win_border_size, info.win_frame_height);
         let Vec2(x, y) = info.frame.mouse_pos() - offset;
         let (x, y) = info.game.translate_screen_to_room(x as _, y as _);
-        
+
         let mut options: Vec<(String, i32)> = Vec::new();
         let mut iter = info.game.room.instance_list.iter_by_drawing();
         while let Some(handle) = iter.next(&info.game.room.instance_list) {
@@ -198,7 +206,7 @@ impl GameWindow {
                 options.push((description, id));
             }
         }
-        
+
         if options.len() > 0 {
             if info.request_context_menu() {
                 self.context_menu_options = Some(options);

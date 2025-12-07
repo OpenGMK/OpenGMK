@@ -1,14 +1,14 @@
 use crate::{
     game::{
+        recording::window::{EmulatorContext, Window},
         Game,
-        recording::window::{Window, EmulatorContext},
     },
     imgui_utils::*,
     instance::Field,
     render::atlas::AtlasRef,
 };
-use std::ops::Index;
 use imgui::TextureId;
+use std::ops::Index;
 
 pub struct InstanceReport {
     object_name: String,
@@ -34,9 +34,14 @@ pub struct InstanceReportWindow {
 impl InstanceReport {
     pub fn new(game: &Game, id: i32) -> Option<Self> {
         use crate::game::GetAsset;
-        if let Some((handle, instance)) = game.room.instance_list.get_by_instid(id).map(|x| (x, game.room.instance_list.get(x))) {
+        if let Some((handle, instance)) =
+            game.room.instance_list.get_by_instid(id).map(|x| (x, game.room.instance_list.get(x)))
+        {
             instance.update_bbox(game.get_instance_mask_sprite(handle));
-            let object_name = game.assets.objects.get_asset(instance.object_index.get())
+            let object_name = game
+                .assets
+                .objects
+                .get_asset(instance.object_index.get())
                 .map(|x| x.name.decode(game.encoding))
                 .unwrap_or("<deleted object>".into());
 
@@ -71,14 +76,18 @@ impl InstanceReport {
                     format!(
                         "sprite_index: {} ({})",
                         instance.sprite_index.get(),
-                        game.assets.sprites.get_asset(instance.sprite_index.get())
+                        game.assets
+                            .sprites
+                            .get_asset(instance.sprite_index.get())
                             .map(|x| x.name.decode(game.encoding))
                             .unwrap_or("<deleted sprite>".into()),
                     ),
                     format!(
                         "mask_index: {} ({})",
                         instance.mask_index.get(),
-                        game.assets.sprites.get_asset(instance.mask_index.get())
+                        game.assets
+                            .sprites
+                            .get_asset(instance.mask_index.get())
                             .map(|x| x.name.decode(game.encoding))
                             .unwrap_or("<same as sprite>".into()),
                     ),
@@ -96,7 +105,9 @@ impl InstanceReport {
                     format!(
                         "timeline_index: {} ({})",
                         instance.timeline_index.get(),
-                        game.assets.timelines.get_asset(instance.timeline_index.get())
+                        game.assets
+                            .timelines
+                            .get_asset(instance.timeline_index.get())
                             .map(|x| x.name.decode(game.encoding))
                             .unwrap_or("<deleted timeline>".into()),
                     ),
@@ -106,16 +117,21 @@ impl InstanceReport {
                     format!("timeline_loop: {}", instance.timeline_loop.get()),
                 ],
                 alarms: instance.alarms.borrow().iter().map(|(id, time)| format!("alarm[{}]: {}", id, time)).collect(),
-                fields: instance.fields.borrow().iter().map(|(id, field)| {
-                    let field_name = game.compiler.get_field_name(*id).unwrap_or("<???>".into());
-                    match field {
-                        Field::Single(value) => ReportField::Single(format!("{}: {}", field_name, value)),
-                        Field::Array(map) => ReportField::Array(
-                            field_name,
-                            map.iter().map(|(index, value)| format!("[{}]: {}", index, value)).collect()
-                        ),
-                    }
-                }).collect(),
+                fields: instance
+                    .fields
+                    .borrow()
+                    .iter()
+                    .map(|(id, field)| {
+                        let field_name = game.compiler.get_field_name(*id).unwrap_or("<???>".into());
+                        match field {
+                            Field::Single(value) => ReportField::Single(format!("{}: {}", field_name, value)),
+                            Field::Array(map) => ReportField::Array(
+                                field_name,
+                                map.iter().map(|(index, value)| format!("[{}]: {}", index, value)).collect(),
+                            ),
+                        }
+                    })
+                    .collect(),
             })
         } else {
             None
@@ -179,53 +195,56 @@ impl InstanceReportWindow {
 
     /// Creates the window for the instance.
     /// Returns whether or not the window is open
-    fn instance_window(&mut self, frame: &imgui::Ui, game: &mut Game, id: i32, instance_report: Option<&(i32, Option<InstanceReport>)>) -> bool {
+    fn instance_window(
+        &mut self,
+        frame: &imgui::Ui,
+        game: &mut Game,
+        id: i32,
+        instance_report: Option<&(i32, Option<InstanceReport>)>,
+    ) -> bool {
         let mut open = true;
-        frame.window(format!("Instance {}", id))
-            .opened(&mut open)
-            .build(|| {
-                if let Some((_, Some(report))) = instance_report {
-                    Self::show_text(frame, &report.object_name);
-                    Self::show_text(frame, &report.id);
-                    frame.text("");
-                    if let Some(node) = frame.tree_node("General Variables") {
-                        report.general_vars.iter().for_each(|s| Self::show_text(frame, s));
-                        node.end();
-                    }
-                    if let Some(node) = frame.tree_node("Physics Variables") {
-                        report.physics_vars.iter().for_each(|s| Self::show_text(frame, s));
-                        node.end();
-                    }
-                    if let Some(node) = frame.tree_node("Image Variables") {
-                        report.image_vars.iter().for_each(|s| Self::show_text(frame, s));
-                        node.end();
-                    }
-                    if let Some(node) = frame.tree_node("Timeline Variables") {
-                        report.timeline_vars.iter().for_each(|s| Self::show_text(frame, s));
-                        node.end();
-                    }
-                    if let Some(node) = frame.tree_node("Alarms") {
-                        report.alarms.iter().for_each(|s| Self::show_text(frame, s));
-                        node.end();
-                    }
-                    if let Some(node) = frame.tree_node("Fields") {
-                        report.fields.iter().for_each(|f| match f {
-                            ReportField::Single(s) => Self::show_text(frame, s),
-                            ReportField::Array(label, array) => {
-                                if let Some(node2) = frame.tree_node(label) {
-                                    array.iter().for_each(|s| Self::show_text(frame, s));
-                                    node2.end();
-                                }
-                            },
-                        });
-                        node.end();
-                    }
-                    self.add_sprite_image(frame, game, id);
-                } else {
-                    frame.text_centered("<deleted instance>", Vec2(160.0, 35.0));
+        frame.window(format!("Instance {}", id)).opened(&mut open).build(|| {
+            if let Some((_, Some(report))) = instance_report {
+                Self::show_text(frame, &report.object_name);
+                Self::show_text(frame, &report.id);
+                frame.text("");
+                if let Some(node) = frame.tree_node("General Variables") {
+                    report.general_vars.iter().for_each(|s| Self::show_text(frame, s));
+                    node.end();
                 }
+                if let Some(node) = frame.tree_node("Physics Variables") {
+                    report.physics_vars.iter().for_each(|s| Self::show_text(frame, s));
+                    node.end();
+                }
+                if let Some(node) = frame.tree_node("Image Variables") {
+                    report.image_vars.iter().for_each(|s| Self::show_text(frame, s));
+                    node.end();
+                }
+                if let Some(node) = frame.tree_node("Timeline Variables") {
+                    report.timeline_vars.iter().for_each(|s| Self::show_text(frame, s));
+                    node.end();
+                }
+                if let Some(node) = frame.tree_node("Alarms") {
+                    report.alarms.iter().for_each(|s| Self::show_text(frame, s));
+                    node.end();
+                }
+                if let Some(node) = frame.tree_node("Fields") {
+                    report.fields.iter().for_each(|f| match f {
+                        ReportField::Single(s) => Self::show_text(frame, s),
+                        ReportField::Array(label, array) => {
+                            if let Some(node2) = frame.tree_node(label) {
+                                array.iter().for_each(|s| Self::show_text(frame, s));
+                                node2.end();
+                            }
+                        },
+                    });
+                    node.end();
+                }
+                self.add_sprite_image(frame, game, id);
+            } else {
+                frame.text_centered("<deleted instance>", Vec2(160.0, 35.0));
             }
-        );
+        });
         open
     }
 
@@ -233,10 +252,11 @@ impl InstanceReportWindow {
         if let Some(handle) = game.room.instance_list.get_by_instid(id) {
             use crate::game::GetAsset;
             let instance = game.room.instance_list.get(handle);
-            if let Some((sprite, atlas_ref)) =
-                game.assets.sprites.get_asset(instance.sprite_index.get()).and_then(|x| {
-                    x.get_atlas_ref(instance.image_index.get().floor().to_i32()).map(|y| (x, y))
-                })
+            if let Some((sprite, atlas_ref)) = game
+                .assets
+                .sprites
+                .get_asset(instance.sprite_index.get())
+                .and_then(|x| x.get_atlas_ref(instance.image_index.get().floor().to_i32()).map(|y| (x, y)))
             {
                 if sprite.width <= 48 && sprite.height <= 48 {
                     self.instance_images.push(atlas_ref);
@@ -246,11 +266,12 @@ impl InstanceReportWindow {
                     let center_y = win_y + 46.0;
                     let min_x = center_x - (sprite.width / 2) as f32;
                     let min_y = center_y - (sprite.height / 2) as f32;
-                    frame.get_window_draw_list()
+                    frame
+                        .get_window_draw_list()
                         .add_image(
                             TextureId::new(atlas_ref.0 as usize),
                             [min_x, min_y],
-                            [min_x+sprite.width as f32, min_y+sprite.height as f32]
+                            [min_x + sprite.width as f32, min_y + sprite.height as f32],
                         )
                         .col(instance.image_blend.get() as u32 | 0xFF000000)
                         .build();

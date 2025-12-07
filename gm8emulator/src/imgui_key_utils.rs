@@ -1,6 +1,6 @@
 use imgui::sys;
-use serde::{Serialize, Deserialize, Deserializer};
-use serde_with::{SerializeAs, DeserializeAs};
+use serde::{Deserialize, Deserializer, Serialize};
+use serde_with::{DeserializeAs, SerializeAs};
 
 #[derive(Serialize, Deserialize)]
 #[serde(remote = "imgui::Key")]
@@ -160,7 +160,7 @@ impl SerializeAs<imgui::Key> for ImGuiKeyDef {
     fn serialize_as<S>(value: &imgui::Key, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
-    {  
+    {
         ImGuiKeyDef::serialize(value, serializer)
     }
 }
@@ -169,7 +169,7 @@ impl<'de> DeserializeAs<'de, imgui::Key> for ImGuiKeyDef {
     fn deserialize_as<D>(deserializer: D) -> Result<imgui::Key, D::Error>
     where
         D: Deserializer<'de>,
-    {  
+    {
         ImGuiKeyDef::deserialize(deserializer)
     }
 }
@@ -326,7 +326,7 @@ impl ImguiKeyCustomFunctions for imgui::Key {
             imgui::Key::ModAlt => f.write_str("Alt"),
             imgui::Key::ModSuper => f.write_str("Super"),
             imgui::Key::ModShortcut => f.write_str("Shortcut"),
-            _ => f.write_str("Unknown Key")
+            _ => f.write_str("Unknown Key"),
         }
     }
 }

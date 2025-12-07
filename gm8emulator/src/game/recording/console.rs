@@ -1,9 +1,9 @@
 use imgui::ListBox;
 
 use crate::{
-    imgui_utils::UiCustomFunction,
-    game::recording::window::{Window, Openable, EmulatorContext},
+    game::recording::window::{EmulatorContext, Openable, Window},
     gml::{Context, Value},
+    imgui_utils::UiCustomFunction,
 };
 
 pub struct ConsoleWindow {
@@ -43,7 +43,7 @@ impl Window for ConsoleWindow {
     }
 
     fn name(&self) -> String {
-        format!("Console {}", self.id+1)
+        format!("Console {}", self.id + 1)
     }
 
     fn show_window(&mut self, info: &mut EmulatorContext) {
@@ -56,7 +56,8 @@ impl Window for ConsoleWindow {
             ..
         } = info;
 
-        frame.window(self.name())
+        frame
+            .window(self.name())
             .opened(&mut self.is_open)
             .position([100.0, 100.0], imgui::Condition::FirstUseEver)
             .size([600.0, 250.0], imgui::Condition::FirstUseEver)
@@ -64,28 +65,39 @@ impl Window for ConsoleWindow {
                 let window_size = frame.window_size();
                 let content_position = frame.window_content_region_min();
                 ListBox::new("GMLConsoleOutput")
-                .size([window_size[0]-content_position[0]*2.0, window_size[1] - 60.0])
-                .build(frame, || {
-                    for text in &self.output {
-                        frame.text(&text);
-                    }
-                    if self.scroll_to_bottom {
-                        self.scroll_to_bottom = false;
-                        frame.set_scroll_here_y_with_ratio(1.0);
-                    }
-                });
+                    .size([window_size[0] - content_position[0] * 2.0, window_size[1] - 60.0])
+                    .build(frame, || {
+                        for text in &self.output {
+                            frame.text(&text);
+                        }
+                        if self.scroll_to_bottom {
+                            self.scroll_to_bottom = false;
+                            frame.set_scroll_here_y_with_ratio(1.0);
+                        }
+                    });
+
+                let item_spacing_x = frame.item_spacing().0;
+
+                // ImGui uses frame_height to determine both width and height of the checkbox.
+                //  Without any label there is no additional horizontal padding to consider.
+                let checkbox_width = frame.frame_height() + item_spacing_x;
+                let run_button_width = Self::RUN_BUTTON_WIDTH + item_spacing_x;
 
                 // width = window width - padding - (width of checkbox + item x spacing) - (width of run button + item x spacing)
-                let item_spacing_x = frame.item_spacing().0;
-                let checkbox_width = frame.frame_height() + item_spacing_x; // imgui uses frame_height to determine the size of the checkbox. without any label there is no additional padding to consider
-                let run_button_width = Self::RUN_BUTTON_WIDTH + item_spacing_x;
-                let width = window_size[0] - content_position[0] * 2.0 - checkbox_width - run_button_width - Self::TEXTBOX_MIN_WIDTH;
+                let width = window_size[0]
+                    - content_position[0] * 2.0
+                    - checkbox_width
+                    - run_button_width
+                    - Self::TEXTBOX_MIN_WIDTH;
                 frame.set_next_item_width(if width >= 0.0 {
-                    width+Self::TEXTBOX_MIN_WIDTH // checkbox and run button are visible
+                    // checkbox and run button are visible
+                    width + Self::TEXTBOX_MIN_WIDTH
                 } else if width >= -run_button_width {
-                    width+run_button_width+Self::TEXTBOX_MIN_WIDTH // only checkbox is visible
+                    // only checkbox is visible
+                    width + run_button_width + Self::TEXTBOX_MIN_WIDTH
                 } else if width >= -run_button_width - checkbox_width {
-                    width+checkbox_width+run_button_width+Self::TEXTBOX_MIN_WIDTH // nothing is visible
+                    // nothing is visible
+                    width + checkbox_width + run_button_width + Self::TEXTBOX_MIN_WIDTH
                 } else {
                     Self::TEXTBOX_MIN_WIDTH // Shouldn't really happen since the minimum content width is bigger than the current minimum textbox width
                 });
@@ -116,7 +128,7 @@ impl Window for ConsoleWindow {
                         self.last_rerecords = config.rerecords;
                     }
                 }
-                    
+
                 if run_code {
                     if self.input_string.starts_with('/') || self.input_string.starts_with('.') {
                         // see if it's a known command
@@ -125,7 +137,7 @@ impl Window for ConsoleWindow {
                             _ => {
                                 self.run_code = false;
                                 self.output.push(format!("Unknown command: {}\n", self.input_string));
-                            }
+                            },
                         }
                     } else {
                         // run input as gml code
@@ -137,8 +149,16 @@ impl Window for ConsoleWindow {
                         new_args[0] = self.input_string.clone().into();
                         match game.execute_string(&mut self.gml_context, &new_args) {
                             Ok(value) => match value {
-                                Value::Str(string) => if !self.run_code { self.output.push(format!("\"{}\"\n", string)); },
-                                Value::Real(real) => if !self.run_code { self.output.push(format!("{}\n", real)); },
+                                Value::Str(string) => {
+                                    if !self.run_code {
+                                        self.output.push(format!("\"{}\"\n", string));
+                                    }
+                                },
+                                Value::Real(real) => {
+                                    if !self.run_code {
+                                        self.output.push(format!("{}\n", real));
+                                    }
+                                },
                             },
                             Err(error) => {
                                 self.run_code = false;
@@ -178,6 +198,7 @@ impl ConsoleWindow {
             last_rerecords: 0,
 
             is_open: true,
+
             id: 0,
         }
     }

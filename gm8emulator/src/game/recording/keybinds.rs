@@ -7,12 +7,12 @@ use imgui::{StyleVar, TableColumnFlags, TableColumnSetup, TableFlags};
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
 use std::{
-    fmt::{Display, Formatter, Error},
+    collections::BTreeMap,
     convert::From,
+    default::Default,
+    fmt::{Display, Error, Formatter},
     fs::File,
     path::PathBuf,
-    default::Default,
-    collections::BTreeMap,
 };
 
 #[derive(Ord, PartialOrd, Eq, PartialEq, Hash, Debug, Clone, Copy, Serialize, Deserialize)]
@@ -54,18 +54,20 @@ impl Display for Binding {
 impl Binding {
     fn default_binding(&self) -> Option<KeyCombination> {
         match self {
-            Self::Advance        => Some(KeyCombination::from(&vec![imgui::Key::Space])),
-            Self::Quickload      => Some(KeyCombination::from(&vec![imgui::Key::W])),
-            Self::Quicksave      => Some(KeyCombination::from(&vec![imgui::Key::Q])),
-            Self::SelectNext     => Some(KeyCombination::from(&vec![imgui::Key::ModShift, imgui::Key::Apostrophe])),
+            Self::Advance => Some(KeyCombination::from(&vec![imgui::Key::Space])),
+            Self::Quickload => Some(KeyCombination::from(&vec![imgui::Key::W])),
+            Self::Quicksave => Some(KeyCombination::from(&vec![imgui::Key::Q])),
+            Self::SelectNext => Some(KeyCombination::from(&vec![imgui::Key::ModShift, imgui::Key::Apostrophe])),
             Self::SelectPrevious => Some(KeyCombination::from(&vec![imgui::Key::ModShift, imgui::Key::Minus])),
             Self::ToggleReadOnly => Some(KeyCombination::from(&vec![imgui::Key::ModShift, imgui::Key::Alpha8])),
-            Self::ToggleDirect   => Some(KeyCombination::from(&vec![imgui::Key::ModCtrl,  imgui::Key::D])),
-            Self::ToggleKeyboard => Some(KeyCombination::from(&vec![imgui::Key::ModCtrl,  imgui::Key::K])),
-            Self::NextRand       => Some(KeyCombination::from(&vec![imgui::Key::ModCtrl,  imgui::Key::R])),
-            Self::ExportGmtas    => Some(KeyCombination::from(&vec![imgui::Key::ModCtrl,  imgui::Key::ModShift, imgui::Key::E])),
-            Self::ToggleMacros   => Some(KeyCombination::from(&vec![imgui::Key::ModCtrl,  imgui::Key::Alpha1])),
-            Self::SetMouse       => Some(KeyCombination::from(&vec![imgui::Key::ModCtrl,  imgui::Key::M])),
+            Self::ToggleDirect => Some(KeyCombination::from(&vec![imgui::Key::ModCtrl, imgui::Key::D])),
+            Self::ToggleKeyboard => Some(KeyCombination::from(&vec![imgui::Key::ModCtrl, imgui::Key::K])),
+            Self::NextRand => Some(KeyCombination::from(&vec![imgui::Key::ModCtrl, imgui::Key::R])),
+            Self::ExportGmtas => {
+                Some(KeyCombination::from(&vec![imgui::Key::ModCtrl, imgui::Key::ModShift, imgui::Key::E]))
+            },
+            Self::ToggleMacros => Some(KeyCombination::from(&vec![imgui::Key::ModCtrl, imgui::Key::Alpha1])),
+            Self::SetMouse => Some(KeyCombination::from(&vec![imgui::Key::ModCtrl, imgui::Key::M])),
             //_ => None,
         }
     }
@@ -83,13 +85,19 @@ pub struct KeyCombination {
 
 impl Display for KeyCombination {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
-        if self.ctrl { f.write_str("Ctrl+")?; }
-        if self.alt { f.write_str("Alt+")?; }
-        if self.shift { f.write_str("Shift+")?; }
+        if self.ctrl {
+            f.write_str("Ctrl+")?;
+        }
+        if self.alt {
+            f.write_str("Alt+")?;
+        }
+        if self.shift {
+            f.write_str("Shift+")?;
+        }
 
         for (index, key) in self.keycodes.iter().enumerate() {
             key.fmt(f)?;
-            if index != self.keycodes.len()-1 {
+            if index != self.keycodes.len() - 1 {
                 f.write_str("+")?;
             }
         }
@@ -100,8 +108,10 @@ impl Display for KeyCombination {
 
 #[derive(Serialize, Deserialize)]
 pub struct Keybindings {
-    #[serde(skip)] disable_bindings: bool,
-    #[serde(skip)] bindings_disabled: bool,
+    #[serde(skip)]
+    disable_bindings: bool,
+    #[serde(skip)]
+    bindings_disabled: bool,
 
     bindings: BTreeMap<Binding, Option<KeyCombination>>,
 }
@@ -118,10 +128,12 @@ impl Keybindings {
         // todo: find a way to iterate enums and automate this.
         macro_rules! insert {
             ($binding:expr) => {
-                if !bindings.contains_key(&$binding) { bindings.insert($binding, $binding.default_binding()); }
+                if !bindings.contains_key(&$binding) {
+                    bindings.insert($binding, $binding.default_binding());
+                }
             };
         }
-        
+
         insert!(Binding::Advance);
         insert!(Binding::Quickload);
         insert!(Binding::Quicksave);
@@ -221,27 +233,32 @@ impl Window for KeybindWindow {
     fn show_window(&mut self, info: &mut EmulatorContext) {
         let window_padding_style = info.frame.push_style_var(StyleVar::WindowPadding([0.0, 4.0]));
         let mut is_open = self.is_open;
-        info.frame
-            .window("Keybindings")
-            .opened(&mut is_open)
-            .build(|| {
-                if let Some(table) = info.frame.begin_table_header_with_flags(
-                    "Keybindings",
-                    [
-                        TableColumnSetup::new("Action"),
-                        TableColumnSetup::new("Keybind"),
-                        TableColumnSetup::with_flags_and_init_width_or_weight("Set", TableColumnFlags::WIDTH_FIXED, Self::CONTROL_BUTTON_WIDTH),
-                        TableColumnSetup::with_flags_and_init_width_or_weight("Default", TableColumnFlags::WIDTH_FIXED, Self::CONTROL_BUTTON_WIDTH)
-                    ],
-                    TableFlags::ROW_BG | TableFlags::BORDERS
-                ) {
-                    for (binding, keys) in &mut info.keybindings.bindings {
-                        self.binding_entry(binding, keys, info.frame);
-                    }
-
-                    table.end();
+        info.frame.window("Keybindings").opened(&mut is_open).build(|| {
+            if let Some(table) = info.frame.begin_table_header_with_flags(
+                "Keybindings",
+                [
+                    TableColumnSetup::new("Action"),
+                    TableColumnSetup::new("Keybind"),
+                    TableColumnSetup::with_flags_and_init_width_or_weight(
+                        "Set",
+                        TableColumnFlags::WIDTH_FIXED,
+                        Self::CONTROL_BUTTON_WIDTH,
+                    ),
+                    TableColumnSetup::with_flags_and_init_width_or_weight(
+                        "Default",
+                        TableColumnFlags::WIDTH_FIXED,
+                        Self::CONTROL_BUTTON_WIDTH,
+                    ),
+                ],
+                TableFlags::ROW_BG | TableFlags::BORDERS,
+            ) {
+                for (binding, keys) in &mut info.keybindings.bindings {
+                    self.binding_entry(binding, keys, info.frame);
                 }
-            });
+
+                table.end();
+            }
+        });
         self.is_open = is_open;
         window_padding_style.end();
 
@@ -286,13 +303,17 @@ impl KeybindWindow {
             frame.text_colored(Self::CANCEL_COLOR, self.current_keys.to_string());
             "Cancel"
         } else {
-            let name = if let Some(keycombination) = keys { keycombination.to_string() } else { String::from("Not set") };
+            let name =
+                if let Some(keycombination) = keys { keycombination.to_string() } else { String::from("Not set") };
             frame.text(name);
             "Set"
         };
 
         frame.table_next_column();
-        if frame.button_with_size(format!("{}###{}", text, binding), [Self::CONTROL_BUTTON_WIDTH, Self::CONTROL_BUTTON_HEIGHT]) {
+        if frame.button_with_size(
+            format!("{}###{}", text, binding),
+            [Self::CONTROL_BUTTON_WIDTH, Self::CONTROL_BUTTON_HEIGHT],
+        ) {
             if !is_setting_binding {
                 self.current_binding = Some(*binding);
                 self.last_keycodes.clear();
@@ -303,7 +324,10 @@ impl KeybindWindow {
         }
 
         frame.table_next_column();
-        if frame.button_with_size(format!("Default###default{}", binding), [Self::CONTROL_BUTTON_WIDTH, Self::CONTROL_BUTTON_HEIGHT]) {
+        if frame.button_with_size(
+            format!("Default###default{}", binding),
+            [Self::CONTROL_BUTTON_WIDTH, Self::CONTROL_BUTTON_HEIGHT],
+        ) {
             *keys = binding.default_binding();
             self.current_binding = None;
         }
@@ -323,14 +347,18 @@ impl KeybindWindow {
                 }
             } else {
                 // figure out which keys have been newly pressed
-                let new_keys: Vec<imgui::Key> = keys.iter().filter_map(|key|
-                    if !self.last_keycodes.contains(key) { Some(*key) } else { None }
-                ).collect();
+                let new_keys: Vec<imgui::Key> = keys
+                    .iter()
+                    .filter_map(|key| if !self.last_keycodes.contains(key) { Some(*key) } else { None })
+                    .collect();
                 if new_keys.len() > 0 {
                     // setup new keys, order them by when they were pressed, filter buttons that are no longer pressed
-                    self.last_keycodes = self.last_keycodes.iter().chain(new_keys.iter()).filter_map(|key|
-                        if keys.contains(key) { Some(*key) } else { None }
-                    ).collect();
+                    self.last_keycodes = self
+                        .last_keycodes
+                        .iter()
+                        .chain(new_keys.iter())
+                        .filter_map(|key| if keys.contains(key) { Some(*key) } else { None })
+                        .collect();
                     self.current_keys = KeyCombination::from(&self.last_keycodes);
                 }
             }
@@ -351,7 +379,7 @@ impl KeyCombination {
                 pressed = frame.is_key_index_pressed(self.keycodes[0] as _);
             } else {
                 for (i, key) in self.keycodes.iter().enumerate() {
-                    if i == self.keycodes.len()-1 {
+                    if i == self.keycodes.len() - 1 {
                         // check if the final key was just pressed
                         // todo: check last key instead of no repeat?
                         pressed = frame.is_key_index_pressed_no_repeat(*key as _);
@@ -373,23 +401,43 @@ impl KeyCombination {
 
 impl From<&Vec<imgui::Key>> for KeyCombination {
     fn from(keys: &Vec<imgui::Key>) -> Self {
-        let ctrl  = keys.iter().any(|b| match b {imgui::Key::LeftCtrl  | imgui::Key::RightCtrl  | imgui::Key::ModCtrl  | imgui::Key::ReservedForModAlt    => true, _ => false});
-        let shift = keys.iter().any(|b| match b {imgui::Key::LeftShift | imgui::Key::RightShift | imgui::Key::ModShift | imgui::Key::ReservedForModShift  => true, _ => false});
-        let alt   = keys.iter().any(|b| match b {imgui::Key::LeftAlt   | imgui::Key::RightAlt   | imgui::Key::ModAlt   | imgui::Key::ReservedForModAlt    => true, _ => false});
+        let ctrl = keys.iter().any(|b| match b {
+            imgui::Key::LeftCtrl | imgui::Key::RightCtrl | imgui::Key::ModCtrl | imgui::Key::ReservedForModAlt => true,
+            _ => false,
+        });
+        let shift = keys.iter().any(|b| match b {
+            imgui::Key::LeftShift | imgui::Key::RightShift | imgui::Key::ModShift | imgui::Key::ReservedForModShift => {
+                true
+            },
+            _ => false,
+        });
+        let alt = keys.iter().any(|b| match b {
+            imgui::Key::LeftAlt | imgui::Key::RightAlt | imgui::Key::ModAlt | imgui::Key::ReservedForModAlt => true,
+            _ => false,
+        });
 
         Self {
             ctrl,
             shift,
             alt,
-            keycodes: keys.iter().filter_map(|button| {
-                match button {
-                       imgui::Key::LeftCtrl  | imgui::Key::RightCtrl  | imgui::Key::ModCtrl  | imgui::Key::ReservedForModCtrl
-                     | imgui::Key::LeftShift | imgui::Key::RightShift | imgui::Key::ModShift | imgui::Key::ReservedForModShift
-                     | imgui::Key::LeftAlt   | imgui::Key::RightAlt   | imgui::Key::ModAlt   | imgui::Key::ReservedForModAlt
-                    => None,
+            keycodes: keys
+                .iter()
+                .filter_map(|button| match button {
+                    imgui::Key::LeftCtrl
+                    | imgui::Key::RightCtrl
+                    | imgui::Key::ModCtrl
+                    | imgui::Key::ReservedForModCtrl
+                    | imgui::Key::LeftShift
+                    | imgui::Key::RightShift
+                    | imgui::Key::ModShift
+                    | imgui::Key::ReservedForModShift
+                    | imgui::Key::LeftAlt
+                    | imgui::Key::RightAlt
+                    | imgui::Key::ModAlt
+                    | imgui::Key::ReservedForModAlt => None,
                     b => Some(*b),
-                }
-            }).collect(),
+                })
+                .collect(),
         }
     }
 }

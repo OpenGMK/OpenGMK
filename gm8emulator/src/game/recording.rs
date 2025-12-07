@@ -1,51 +1,36 @@
-mod window;
-mod game_window;
+mod console;
 mod control_window;
-mod savestate_window;
+mod game_window;
+mod input_edit;
 mod input_window;
 mod instance_report;
 mod keybinds;
-mod console;
-mod menu_bar;
-mod input_edit;
 mod macro_window;
-mod set_mouse_dialog;
+mod menu_bar;
 mod popup_dialog;
+mod savestate_window;
+mod set_mouse_dialog;
+mod window;
 
 use crate::{
     game::{
-        savestate::{self, SaveState},
         recording::{
             instance_report::InstanceReport,
-            window::{
-                Window,
-                EmulatorContext,
-                Openable,
-            },
+            window::{EmulatorContext, Openable, Window},
         },
         replay::{self, Replay},
+        savestate::{self, SaveState},
         Game, GameClock, SceneChange,
     },
-    render::{atlas::AtlasRef, PrimitiveType, RendererState},
-    types::Colour,
     imgui_utils::*,
     input,
+    render::{atlas::AtlasRef, PrimitiveType, RendererState},
+    types::Colour,
 };
-use ramen::{
-    event::Event,
-    input::Key,
-};
+use imgui::{self, internal::RawWrapper, DrawCmd};
+use ramen::{event::Event, input::Key};
 use serde::{Deserialize, Serialize};
-use std::{
-    fs::File,
-    path::PathBuf,
-    time::Instant,
-};
-use imgui::{
-    self,
-    DrawCmd,
-    internal::RawWrapper,
-};
+use std::{fs::File, path::PathBuf, time::Instant};
 
 use super::replay::FrameRng;
 const GRID_COLOUR_GOOD: Colour = Colour::new(0.25, 0.625, 0.38671875);
@@ -221,7 +206,7 @@ impl KeyState {
                 | Self::HeldDoubleEveryFrame
         )
     }
-    
+
     fn reset_to_state(&mut self, target_state: KeyState) {
         let starts_with_press = self.starts_with_press();
         if target_state.starts_with_press() == starts_with_press {
@@ -271,9 +256,17 @@ impl KeyState {
 
     fn reset_to(&mut self, pressed: bool) {
         *self = if pressed {
-            if *self == Self::HeldDoubleEveryFrame { Self::HeldDoubleEveryFrame } else { Self::Held }
+            if *self == Self::HeldDoubleEveryFrame {
+                Self::HeldDoubleEveryFrame
+            } else {
+                Self::Held
+            }
         } else {
-            if *self == Self::NeutralDoubleEveryFrame { Self::NeutralDoubleEveryFrame } else { Self::Neutral }
+            if *self == Self::NeutralDoubleEveryFrame {
+                Self::NeutralDoubleEveryFrame
+            } else {
+                Self::Neutral
+            }
         };
     }
 
@@ -348,8 +341,12 @@ impl KeyState {
         let r2_min = Vec2(position.0 + (size.0 / 2.0).floor(), position.1) + window_position;
         let r2_max = position + size + window_position;
         match self {
-            KeyState::Neutral => frame.rect(position + window_position, position + size + window_position, BTN_NEUTRAL_COL, alpha),
-            KeyState::Held => frame.rect(position + window_position, position + size + window_position, BTN_HELD_COL, alpha),
+            KeyState::Neutral => {
+                frame.rect(position + window_position, position + size + window_position, BTN_NEUTRAL_COL, alpha)
+            },
+            KeyState::Held => {
+                frame.rect(position + window_position, position + size + window_position, BTN_HELD_COL, alpha)
+            },
             KeyState::NeutralWillPress => {
                 frame.rect(r1_min, r1_max, BTN_NEUTRAL_COL, alpha);
                 frame.rect(r2_min, r2_max, BTN_HELD_COL, alpha);
@@ -379,7 +376,12 @@ impl KeyState {
                 frame.rect(r2_min, r2_max, BTN_NTRIPLE_COL, alpha);
             },
         }
-        frame.rect_outline(position + window_position, position + size + window_position, Colour::new(0.4, 0.4, 0.65), u8::MAX);
+        frame.rect_outline(
+            position + window_position,
+            position + size + window_position,
+            Colour::new(0.4, 0.4, 0.65),
+            u8::MAX,
+        );
     }
 
     pub fn push_key_inputs(&self, key: u8, inputs: &mut Vec<replay::Input>) {
@@ -446,7 +448,7 @@ pub struct ProjectConfig {
     config_path: PathBuf,
     is_read_only: bool,
     current_frame: usize,
-    set_mouse_using_textbox: bool
+    set_mouse_using_textbox: bool,
 }
 
 impl ProjectConfig {
@@ -505,7 +507,7 @@ impl Game {
             p
         };
         let mut config = ProjectConfig::from_file_or_default(&config_path);
-        let mut replay = Replay::new(if let GameClock::SpoofedNanos(t) = self.clock {t} else {0}, self.rand.seed());
+        let mut replay = Replay::new(if let GameClock::SpoofedNanos(t) = self.clock { t } else { 0 }, self.rand.seed());
 
         let mut ini_filename = project_path.clone();
         ini_filename.push("imgui.ini");
@@ -530,7 +532,7 @@ impl Game {
         } else {
             fonts.tex_id = imgui::TextureId::new(font.0 as usize);
         }
-        
+
         let mut clean_state = true;
         // Generate white grid sprite. Color is blended in when drawn.
         // It's not entirely accurate to the K3 one anymore, someone's probably going to be upset at that.
@@ -542,9 +544,9 @@ impl Game {
                 let c = (31..34).contains(&(y - x).abs()) || (31..34).contains(&(y + x - 63).abs());
                 match (i & 1 != 0, i & 2 != 0) {
                     (false, false) => u8::from(c) * 255, // r
-                    (true, false) => u8::from(c) * 255, // g
-                    (false, true) => u8::from(c) * 255, // b
-                    (true, true) => u8::from(c) * 255, // a
+                    (true, false)  => u8::from(c) * 255, // g
+                    (false, true)  => u8::from(c) * 255, // b
+                    (true, true)   => u8::from(c) * 255, // a
                 }
             })
             .collect::<Vec<_>>()
@@ -790,11 +792,11 @@ impl Game {
                 WindowKind::Keybindings => windows.push((Box::new(keybinds::KeybindWindow::open(0)), false)),
                 WindowKind::Macro(id) => windows.push((Box::new(macro_window::MacroWindow::open(*id)), false)),
                 WindowKind::Console(id) => windows.push((Box::new(console::ConsoleWindow::open(*id)), false)),
-                WindowKind::Control 
-                 | WindowKind::Game
-                 | WindowKind::InstanceReports
-                 | WindowKind::Input
-                 | WindowKind::Savestates => panic!("Control windows can not be stored in project config"),
+                WindowKind::Control
+                | WindowKind::Game
+                | WindowKind::InstanceReports
+                | WindowKind::Input
+                | WindowKind::Savestates => panic!("Control windows can not be stored in project config"),
             }
         }
 
@@ -838,7 +840,8 @@ impl Game {
             win_frame_height: 0.0,
             win_padding: Vec2(0.0, 0.0),
             modal_window_handler: None,
-        }.run(&mut context);
+        }
+        .run(&mut context);
     }
 }
 
@@ -863,7 +866,7 @@ impl UIState<'_> {
             self.win_padding = context.style().window_padding.into();
             let mut frame = context.new_frame();
             self.win_frame_height = frame.frame_height();
-            
+
             // ImGui windows
             // todo: maybe separate control logic from the windows at some point so we can close control/savestate/input windows
             //       and still have the keyboard shortcuts and everything working. Collapsing them is good enough for now.
@@ -877,7 +880,7 @@ impl UIState<'_> {
                     if self.startup_successful {
                         self.err_string = None;
                     } else {
-                        break 'gui
+                        break 'gui;
                     }
                 }
             }
@@ -941,10 +944,7 @@ impl UIState<'_> {
             let index_buffer = draw_list.idx_buffer();
             for cmd in draw_list.commands() {
                 match cmd {
-                    DrawCmd::Elements {
-                        count,
-                        cmd_params
-                    } => {
+                    DrawCmd::Elements { count, cmd_params } => {
                         // TODO: don't use the primitive builder for this, it allocates a lot and
                         // also doesn't do instanced drawing I think?
                         self.game.renderer.reset_primitive_2d(
@@ -957,18 +957,14 @@ impl UIState<'_> {
                         );
 
                         for i in 0..count {
-                            let vert: imgui::DrawVert = vertex_buffer[
-                                cmd_params.vtx_offset +
-                                usize::from(index_buffer[i + cmd_params.idx_offset])
-                            ];
+                            let vert: imgui::DrawVert = vertex_buffer
+                                [cmd_params.vtx_offset + usize::from(index_buffer[i + cmd_params.idx_offset])];
                             self.game.renderer.vertex_2d(
                                 f64::from(vert.pos[0]) - 0.5,
                                 f64::from(vert.pos[1]) - 0.5,
                                 vert.uv[0].into(),
                                 vert.uv[1].into(),
-                                i32::from(vert.col[0]) |
-                                (i32::from(vert.col[1]) << 8) |
-                                (i32::from(vert.col[2]) << 16),
+                                i32::from(vert.col[0]) | (i32::from(vert.col[1]) << 8) | (i32::from(vert.col[2]) << 16),
                                 f64::from(vert.col[3]) / 255.0,
                             );
                         }
@@ -977,21 +973,24 @@ impl UIState<'_> {
                         let clip_y = cmd_params.clip_rect[1] as i32;
                         let clip_w = (cmd_params.clip_rect[2] - cmd_params.clip_rect[0]) as i32 + 1;
                         let clip_h = (cmd_params.clip_rect[3] - cmd_params.clip_rect[1]) as i32 + 1;
-                        self.game.renderer.set_view(clip_x, clip_y, clip_w, clip_h, 0.0, clip_x, clip_y, clip_w, clip_h);
+                        self.game
+                            .renderer
+                            .set_view(clip_x, clip_y, clip_w, clip_h, 0.0, clip_x, clip_y, clip_w, clip_h);
                         self.game.renderer.draw_primitive_2d();
-                    }
-                    DrawCmd::RawCallback {
-                        callback,
-                        raw_cmd
-                    } => {
+                    },
+                    DrawCmd::RawCallback { callback, raw_cmd } => {
                         unsafe { callback(draw_list.raw(), raw_cmd) };
-                    }
-                    DrawCmd::ResetRenderState => {}
+                    },
+                    DrawCmd::ResetRenderState => {},
                 }
             }
         }
 
-        self.game.renderer.finish(self.config.ui_width.into(), self.config.ui_height.into(), self.grid_colour_background);
+        self.game.renderer.finish(
+            self.config.ui_width.into(),
+            self.config.ui_height.into(),
+            self.grid_colour_background,
+        );
     }
 
     /// Polls new window events from operating system and updates config, imgui and renderer accordingly.
@@ -1002,7 +1001,8 @@ impl UIState<'_> {
             match event {
                 ev @ Event::KeyboardDown(key) | ev @ Event::KeyboardUp(key) => {
                     let state = matches!(ev, Event::KeyboardDown(_));
-                    if state { // Only cancel mouse selection when pressing down a key
+                    if state {
+                        // Only cancel mouse selection when pressing down a key
                         if key == Key::Escape {
                             if self.setting_mouse_pos {
                                 // Unset new mouse position if we pressed escape
@@ -1017,7 +1017,7 @@ impl UIState<'_> {
                             self.setting_mouse_pos = false;
                         }
                     }
-                    
+
                     if let Some(key) = input::ramen2imgui(key) {
                         io.add_key_event(key, state);
                     }
@@ -1055,7 +1055,7 @@ impl UIState<'_> {
                 Event::Maximise(b) => {
                     self.config.ui_maximised = b;
                     self.clear_context_menu = true;
-                }
+                },
                 Event::CloseRequest => return false,
                 _ => (),
             }
@@ -1066,12 +1066,11 @@ impl UIState<'_> {
     /// Updates all imgui windows (including the context menus and menu bar)
     /// Returns false if the application should exit
     fn update_windows(&mut self, frame: &mut imgui::Ui, fps_text: &String) -> bool {
-
         // Update menu bar
         if !self.show_menu_bar(frame) {
             return false;
         }
-        
+
         self.keybindings.update_disable_bindings();
 
         let mut context = EmulatorContext {
@@ -1211,9 +1210,9 @@ impl UIState<'_> {
 impl Colour {
     fn lerp(&self, target: Colour, amount: f64) -> Colour {
         Colour {
-            r: (target.r-self.r)*amount+self.r,
-            g: (target.g-self.g)*amount+self.g,
-            b: (target.b-self.b)*amount+self.b,
+            r: (target.r - self.r) * amount + self.r,
+            g: (target.g - self.g) * amount + self.g,
+            b: (target.b - self.b) * amount + self.b,
         }
     }
 }

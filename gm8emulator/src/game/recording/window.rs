@@ -1,12 +1,12 @@
 use crate::{
     game::{
         recording::{
-            keybinds::{Keybindings, Binding},
             instance_report::InstanceReport,
+            keybinds::{Binding, Keybindings},
             popup_dialog::Dialog,
-            WindowKind, KeyState, ProjectConfig,
+            KeyState, ProjectConfig, WindowKind,
         },
-        replay::{Replay, FrameRng},
+        replay::{FrameRng, Replay},
         savestate::{self, SaveState},
         Game,
     },
@@ -35,7 +35,7 @@ pub struct EmulatorContext<'a> {
 
     pub clean_state: &'a mut bool,
     pub run_until_frame: &'a mut Option<usize>,
-    
+
     pub save_paths: &'a Vec<PathBuf>,
     pub fps_text: &'a String,
     pub ui_renderer_state: &'a RendererState,
@@ -66,23 +66,32 @@ pub trait Window: WindowType {
 
     fn name(&self) -> String;
 
-    fn window_id(&self) -> usize { 0 }
-    
+    fn window_id(&self) -> usize {
+        0
+    }
+
     /// Returns the WindowType that is stored in the config. If it returns None it will not be stored in the config and won't automatically open on startup.
-    fn stored_kind(&self) -> Option<WindowKind> { None }
+    fn stored_kind(&self) -> Option<WindowKind> {
+        None
+    }
 
     /// Displays the context menu. Returns false if the context menu is not open anymore.
-    fn show_context_menu(&mut self, _info: &mut EmulatorContext) -> bool { false }
+    fn show_context_menu(&mut self, _info: &mut EmulatorContext) -> bool {
+        false
+    }
 
     /// Runs when an open context menu on this window is closed.
-    fn context_menu_close(&mut self) { }
+    fn context_menu_close(&mut self) {}
 
     /// Handles potential modal windows that can be opened from this window. Returns true if any of the modal windows are currently open, false otherwise
-    fn handle_modal(&mut self, _info: &mut EmulatorContext) -> bool { false }
+    fn handle_modal(&mut self, _info: &mut EmulatorContext) -> bool {
+        false
+    }
 }
 
 impl<T> WindowType for T
-    where T: Window + 'static
+where
+    T: Window + 'static,
 {
     fn window_type_self(&self) -> std::any::TypeId {
         std::any::TypeId::of::<T>()
@@ -90,7 +99,8 @@ impl<T> WindowType for T
 }
 
 pub trait Openable<T>: Window
-    where T: 'static
+where
+    T: 'static,
 {
     fn window_type() -> std::any::TypeId {
         std::any::TypeId::of::<T>()
@@ -103,7 +113,8 @@ pub trait Openable<T>: Window
 
 impl EmulatorContext<'_> {
     pub fn update_instance_reports(&mut self) {
-        *self.instance_reports = self.config.watched_ids.iter().map(|id| (*id, InstanceReport::new(self.game, *id))).collect();
+        *self.instance_reports =
+            self.config.watched_ids.iter().map(|id| (*id, InstanceReport::new(self.game, *id))).collect();
     }
 
     pub fn keybind_pressed(&self, binding: Binding) -> bool {
@@ -155,20 +166,20 @@ impl EmulatorContext<'_> {
 
     fn savestate_save_to_file(&mut self, slot: usize, state: &SaveState) -> bool {
         let path = &self.save_paths[slot];
-        match state.save_to_file(&path, self.save_buffer)
-        {
+        match state.save_to_file(&path, self.save_buffer) {
             Ok(()) => true,
             Err(err) => {
                 *self.err_string = Some(match err {
-                    savestate::WriteError::IOErr(err) =>
-                        format!("Failed to write savestate #{}: {}", slot, err),
-                    savestate::WriteError::CompressErr(err) =>
-                        format!("Failed to compress savestate #{}: {}", slot, err),
-                    savestate::WriteError::SerializeErr(err) =>
-                        format!("Failed to serialize savestate #{}: {}", slot, err),
+                    savestate::WriteError::IOErr(err) => format!("Failed to write savestate #{}: {}", slot, err),
+                    savestate::WriteError::CompressErr(err) => {
+                        format!("Failed to compress savestate #{}: {}", slot, err)
+                    },
+                    savestate::WriteError::SerializeErr(err) => {
+                        format!("Failed to serialize savestate #{}: {}", slot, err)
+                    },
                 });
                 false
-            }
+            },
         }
     }
 
@@ -180,18 +191,17 @@ impl EmulatorContext<'_> {
             }
 
             match SaveState::from_file(&path, self.save_buffer) {
-                Ok(state) => {
-                    Some(state)
-                },
+                Ok(state) => Some(state),
                 Err(err) => {
                     let filename = path.to_string_lossy();
                     *self.err_string = Some(match err {
-                        savestate::ReadError::IOErr(err) =>
-                            format!("Error reading {}:\n\n{}", filename, err),
-                        savestate::ReadError::DecompressErr(err) =>
-                            format!("Error decompressing {}:\n\n{}", filename, err),
-                        savestate::ReadError::DeserializeErr(err) =>
-                            format!("Error deserializing {}:\n\n{}", filename, err),
+                        savestate::ReadError::IOErr(err) => format!("Error reading {}:\n\n{}", filename, err),
+                        savestate::ReadError::DecompressErr(err) => {
+                            format!("Error decompressing {}:\n\n{}", filename, err)
+                        },
+                        savestate::ReadError::DeserializeErr(err) => {
+                            format!("Error deserializing {}:\n\n{}", filename, err)
+                        },
                     });
                     None
                 },
@@ -200,7 +210,7 @@ impl EmulatorContext<'_> {
             None
         }
     }
-    
+
     fn savestate_load_from_slot(&mut self, slot: usize) -> bool {
         if let Some(state) = self.savestate_from_slot(slot) {
             self.savestate_load_from_state(state);
@@ -216,12 +226,10 @@ impl EmulatorContext<'_> {
         *self.renderer_state = new_renderer_state;
 
         for (i, state) in self.keyboard_state.iter_mut().enumerate() {
-            *state =
-                if self.game.input.keyboard_check_direct(i as u8) { KeyState::Held } else { KeyState::Neutral };
+            *state = if self.game.input.keyboard_check_direct(i as u8) { KeyState::Held } else { KeyState::Neutral };
         }
         for (i, state) in self.mouse_state.iter_mut().enumerate() {
-            *state =
-                if self.game.input.mouse_check_button(i as i8 + 1) { KeyState::Held } else { KeyState::Neutral };
+            *state = if self.game.input.mouse_check_button(i as i8 + 1) { KeyState::Held } else { KeyState::Neutral };
         }
 
         self.clear_context_menu();
@@ -274,7 +282,7 @@ impl EmulatorContext<'_> {
         self._request_context_menu = false;
     }
 
-    pub fn request_modal(&mut self, modal: &mut dyn Dialog)  {
+    pub fn request_modal(&mut self, modal: &mut dyn Dialog) {
         modal.reset();
         self._modal_dialog = Some(modal.get_name());
     }

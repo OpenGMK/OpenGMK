@@ -1,8 +1,9 @@
 use crate::{
     game::{
         recording::{
+            keybinds::Binding,
             window::{EmulatorContext, Openable, Window},
-            keybinds::Binding, KeyState,
+            KeyState,
         },
         replay::{FrameRng, Input, Replay},
     },
@@ -23,7 +24,11 @@ enum MouseSelection {
 }
 #[derive(PartialEq, Eq, Copy, Clone)]
 enum TableColor {
-    DISABLED, CURRENT, SELECTED, DEFAULT, NONE,
+    DISABLED,
+    CURRENT,
+    SELECTED,
+    DEFAULT,
+    NONE,
 }
 pub struct InputEditWindow {
     is_open: bool,
@@ -55,7 +60,7 @@ pub struct InputEditWindow {
 struct RowColorStack<'a> {
     ui: &'a Ui,
     row_color: Option<ColorStackToken<'a>>,
-    row_color_alt : Option<ColorStackToken<'a>>,
+    row_color_alt: Option<ColorStackToken<'a>>,
 
     last_table_color: TableColor,
 }
@@ -119,7 +124,7 @@ const INPUT_TABLE_HEIGHT: f32 = 20.0;
 const INPUT_TABLE_YPOS: f32 = 44.0;
 const TABLE_PADDING: f32 = 2.0;
 const TOTAL_INPUT_TABLE_HEIGHT: f32 = INPUT_TABLE_HEIGHT + TABLE_PADDING * 2.0; // total height = table height + top padding + bottom padding
-const TABLE_CLIPPING: f32 = TOTAL_INPUT_TABLE_HEIGHT*2.0; // draw 2 elements above and below the visible region
+const TABLE_CLIPPING: f32 = TOTAL_INPUT_TABLE_HEIGHT * 2.0; // draw 2 elements above and below the visible region
 
 macro_rules! rgb {
     ($r:expr, $g:expr, $b:expr) => {
@@ -158,11 +163,17 @@ impl Window for InputEditWindow {
                     if frame == 0 {
                         (0, 0)
                     } else {
-                        let replay_frame = info.replay.get_frame(frame-1).unwrap();
+                        let replay_frame = info.replay.get_frame(frame - 1).unwrap();
                         (replay_frame.mouse_x, replay_frame.mouse_y)
                     }
                 });
-                self.update_mouse_position_for_frame(frame, self.setting_mouse_pos_end_frame, new_mouse_pos.0, new_mouse_pos.1, info.replay);
+                self.update_mouse_position_for_frame(
+                    frame,
+                    self.setting_mouse_pos_end_frame,
+                    new_mouse_pos.0,
+                    new_mouse_pos.1,
+                    info.replay,
+                );
             }
             self.setting_mouse_pos_for_frame = None;
             self.setting_mouse_pos_end_frame = None;
@@ -170,84 +181,95 @@ impl Window for InputEditWindow {
 
         let mut is_open = self.is_open;
         let window_padding_style_var = info.frame.push_style_var(StyleVar::WindowPadding([0.0, 0.0]));
-        info.frame.window(Self::window_name())
-            .opened(&mut is_open)
-            .build(|| {
-                info.frame.set_cursor_pos([0.0, INPUT_TABLE_YPOS]);
-                let cell_padding_style_var = info.frame.push_style_var(StyleVar::CellPadding([TABLE_PADDING, 0.0]));
-                
-                let mut table_size = info.frame.window_size();
-                table_size[1] -= INPUT_TABLE_YPOS;
+        info.frame.window(Self::window_name()).opened(&mut is_open).build(|| {
+            info.frame.set_cursor_pos([0.0, INPUT_TABLE_YPOS]);
+            let cell_padding_style_var = info.frame.push_style_var(StyleVar::CellPadding([TABLE_PADDING, 0.0]));
 
-                if let Some(table_token) = info.frame.begin_table_with_sizing(
-                    "Input",
-                    self.keys.len() + Self::ADDITIONAL_COLUMNS, // + Frame counter column, mouse input column etc
-                    TableFlags::ROW_BG
-                        | TableFlags::REORDERABLE
-                        | TableFlags::BORDERS
-                        | TableFlags::NO_PAD_OUTER_X
-                        | TableFlags::NO_PAD_INNER_X
-                        | TableFlags::SCROLL_Y,
-                    table_size,
-                    0.0
-                ) {
-                    let mut row_color_stack = RowColorStack::new(info.frame);
+            let mut table_size = info.frame.window_size();
+            table_size[1] -= INPUT_TABLE_YPOS;
 
-                    info.frame.table_setup_column_with(TableColumnSetup::with_flags("Frame", TableColumnFlags::NO_REORDER));
-                    for key in self.keys.iter() {
-                        if let Ok(button) = Button::try_from(*key) {
-                            info.frame.table_setup_column_with(TableColumnSetup::with_flags_and_init_width_or_weight(button.to_string(), TableColumnFlags::WIDTH_FIXED, INPUT_TABLE_WIDTH));
-                        }
+            if let Some(table_token) = info.frame.begin_table_with_sizing(
+                "Input",
+                self.keys.len() + Self::ADDITIONAL_COLUMNS, // + Frame counter column, mouse input column etc
+                TableFlags::ROW_BG
+                    | TableFlags::REORDERABLE
+                    | TableFlags::BORDERS
+                    | TableFlags::NO_PAD_OUTER_X
+                    | TableFlags::NO_PAD_INNER_X
+                    | TableFlags::SCROLL_Y,
+                table_size,
+                0.0,
+            ) {
+                let mut row_color_stack = RowColorStack::new(info.frame);
+
+                info.frame.table_setup_column_with(TableColumnSetup::with_flags("Frame", TableColumnFlags::NO_REORDER));
+                for key in self.keys.iter() {
+                    if let Ok(button) = Button::try_from(*key) {
+                        info.frame.table_setup_column_with(TableColumnSetup::with_flags_and_init_width_or_weight(
+                            button.to_string(),
+                            TableColumnFlags::WIDTH_FIXED,
+                            INPUT_TABLE_WIDTH,
+                        ));
                     }
-                    info.frame.table_setup_column_with(TableColumnSetup::with_flags_and_init_width_or_weight("RNG", TableColumnFlags::NO_REORDER | TableColumnFlags::WIDTH_FIXED, INPUT_TABLE_RNG_WIDTH));
-                    info.frame.table_setup_column_with(TableColumnSetup::with_flags_and_init_width_or_weight("Mouse", TableColumnFlags::NO_REORDER | TableColumnFlags::WIDTH_FIXED, INPUT_TABLE_MOUSE_WIDTH));
-                    info.frame.table_setup_scroll_freeze(0, 1); // freeze header row
-                    info.frame.table_headers_row();
-
-                    if self.scroll_to_current_frame {
-                        self.scroll_to_current_frame = false;
-                        info.frame.set_scroll_y(info.config.current_frame as f32 * TOTAL_INPUT_TABLE_HEIGHT - TOTAL_INPUT_TABLE_HEIGHT * 2.0);
-                    }
-
-                    self.scroll_y = info.frame.scroll_y();
-
-                    self.draw_input_rows(info, &mut row_color_stack);
-                    self.check_selection(info);
-                    
-                    row_color_stack.end();
-                    table_token.end();
                 }
-                cell_padding_style_var.end();
+                info.frame.table_setup_column_with(TableColumnSetup::with_flags_and_init_width_or_weight(
+                    "RNG",
+                    TableColumnFlags::NO_REORDER | TableColumnFlags::WIDTH_FIXED,
+                    INPUT_TABLE_RNG_WIDTH,
+                ));
+                info.frame.table_setup_column_with(TableColumnSetup::with_flags_and_init_width_or_weight(
+                    "Mouse",
+                    TableColumnFlags::NO_REORDER | TableColumnFlags::WIDTH_FIXED,
+                    INPUT_TABLE_MOUSE_WIDTH,
+                ));
+                info.frame.table_setup_scroll_freeze(0, 1); // freeze header row
+                info.frame.table_headers_row();
 
-                let hovered_text = if self.is_selecting != MouseSelection::None {
-                    let count = self.selection_start_index.abs_diff(self.selection_end_index)+1;
-                    Some(match self.hovered_text {
-                        Some(text) => format!("{} selected; {}", count, text),
-                        _ => format!("{} selected", count),
-                    })
-                } else {
-                    self.hovered_text.map(String::from)
-                };
-
-                if let Some(text) = hovered_text {
-                    info.frame.set_cursor_pos([8.0, 22.0]);
-                    info.frame.text(text.as_str());
-                    self.hovered_text = None;
+                if self.scroll_to_current_frame {
+                    self.scroll_to_current_frame = false;
+                    info.frame.set_scroll_y(
+                        info.config.current_frame as f32 * TOTAL_INPUT_TABLE_HEIGHT - TOTAL_INPUT_TABLE_HEIGHT * 2.0,
+                    );
                 }
 
-                let text = "Single Frame Mouse Editing:";
-                let size = info.frame.calc_text_size(text);
-                // Technically igGetFrameHeightWithSpacing returns it with ItemSpacing.y instead of ItemInnerSpacing.x but
-                //   those are the same at the moment and I can't be bothered to figure out how to get ItemInnerSpacing.x right now. :)
-                let height = info.frame.frame_height_with_spacing();
-                let x = info.frame.window_size()[0] - height - size[0];
-                info.frame.set_cursor_pos([x-8.0, 22.0]);
+                self.scroll_y = info.frame.scroll_y();
 
-                info.frame.text(text);
-                info.frame.same_line();
-                info.frame.checkbox("##mouse", &mut self.single_frame_mouse);
+                self.draw_input_rows(info, &mut row_color_stack);
+                self.check_selection(info);
+
+                row_color_stack.end();
+                table_token.end();
             }
-        );
+            cell_padding_style_var.end();
+
+            let hovered_text = if self.is_selecting != MouseSelection::None {
+                let count = self.selection_start_index.abs_diff(self.selection_end_index) + 1;
+                Some(match self.hovered_text {
+                    Some(text) => format!("{} selected; {}", count, text),
+                    _ => format!("{} selected", count),
+                })
+            } else {
+                self.hovered_text.map(String::from)
+            };
+
+            if let Some(text) = hovered_text {
+                info.frame.set_cursor_pos([8.0, 22.0]);
+                info.frame.text(text.as_str());
+                self.hovered_text = None;
+            }
+
+            let text = "Single Frame Mouse Editing:";
+            let size = info.frame.calc_text_size(text);
+            // Technically igGetFrameHeightWithSpacing returns it with ItemSpacing.y instead of ItemInnerSpacing.x but
+            //   those are the same at the moment and I can't be bothered to figure out how to get ItemInnerSpacing.x right now. :)
+            let height = info.frame.frame_height_with_spacing();
+            let x = info.frame.window_size()[0] - height - size[0];
+            info.frame.set_cursor_pos([x - 8.0, 22.0]);
+
+            info.frame.text(text);
+            info.frame.same_line();
+            info.frame.checkbox("##mouse", &mut self.single_frame_mouse);
+        });
         self.is_open = is_open;
 
         window_padding_style_var.end();
@@ -281,7 +303,7 @@ impl Window for InputEditWindow {
                 assert!(start >= info.config.current_frame);
                 assert!(end < info.replay.frame_count());
 
-                for frame_index in start..(end+1) {
+                for frame_index in start..(end + 1) {
                     info.replay.get_frame_mut(frame_index).unwrap().new_seed = new_seed.clone();
                 }
                 self.is_selecting = MouseSelection::None; // Once the dialog is submitted, stop displaying the selection
@@ -299,6 +321,7 @@ impl Window for InputEditWindow {
         any_open
     }
 }
+
 impl Openable<Self> for InputEditWindow {
     fn window_name() -> &'static str {
         "Input Editor"
@@ -341,7 +364,14 @@ impl InputEditWindow {
         }
     }
 
-    fn update_mouse_position_for_frame(&mut self, frame: usize, end_frame: Option<usize>, x: i32, y: i32, replay: &mut Replay) {
+    fn update_mouse_position_for_frame(
+        &mut self,
+        frame: usize,
+        end_frame: Option<usize>,
+        x: i32,
+        y: i32,
+        replay: &mut Replay,
+    ) {
         // Update the mouse position for the current frame or a range of frames.
         // If setting just the current frame, update all following frames with the same mouse position if self.single_mouse_frame is not set.
         if let Some(replay_frame) = replay.get_frame_mut(frame) {
@@ -355,8 +385,8 @@ impl InputEditWindow {
                 let old_mouse_y = replay_frame.mouse_y;
                 replay_frame.mouse_x = x;
                 replay_frame.mouse_y = y;
-                
-                let mut current_frame = frame+1;
+
+                let mut current_frame = frame + 1;
                 while let Some(next_frame) = replay.get_frame_mut(current_frame) {
                     if end_frame.is_some() && current_frame <= end_frame.unwrap()
                         || end_frame.is_none() && next_frame.mouse_x == old_mouse_x && next_frame.mouse_y == old_mouse_y
@@ -371,7 +401,7 @@ impl InputEditWindow {
             }
         }
     }
-    
+
     fn display_context_menu(&mut self, info: &mut EmulatorContext) -> bool {
         let EmulatorContext {
             frame,
@@ -478,7 +508,13 @@ impl InputEditWindow {
         })
     }
 
-    fn update_replay_keystate(&mut self, frame_index: usize, key_index: usize, new_keystate: KeyState, replay: &mut Replay) {
+    fn update_replay_keystate(
+        &mut self,
+        frame_index: usize,
+        key_index: usize,
+        new_keystate: KeyState,
+        replay: &mut Replay,
+    ) {
         let old_keystate = &self.states[frame_index][key_index];
         let old_press = old_keystate.ends_in_press();
         let new_press = new_keystate.ends_in_press();
@@ -486,35 +522,63 @@ impl InputEditWindow {
         if old_press != new_press {
             if let Some(next_keystates) = self.states.get_mut(frame_index + 1) {
                 if let Some(new_state) = match next_keystates[key_index] {
-                    KeyState::Held
-                        | KeyState::HeldWillDouble
-                        | KeyState::HeldDoubleEveryFrame
-                        => if new_press { None } else { Some(KeyState::NeutralWillPress) },
+                    KeyState::Held | KeyState::HeldWillDouble | KeyState::HeldDoubleEveryFrame => {
+                        if new_press {
+                            None
+                        } else {
+                            Some(KeyState::NeutralWillPress)
+                        }
+                    },
 
-                    KeyState::HeldWillRelease
-                        => if new_press { None } else { Some(KeyState::Neutral) },
+                    KeyState::HeldWillRelease => {
+                        if new_press {
+                            None
+                        } else {
+                            Some(KeyState::Neutral)
+                        }
+                    },
 
-                    KeyState::HeldWillTriple
-                        => if new_press { None } else { Some(KeyState::NeutralWillDouble) },
+                    KeyState::HeldWillTriple => {
+                        if new_press {
+                            None
+                        } else {
+                            Some(KeyState::NeutralWillDouble)
+                        }
+                    },
 
                     KeyState::Neutral
-                        | KeyState::NeutralWillDouble
-                        | KeyState::NeutralDoubleEveryFrame
-                        | KeyState::NeutralWillCactus
-                        => if new_press { Some(KeyState::HeldWillRelease) } else { None },
+                    | KeyState::NeutralWillDouble
+                    | KeyState::NeutralDoubleEveryFrame
+                    | KeyState::NeutralWillCactus => {
+                        if new_press {
+                            Some(KeyState::HeldWillRelease)
+                        } else {
+                            None
+                        }
+                    },
 
-                    KeyState::NeutralWillPress
-                        => if new_press { Some(KeyState::Held) } else { None }
+                    KeyState::NeutralWillPress => {
+                        if new_press {
+                            Some(KeyState::Held)
+                        } else {
+                            None
+                        }
+                    },
 
-                    KeyState::NeutralWillTriple
-                        => if new_press { Some(KeyState::HeldWillDouble) } else { None },
+                    KeyState::NeutralWillTriple => {
+                        if new_press {
+                            Some(KeyState::HeldWillDouble)
+                        } else {
+                            None
+                        }
+                    },
                 } {
                     // If the next frame will have to be adjusted, do that.
                     self.update_replay(frame_index + 1, key_index, replay, new_state);
                 }
             }
         }
-        
+
         self.update_replay(frame_index, key_index, replay, new_keystate);
     }
 
@@ -542,12 +606,12 @@ impl InputEditWindow {
         self.states.clear();
         self.states.reserve(replay.frame_count());
         self.states.push(vec![KeyState::Neutral; self.keys.len()]);
-        
+
         for i in 0..replay.frame_count() {
             if let Some(frame) = replay.get_frame(i) {
                 for input in &frame.inputs {
                     match input {
-                        Input::KeyPress(current_key) | Input::KeyRelease(current_key)  => {
+                        Input::KeyPress(current_key) | Input::KeyRelease(current_key) => {
                             if let Some(index) = self.keys.iter().position(|k| k == current_key) {
                                 self.update_keystate(i, index, matches!(input, Input::KeyPress(_)));
                             }
@@ -560,18 +624,16 @@ impl InputEditWindow {
                 for state in self.states[i + 1].iter_mut() {
                     *state = match state {
                         KeyState::NeutralWillPress
-                            | KeyState::NeutralWillTriple
-                            | KeyState::HeldWillDouble
-                            | KeyState::HeldDoubleEveryFrame
-                            | KeyState::Held
-                            => KeyState::Held,
+                        | KeyState::NeutralWillTriple
+                        | KeyState::HeldWillDouble
+                        | KeyState::HeldDoubleEveryFrame
+                        | KeyState::Held => KeyState::Held,
                         KeyState::NeutralWillDouble
-                            | KeyState::NeutralDoubleEveryFrame
-                            | KeyState::HeldWillRelease
-                            | KeyState::NeutralWillCactus
-                            | KeyState::HeldWillTriple
-                            | KeyState::Neutral
-                            => KeyState::Neutral
+                        | KeyState::NeutralDoubleEveryFrame
+                        | KeyState::HeldWillRelease
+                        | KeyState::NeutralWillCactus
+                        | KeyState::HeldWillTriple
+                        | KeyState::Neutral => KeyState::Neutral,
                     }
                 }
             }
@@ -596,7 +658,9 @@ impl InputEditWindow {
         let float_count = replay.frame_count() as f32;
 
         let clipped_above = (f32::max(self.scroll_y - TABLE_CLIPPING, 0.0) / TOTAL_INPUT_TABLE_HEIGHT).floor();
-        let clipped_below = (f32::min(self.scroll_y + visible_height + TABLE_CLIPPING, float_count * TOTAL_INPUT_TABLE_HEIGHT) / TOTAL_INPUT_TABLE_HEIGHT).floor();
+        let clipped_below =
+            (f32::min(self.scroll_y + visible_height + TABLE_CLIPPING, float_count * TOTAL_INPUT_TABLE_HEIGHT)
+                / TOTAL_INPUT_TABLE_HEIGHT).floor();
 
         if clipped_above > 0.0 {
             // placeholder row for everything above the visible region. To make sure the size stays the same.
@@ -610,7 +674,8 @@ impl InputEditWindow {
         for i in start_index..(clipped_below as usize) {
             frame.table_next_row_with_height(TableRowFlags::empty(), TOTAL_INPUT_TABLE_HEIGHT);
 
-            if self.is_selecting != MouseSelection::None && self.selection_column.is_none() 
+            if self.is_selecting != MouseSelection::None
+                && self.selection_column.is_none()
                 && i >= usize::min(self.selection_start_index, self.selection_end_index)
                 && i <= usize::max(self.selection_start_index, self.selection_end_index)
             {
@@ -636,21 +701,38 @@ impl InputEditWindow {
 
                 let mut within_selection = false;
                 // If we are selecting, check if the button falls withing the range of selected items.
-                if self.is_selecting != MouseSelection::None && i >= config.current_frame && j == self.selection_column.unwrap_or(j) {
-                    if self.is_selecting != MouseSelection::Fixed && !self.context_menu && (hovered || (mouse_pos.1 >= item_rect_min.1 && mouse_pos.1 <= item_rect_min.1 + item_rect_size.1)) {
+                if self.is_selecting != MouseSelection::None
+                    && i >= config.current_frame
+                    && j == self.selection_column.unwrap_or(j)
+                {
+                    if self.is_selecting != MouseSelection::Fixed
+                        && !self.context_menu
+                        && (hovered
+                            || (mouse_pos.1 >= item_rect_min.1 && mouse_pos.1 <= item_rect_min.1 + item_rect_size.1))
+                    {
                         // If we don't have a context menu open and the mouse is vertically on this button, mark it as selected
                         within_selection = true;
                         // And set this as the ending index
                         self.selection_end_index = i;
                     } else {
                         // Otherwise check if the index falls within the selected indices
-                        within_selection = i >= usize::min(self.selection_start_index, self.selection_end_index) && i <= usize::max(self.selection_start_index, self.selection_end_index);
+                        within_selection = i >= usize::min(self.selection_start_index, self.selection_end_index)
+                            && i <= usize::max(self.selection_start_index, self.selection_end_index);
                     }
                 }
 
-                keystate.draw_keystate(frame, item_rect_min-frame.window_pos().into()+Vec2(0.0, TABLE_PADDING), item_rect_size - Vec2(0.0, TABLE_PADDING * 2.0));
+                keystate.draw_keystate(
+                    frame,
+                    item_rect_min - frame.window_pos().into() + Vec2(0.0, TABLE_PADDING),
+                    item_rect_size - Vec2(0.0, TABLE_PADDING * 2.0),
+                );
                 if within_selection {
-                    frame.rect(item_rect_min + Vec2(0.0, TABLE_PADDING), item_rect_min + item_rect_size - Vec2(0.0, TABLE_PADDING * 2.0 - 1.0), crate::types::Colour::new(0.3, 0.4, 0.7), 128);
+                    frame.rect(
+                        item_rect_min + Vec2(0.0, TABLE_PADDING),
+                        item_rect_min + item_rect_size - Vec2(0.0, TABLE_PADDING * 2.0 - 1.0),
+                        crate::types::Colour::new(0.3, 0.4, 0.7),
+                        128,
+                    );
                 }
 
                 if hovered {
@@ -681,7 +763,7 @@ impl InputEditWindow {
                 Some(FrameRng::Override(new_seed)) => format!("{}", new_seed),
                 Some(FrameRng::Increment(count)) => format!("+{}", count),
             };
-            
+
             frame.button_with_size(&text, [INPUT_TABLE_RNG_WIDTH, INPUT_TABLE_HEIGHT]);
             let hovered = frame.is_item_hovered();
             if hovered {
@@ -690,24 +772,28 @@ impl InputEditWindow {
             // If this is a rng change we haven't reached yet and is hovered
             if i >= config.current_frame && hovered {
                 if frame.is_mouse_clicked(imgui::MouseButton::Left) {
-                    current_frame.new_seed = Some(FrameRng::Increment(
-                        match current_frame.new_seed {
-                            None | Some(FrameRng::Override(_)) => 1,
-                            Some(FrameRng::Increment(count)) => count + 1,
-                        }
-                    ));
+                    current_frame.new_seed = Some(FrameRng::Increment(match current_frame.new_seed {
+                        None | Some(FrameRng::Override(_)) => 1,
+                        Some(FrameRng::Increment(count)) => count + 1,
+                    }));
                 } else if frame.is_mouse_clicked(imgui::MouseButton::Right) {
                     current_frame.new_seed = match current_frame.new_seed {
                         None => None,
                         Some(FrameRng::Override(new_seed)) => Some(FrameRng::Override(new_seed)),
-                        Some(FrameRng::Increment(count)) => if count == 1 { None } else { Some(FrameRng::Increment(count - 1)) },
+                        Some(FrameRng::Increment(count)) => {
+                            if count == 1 {
+                                None
+                            } else {
+                                Some(FrameRng::Increment(count - 1))
+                            }
+                        },
                     };
                 } else if frame.is_mouse_clicked(imgui::MouseButton::Middle) {
                     current_frame.new_seed = None;
                 }
             }
             let current_frame = replay.get_frame(i).unwrap();
-            let prev_frame = if i == 0 { None } else { replay.get_frame(i-1) };
+            let prev_frame = if i == 0 { None } else { replay.get_frame(i - 1) };
 
             // Mouse Column
             frame.table_set_column_index(self.keys.len() + Self::ADDITIONAL_COLUMNS_INFRONT + 1);
@@ -715,13 +801,15 @@ impl InputEditWindow {
                 format!("{}, {}", current_frame.mouse_x, current_frame.mouse_y)
             } else {
                 // If we are in multi-frame mode for mouse edits then only show mouse coords when it actually changed
-                if prev_frame.unwrap().mouse_x == current_frame.mouse_x && prev_frame.unwrap().mouse_y == current_frame.mouse_y {
+                if prev_frame.unwrap().mouse_x == current_frame.mouse_x
+                    && prev_frame.unwrap().mouse_y == current_frame.mouse_y
+                {
                     String::from("-")
                 } else {
                     format!("{}, {}", current_frame.mouse_x, current_frame.mouse_y)
                 }
             };
-            
+
             frame.button_with_size(&mouse_text, [INPUT_TABLE_MOUSE_WIDTH, INPUT_TABLE_HEIGHT]);
             let mouse_hovered = frame.is_item_hovered();
             if mouse_hovered {
@@ -737,14 +825,24 @@ impl InputEditWindow {
                     **new_mouse_pos = Some((current_frame.mouse_x, current_frame.mouse_y));
                     self.setting_mouse_pos_for_frame = Some(i);
                 } else if frame.is_mouse_clicked(imgui::MouseButton::Middle) && mouse_hovered {
-                    self.update_mouse_position_for_frame(i, None, prev_frame.map(|f| f.mouse_x).unwrap_or(0), prev_frame.map(|f| f.mouse_y).unwrap_or(0), *replay);
+                    self.update_mouse_position_for_frame(
+                        i,
+                        None,
+                        prev_frame.map(|f| f.mouse_x).unwrap_or(0),
+                        prev_frame.map(|f| f.mouse_y).unwrap_or(0),
+                        *replay,
+                    );
                 }
             }
 
             // If we aren't hovering any of the key buttons, check if we are hovering the current row
-            if frame.is_mouse_clicked(imgui::MouseButton::Right) && !any_button_hovered && frame.is_window_hovered() && i >= config.current_frame {
+            if frame.is_mouse_clicked(imgui::MouseButton::Right)
+                && !any_button_hovered
+                && frame.is_window_hovered()
+                && i >= config.current_frame
+            {
                 let row_pos = frame.item_rect_min(); // Get last item position to figure out whether or not we are hovering the current row
-                if  mouse_pos.1 >= row_pos[1] && mouse_pos.1 <= row_pos[1] + INPUT_TABLE_HEIGHT {
+                if mouse_pos.1 >= row_pos[1] && mouse_pos.1 <= row_pos[1] + INPUT_TABLE_HEIGHT {
                     self.is_selecting = MouseSelection::Right;
                     self.selection_start_index = i;
                     self.selection_end_index = i;
@@ -755,7 +853,10 @@ impl InputEditWindow {
 
         if float_count - clipped_below > 0.0 {
             // placeholder row for everything below the visible region. To make sure the size stays the same.
-            frame.table_next_row_with_height(TableRowFlags::empty(), (float_count - clipped_below) * TOTAL_INPUT_TABLE_HEIGHT);
+            frame.table_next_row_with_height(
+                TableRowFlags::empty(),
+                (float_count - clipped_below) * TOTAL_INPUT_TABLE_HEIGHT,
+            );
         }
     }
 
@@ -764,10 +865,16 @@ impl InputEditWindow {
             MouseSelection::Left => {
                 if info.frame.is_mouse_released(imgui::MouseButton::Left) {
                     if self.selection_start_index == self.selection_end_index {
-                        let mut target_state = self.states[self.selection_start_index][self.selection_column.unwrap()].clone();
+                        let mut target_state =
+                            self.states[self.selection_start_index][self.selection_column.unwrap()].clone();
                         target_state.click();
 
-                        self.update_replay_keystate(self.selection_start_index, self.selection_column.unwrap(), target_state, info.replay);
+                        self.update_replay_keystate(
+                            self.selection_start_index,
+                            self.selection_column.unwrap(),
+                            target_state,
+                            info.replay,
+                        );
                     } else {
                         let key_index = self.selection_column.unwrap();
                         let start = usize::min(self.selection_start_index, self.selection_end_index);
@@ -775,7 +882,7 @@ impl InputEditWindow {
                         for frame_index in start..end {
                             let mut target_state = self.states[frame_index][key_index].clone();
                             target_state.click();
-    
+
                             self.update_replay_keystate(frame_index, key_index, target_state, info.replay);
                         }
                     }
@@ -818,10 +925,10 @@ impl InputEditWindow {
     fn delete_frames(&mut self, replay: &mut Replay, start: usize, end: usize) {
         assert!(start <= end, "delete_frames: start must be less or equal to end");
 
-        if end == replay.frame_count()-1 {
+        if end == replay.frame_count() - 1 {
             replay.truncate_frames(start);
         } else {
-            for _ in start..end+1 {
+            for _ in start..end + 1 {
                 replay.delete_frame(start);
                 self.states.remove(start);
             }
@@ -844,12 +951,15 @@ impl InputEditWindow {
 
     fn update_replay(&mut self, frame_index: usize, key_index: usize, replay: &mut Replay, target_state: KeyState) {
         if let Some(replay_frame) = replay.get_frame_mut(frame_index) {
-            let mut new_inputs: Vec<Input> = replay_frame.inputs.iter().filter(|input|
-                match input {
+            let mut new_inputs: Vec<Input> = replay_frame
+                .inputs
+                .iter()
+                .filter(|input| match input {
                     Input::KeyPress(key) | Input::KeyRelease(key) => *key != self.keys[key_index],
                     _ => true,
-                }
-            ).cloned().collect();
+                })
+                .cloned()
+                .collect();
 
             target_state.push_key_inputs(self.keys[key_index], &mut new_inputs);
             replay_frame.inputs = new_inputs;
@@ -867,38 +977,80 @@ impl InputEditWindow {
                 KeyState::Neutral
             }};
         }
-        
+
         *state = match state {
-            KeyState::Held => if pressed {
-                KeyState::Held // this one is not currently possible to enter in tas mode
-            } else {
-                KeyState::HeldWillRelease
+            KeyState::Held => {
+                if pressed {
+                    KeyState::Held // this one is not currently possible to enter in tas mode
+                } else {
+                    KeyState::HeldWillRelease
+                }
             },
-            KeyState::HeldWillRelease => if pressed { KeyState::HeldWillDouble } else { invalid!() },
-            KeyState::HeldWillDouble => if pressed { invalid!() } else { KeyState::HeldWillTriple },
+            KeyState::HeldWillRelease => {
+                if pressed {
+                    KeyState::HeldWillDouble
+                } else {
+                    invalid!()
+                }
+            },
+            KeyState::HeldWillDouble => {
+                if pressed {
+                    invalid!()
+                } else {
+                    KeyState::HeldWillTriple
+                }
+            },
             KeyState::HeldWillTriple => invalid!(),
 
-            KeyState::Neutral => if pressed { KeyState::NeutralWillPress } else { KeyState::NeutralWillCactus },
-            KeyState::NeutralWillPress => if pressed { invalid!() } else { KeyState::NeutralWillDouble },
-            KeyState::NeutralWillDouble => if pressed { KeyState::NeutralWillTriple } else { invalid!() },
+            KeyState::Neutral => {
+                if pressed {
+                    KeyState::NeutralWillPress
+                } else {
+                    KeyState::NeutralWillCactus
+                }
+            },
+            KeyState::NeutralWillPress => {
+                if pressed {
+                    invalid!()
+                } else {
+                    KeyState::NeutralWillDouble
+                }
+            },
+            KeyState::NeutralWillDouble => {
+                if pressed {
+                    KeyState::NeutralWillTriple
+                } else {
+                    invalid!()
+                }
+            },
             KeyState::NeutralWillTriple => invalid!(),
 
-             _ => if pressed { KeyState::NeutralWillPress } else { KeyState::HeldWillRelease },
+            _ => {
+                if pressed {
+                    KeyState::NeutralWillPress
+                } else {
+                    KeyState::HeldWillRelease
+                }
+            },
         };
     }
 
-    fn update_keystate_front(&mut self, frame_index: usize, key_index: usize, start_pressed: bool) -> &KeyState{
+    fn update_keystate_front(&mut self, frame_index: usize, key_index: usize, start_pressed: bool) -> &KeyState {
         let state = &mut self.states[frame_index][key_index];
 
         if state.starts_with_press() != start_pressed {
             *state = match state {
                 KeyState::NeutralWillPress => KeyState::Held,
-                KeyState::Neutral | KeyState::NeutralWillDouble | KeyState::NeutralDoubleEveryFrame => KeyState::HeldWillRelease,
+                KeyState::Neutral | KeyState::NeutralWillDouble | KeyState::NeutralDoubleEveryFrame => {
+                    KeyState::HeldWillRelease
+                },
                 KeyState::NeutralWillTriple => KeyState::HeldWillDouble,
                 KeyState::NeutralWillCactus => KeyState::HeldWillRelease,
-                
+
                 KeyState::HeldWillRelease => KeyState::Neutral,
-                KeyState::Held | KeyState::HeldWillDouble | KeyState::HeldDoubleEveryFrame => KeyState::NeutralWillPress,
+                KeyState::Held | KeyState::HeldWillDouble | KeyState::HeldDoubleEveryFrame => {
+                    KeyState::NeutralWillPress
+                },
                 KeyState::HeldWillTriple => KeyState::NeutralWillDouble,
             }
         }

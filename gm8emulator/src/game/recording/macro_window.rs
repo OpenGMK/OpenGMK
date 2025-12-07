@@ -1,8 +1,8 @@
 use crate::{
     game::recording::{
-        KeyState,
         keybinds::Binding,
-        window::{Window, Openable, EmulatorContext},
+        window::{EmulatorContext, Openable, Window},
+        KeyState,
     },
     input::Button,
 };
@@ -34,13 +34,13 @@ impl Window for MacroWindow {
     fn stored_kind(&self) -> Option<super::WindowKind> {
         Some(super::WindowKind::Macro(self.id))
     }
-    
+
     fn window_id(&self) -> usize {
         self.id
     }
 
     fn name(&self) -> String {
-        format!("Macro {}", self.id+1)
+        format!("Macro {}", self.id + 1)
     }
 
     fn show_window(&mut self, info: &mut EmulatorContext) {
@@ -87,69 +87,69 @@ impl MacroWindow {
         let frame = info.frame;
 
         let mut is_open = self.is_open;
-        frame
-            .window(self.name())
-            .opened(&mut is_open)
-            .build(|| {
-                let window_size = frame.window_size();
-                let content_position = frame.window_content_region_min();
-                frame.set_next_item_width(window_size[0] - content_position[0] * 2.0);
-                frame.input_text(&"##macroinput", &mut self.macro_string)
-                    .read_only(self.run_macro)
-                    .build();
-                if frame.is_item_focused() {
-                    info.keybindings.disable_bindings();
-                }
+        frame.window(self.name()).opened(&mut is_open).build(|| {
+            let window_size = frame.window_size();
+            let content_position = frame.window_content_region_min();
+            frame.set_next_item_width(window_size[0] - content_position[0] * 2.0);
+            frame.input_text(&"##macroinput", &mut self.macro_string).read_only(self.run_macro).build();
+            if frame.is_item_focused() {
+                info.keybindings.disable_bindings();
+            }
 
-                let pressed = frame.checkbox("Run Macro", &mut self.run_macro) || keybind_pressed;
-                if keybind_pressed {
-                    self.run_macro = !self.run_macro;
-                }
-                frame.same_line();
-                frame.checkbox("Repeat Macro", &mut self.repeat_macro);
-                if pressed {
-                    if self.run_macro {
-                        self.start_frame = config.current_frame;
-                        self.update_macro();
-                    } else {
-                        self.info_text = String::from("Not running");
-                    }
-                }
-                
-                frame.text(&self.info_text);
-                
-                // Apply the current frame of the macro if the frame has changed
-                if self.run_macro && self.last_frame != config.current_frame {
-                    self.last_frame = config.current_frame;
-
-                    let current_frame = config.current_frame.checked_sub(self.start_frame).unwrap_or(0);
-                    let index = if !self.repeat_macro && current_frame >= self.input_frames.len() {
-                        self.input_frames.len() - 1
-                    } else {
-                        current_frame % self.input_frames.len()
-                    };
-
-                    // if the start frame is before the current frame
-                    if self.start_frame <= config.current_frame {
-                        self.info_text = format!("Macro Frame {}/{}", index, self.input_frames.len() - 1);
-
-                        // and we repeat the macro or are still at the first iteration
-                        if self.repeat_macro || config.current_frame - self.start_frame < self.input_frames.len() {
-                            let current_frame = self.input_frames.get(index).unwrap();
-                            
-                            for entry in current_frame {
-                                match entry {
-                                    StateChange::Click(index) => info.keyboard_state.get_mut(*index).unwrap().click(),
-                                    StateChange::ChangeTo(index, state) => info.keyboard_state.get_mut(*index).unwrap().reset_to_state(*state),
-                                }
-                            }
-                        }
-                    } else {
-                        self.info_text = format!("Macro Frame -{}/{}", self.start_frame - config.current_frame, self.input_frames.len() - 1);
-                    }
+            let pressed = frame.checkbox("Run Macro", &mut self.run_macro) || keybind_pressed;
+            if keybind_pressed {
+                self.run_macro = !self.run_macro;
+            }
+            frame.same_line();
+            frame.checkbox("Repeat Macro", &mut self.repeat_macro);
+            if pressed {
+                if self.run_macro {
+                    self.start_frame = config.current_frame;
+                    self.update_macro();
+                } else {
+                    self.info_text = String::from("Not running");
                 }
             }
-        );
+
+            frame.text(&self.info_text);
+
+            // Apply the current frame of the macro if the frame has changed
+            if self.run_macro && self.last_frame != config.current_frame {
+                self.last_frame = config.current_frame;
+
+                let current_frame = config.current_frame.checked_sub(self.start_frame).unwrap_or(0);
+                let index = if !self.repeat_macro && current_frame >= self.input_frames.len() {
+                    self.input_frames.len() - 1
+                } else {
+                    current_frame % self.input_frames.len()
+                };
+
+                // if the start frame is before the current frame
+                if self.start_frame <= config.current_frame {
+                    self.info_text = format!("Macro Frame {}/{}", index, self.input_frames.len() - 1);
+
+                    // and we repeat the macro or are still at the first iteration
+                    if self.repeat_macro || config.current_frame - self.start_frame < self.input_frames.len() {
+                        let current_frame = self.input_frames.get(index).unwrap();
+
+                        for entry in current_frame {
+                            match entry {
+                                StateChange::Click(index) => info.keyboard_state.get_mut(*index).unwrap().click(),
+                                StateChange::ChangeTo(index, state) => {
+                                    info.keyboard_state.get_mut(*index).unwrap().reset_to_state(*state)
+                                },
+                            }
+                        }
+                    }
+                } else {
+                    self.info_text = format!(
+                        "Macro Frame -{}/{}",
+                        self.start_frame - config.current_frame,
+                        self.input_frames.len() - 1
+                    );
+                }
+            }
+        });
         self.is_open = is_open;
     }
 
@@ -209,14 +209,32 @@ impl MacroWindow {
                     }
                     match token.as_str() {
                         "(N)" => state_change = Some(StateChange::ChangeTo(last_keycode.unwrap(), KeyState::Neutral)),
-                        "(R)" => state_change = Some(StateChange::ChangeTo(last_keycode.unwrap(), KeyState::NeutralWillCactus)),
-                        "(RP)" => state_change = Some(StateChange::ChangeTo(last_keycode.unwrap(), KeyState::HeldWillDouble)),
-                        "(RPR)" => state_change = Some(StateChange::ChangeTo(last_keycode.unwrap(), KeyState::HeldWillTriple)),
+                        "(R)" => {
+                            state_change =
+                                Some(StateChange::ChangeTo(last_keycode.unwrap(), KeyState::NeutralWillCactus))
+                        },
+                        "(RP)" => {
+                            state_change = Some(StateChange::ChangeTo(last_keycode.unwrap(), KeyState::HeldWillDouble))
+                        },
+                        "(RPR)" => {
+                            state_change = Some(StateChange::ChangeTo(last_keycode.unwrap(), KeyState::HeldWillTriple))
+                        },
                         "(H)" => state_change = Some(StateChange::ChangeTo(last_keycode.unwrap(), KeyState::Held)),
-                        "(P)" => state_change = Some(StateChange::ChangeTo(last_keycode.unwrap(), KeyState::NeutralWillPress)),
-                        "(PR)" => state_change = Some(StateChange::ChangeTo(last_keycode.unwrap(), KeyState::NeutralWillDouble)),
-                        "(PRP)" => state_change = Some(StateChange::ChangeTo(last_keycode.unwrap(), KeyState::NeutralWillTriple)),
-                        _ => { unexpected_token!("Unknown modifier token '{}'") },
+                        "(P)" => {
+                            state_change =
+                                Some(StateChange::ChangeTo(last_keycode.unwrap(), KeyState::NeutralWillPress))
+                        },
+                        "(PR)" => {
+                            state_change =
+                                Some(StateChange::ChangeTo(last_keycode.unwrap(), KeyState::NeutralWillDouble))
+                        },
+                        "(PRP)" => {
+                            state_change =
+                                Some(StateChange::ChangeTo(last_keycode.unwrap(), KeyState::NeutralWillTriple))
+                        },
+                        _ => {
+                            unexpected_token!("Unknown modifier token '{}'")
+                        },
                     }
                 },
                 TokenType::KeySeparator => {
@@ -248,7 +266,11 @@ impl MacroWindow {
         changes.clear();
     }
 
-    fn next_token(&self, chars: &mut std::iter::Peekable<std::str::Chars<'_>>, token: &mut String) -> Option<TokenType> {
+    fn next_token(
+        &self,
+        chars: &mut std::iter::Peekable<std::str::Chars<'_>>,
+        token: &mut String,
+    ) -> Option<TokenType> {
         let mut tt: Option<TokenType> = None;
         let mut token_valid = true;
         macro_rules! check_no_tokentype {
@@ -293,11 +315,11 @@ impl MacroWindow {
                             tt = None;
                             break;
                         }
-                    }
+                    },
                     _ => {
                         tt = None;
                         break;
-                    }
+                    },
                 }
             } else {
                 match chr {
@@ -334,16 +356,20 @@ impl MacroWindow {
                             tt = None;
                             break;
                         }
-                    }
+                    },
                     _ => {
                         tt = None;
                         break;
-                    }
+                    },
                 }
             }
-        };
+        }
 
-        if token_valid { tt } else { None }
+        if token_valid {
+            tt
+        } else {
+            None
+        }
     }
 }
 
@@ -576,7 +602,7 @@ impl Button {
             "Zoom" => Some(Self::Zoom),
             "Pa1" => Some(Self::Pa1),
             "OemClear" => Some(Self::OemClear),
-            _ => None,            
+            _ => None,
         }
     }
 }

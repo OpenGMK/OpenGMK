@@ -1,9 +1,6 @@
 use imgui::StyleColor;
 
-use crate::game::recording::window::{
-    Window,
-    EmulatorContext,
-};
+use crate::game::recording::window::{EmulatorContext, Window};
 
 #[derive(Copy, Clone)]
 pub enum MouseDialogResult {
@@ -38,12 +35,10 @@ impl Window for SetMouseDialog {
             .collapsible(false)
             .build(|| {
                 Self::draw_text_sameline_validated(frame, true, &"X Position");
-                frame.input_int("##xpos", &mut self.x)
-                    .build();
+                frame.input_int("##xpos", &mut self.x).build();
 
                 Self::draw_text_sameline_validated(frame, true, &"Y Position");
-                frame.input_int("##ypos", &mut self.y)
-                    .build();
+                frame.input_int("##ypos", &mut self.y).build();
 
                 let button_size = [125.0, 20.0];
                 if frame.button_with_size("Set", button_size) {
@@ -60,8 +55,7 @@ impl Window for SetMouseDialog {
                     self.result = Some(MouseDialogResult::Cancel);
                     self.is_open = false;
                 }
-            }
-        );
+            });
 
         if self.is_open && !is_open {
             self.result = Some(MouseDialogResult::Cancel);

@@ -1,7 +1,9 @@
 use crate::{
     game::{
         recording::{
-            keybinds::Binding, window::{EmulatorContext, Window}, InputMode, KeyState,
+            keybinds::Binding,
+            window::{EmulatorContext, Window},
+            InputMode, KeyState,
         },
         replay::{self, Frame, FrameRng},
         Game, GameClock, SceneChange,
@@ -24,143 +26,138 @@ impl Window for ControlWindow {
     }
 
     fn show_window(&mut self, info: &mut EmulatorContext) {
-        info.frame
-            .window(self.name())
-            .position([8.0, 8.0], imgui::Condition::FirstUseEver)
-            .build(|| {
-                self.update_texts(info);
+        info.frame.window(self.name()).position([8.0, 8.0], imgui::Condition::FirstUseEver).build(|| {
+            self.update_texts(info);
 
-                let run_until_frame = if let Some(frame) = *info.run_until_frame {
-                    if frame > info.config.current_frame {
-                        true
-                    } else {
-                        *info.run_until_frame = None;
-                        false
-                    }
+            let run_until_frame = if let Some(frame) = *info.run_until_frame {
+                if frame > info.config.current_frame {
+                    true
                 } else {
+                    *info.run_until_frame = None;
                     false
-                };
-
-                let content_width = info.frame.content_region_avail()[0];
-
-                if (info.frame.button_with_size("Advance", [content_width, 20.0])
-                    || info.keybind_pressed(Binding::Advance)
-                    || run_until_frame
-                  ) && *info.game_running
-                    && info.err_string.is_none()
-                {
-                    self.advance_frame(info);
                 }
+            } else {
+                false
+            };
 
-                if (info.frame.button_with_size("Quick Save", [content_width, 20.0])
-                    || info.keybind_pressed(Binding::Quicksave)
-                  ) && *info.game_running
-                    && info.err_string.is_none()
-                {
-                    info.savestate_save(info.config.quicksave_slot);
-                }
+            let content_width = info.frame.content_region_avail()[0];
 
-                if info.frame.button_with_size("Load Quicksave", [content_width, 20.0])
-                    || info.keybind_pressed(Binding::Quickload)
-                {
-                    if *info.startup_successful {
-                        info.savestate_load(info.config.quicksave_slot);
-                    }
-                }
+            if (info.frame.button_with_size("Advance", [content_width, 20.0])
+                || info.keybind_pressed(Binding::Advance)
+                || run_until_frame
+              ) && *info.game_running
+                && info.err_string.is_none()
+            {
+                self.advance_frame(info);
+            }
 
-                if info.frame.button_with_size("Export to .gmtas", [content_width, 20.0])
-                    || info.keybind_pressed(Binding::ExportGmtas)
-                {
-                    let mut filepath = info.project_path.clone();
-                    filepath.push("save.gmtas");
-                    match info.replay.to_file(&filepath) {
-                        Ok(()) => (),
-                        Err(replay::WriteError::IOErr(err)) => {
-                            *info.err_string = Some(format!("Failed to write save.gmtas: {}", err))
-                        },
-                        Err(replay::WriteError::CompressErr(err)) => {
-                            *info.err_string = Some(format!("Failed to compress save.gmtas: {}", err))
-                        },
-                        Err(replay::WriteError::SerializeErr(err)) => {
-                            *info.err_string = Some(format!("Failed to serialize save.gmtas: {}", err))
-                        },
-                    }
-                }
+            if (info.frame.button_with_size("Quick Save", [content_width, 20.0])
+                || info.keybind_pressed(Binding::Quicksave)
+              ) && *info.game_running
+                && info.err_string.is_none()
+            {
+                info.savestate_save(info.config.quicksave_slot);
+            }
 
-                let frame_text = match info.config.is_read_only {
-                    true => format!("Frame: {}/{}", info.config.current_frame, info.replay.frame_count()),
-                    false => format!("Frame: {}", info.config.current_frame),
-                };
-                info.frame.text(&frame_text);
-
-                if info.new_rand.is_some() {
-                    info.frame.text_colored([1.0, 0.5, 0.5, 1.0], &self.seed_text);
-                } else {
-                    info.frame.text(&self.seed_text);
-                }
-                info.frame.text(&self.rerecord_text);
-                info.frame.text(&info.fps_text);
-
-                let keyboard_label = match info.config.full_keyboard {
-                    true => "Simple Keyboard###KeyboardLayout",
-                    false => "Full Keyboard###KeyboardLayout",
-                };
-                if info.frame.button_with_size(keyboard_label, [content_width, 20.0]) 
-                    || info.keybind_pressed(Binding::ToggleKeyboard)
-                {
-                    info.config.full_keyboard = !info.config.full_keyboard;
-                    info.config.save();
-                }
-
-                let input_label = match info.config.input_mode {
-                    InputMode::Direct => "Switch to mouse input###InputMethod",
-                    InputMode::Mouse => "Switch to direct input###InputMethod",
-                };
-                if info.frame.button_with_size(input_label, [content_width, 20.0])
-                    || info.keybind_pressed(Binding::ToggleDirect)
-                {
-                    info.config.input_mode = match info.config.input_mode {
-                        InputMode::Mouse => InputMode::Direct,
-                        InputMode::Direct => InputMode::Mouse,
-                    }
-                }
-
-                let read_only_label = match info.config.is_read_only {
-                    true => "Switch to Read/Write###IsReadOnly",
-                    false => "Switch to Read-only###IsReadOnly",
-                };
-                if info.frame.button_with_size(read_only_label, [content_width, 20.0]) 
-                    || info.keybind_pressed(Binding::ToggleReadOnly)
-                {
-                    info.config.is_read_only = !info.config.is_read_only;
-                    info.config.save();
-                }
-
-                let mouse_set_label = match info.config.set_mouse_using_textbox {
-                    true => "Set Mouse: textbox###mouse_set_label",
-                    false => "Set Mouse: clicking###mouse_set_label",
-                };
-                if info.frame.button_with_size(mouse_set_label, [content_width, 20.0]) 
-                {
-                    info.config.set_mouse_using_textbox = !info.config.set_mouse_using_textbox;
-                    info.config.save();
-                }
-
-                if info.frame.button_with_size_and_pos(">", Vec2(18.0, 18.0), Vec2(content_width-18.0, 138.0))
-                    || info.keybind_pressed(Binding::NextRand)
-                {
-                    if let Some(rand) = &mut info.new_rand {
-                        rand.increase();
-                    } else {
-                        *info.new_rand = Some(FrameRng::Increment(1));
-                    }
-                }
-
-                if info.frame.is_item_hovered() && info.frame.is_mouse_clicked(imgui::MouseButton::Right) {
-                    info.request_context_menu();
+            if info.frame.button_with_size("Load Quicksave", [content_width, 20.0])
+                || info.keybind_pressed(Binding::Quickload)
+            {
+                if *info.startup_successful {
+                    info.savestate_load(info.config.quicksave_slot);
                 }
             }
-        );
+
+            if info.frame.button_with_size("Export to .gmtas", [content_width, 20.0])
+                || info.keybind_pressed(Binding::ExportGmtas)
+            {
+                let mut filepath = info.project_path.clone();
+                filepath.push("save.gmtas");
+                match info.replay.to_file(&filepath) {
+                    Ok(()) => (),
+                    Err(replay::WriteError::IOErr(err)) => {
+                        *info.err_string = Some(format!("Failed to write save.gmtas: {}", err))
+                    },
+                    Err(replay::WriteError::CompressErr(err)) => {
+                        *info.err_string = Some(format!("Failed to compress save.gmtas: {}", err))
+                    },
+                    Err(replay::WriteError::SerializeErr(err)) => {
+                        *info.err_string = Some(format!("Failed to serialize save.gmtas: {}", err))
+                    },
+                }
+            }
+
+            let frame_text = match info.config.is_read_only {
+                true => format!("Frame: {}/{}", info.config.current_frame, info.replay.frame_count()),
+                false => format!("Frame: {}", info.config.current_frame),
+            };
+            info.frame.text(&frame_text);
+
+            if info.new_rand.is_some() {
+                info.frame.text_colored([1.0, 0.5, 0.5, 1.0], &self.seed_text);
+            } else {
+                info.frame.text(&self.seed_text);
+            }
+            info.frame.text(&self.rerecord_text);
+            info.frame.text(&info.fps_text);
+
+            let keyboard_label = match info.config.full_keyboard {
+                true => "Simple Keyboard###KeyboardLayout",
+                false => "Full Keyboard###KeyboardLayout",
+            };
+            if info.frame.button_with_size(keyboard_label, [content_width, 20.0])
+                || info.keybind_pressed(Binding::ToggleKeyboard)
+            {
+                info.config.full_keyboard = !info.config.full_keyboard;
+                info.config.save();
+            }
+
+            let input_label = match info.config.input_mode {
+                InputMode::Direct => "Switch to mouse input###InputMethod",
+                InputMode::Mouse => "Switch to direct input###InputMethod",
+            };
+            if info.frame.button_with_size(input_label, [content_width, 20.0])
+                || info.keybind_pressed(Binding::ToggleDirect)
+            {
+                info.config.input_mode = match info.config.input_mode {
+                    InputMode::Mouse => InputMode::Direct,
+                    InputMode::Direct => InputMode::Mouse,
+                }
+            }
+
+            let read_only_label = match info.config.is_read_only {
+                true => "Switch to Read/Write###IsReadOnly",
+                false => "Switch to Read-only###IsReadOnly",
+            };
+            if info.frame.button_with_size(read_only_label, [content_width, 20.0])
+                || info.keybind_pressed(Binding::ToggleReadOnly)
+            {
+                info.config.is_read_only = !info.config.is_read_only;
+                info.config.save();
+            }
+
+            let mouse_set_label = match info.config.set_mouse_using_textbox {
+                true => "Set Mouse: textbox###mouse_set_label",
+                false => "Set Mouse: clicking###mouse_set_label",
+            };
+            if info.frame.button_with_size(mouse_set_label, [content_width, 20.0]) {
+                info.config.set_mouse_using_textbox = !info.config.set_mouse_using_textbox;
+                info.config.save();
+            }
+
+            if info.frame.button_with_size_and_pos(">", Vec2(18.0, 18.0), Vec2(content_width - 18.0, 138.0))
+                || info.keybind_pressed(Binding::NextRand)
+            {
+                if let Some(rand) = &mut info.new_rand {
+                    rand.increase();
+                } else {
+                    *info.new_rand = Some(FrameRng::Increment(1));
+                }
+            }
+
+            if info.frame.is_item_hovered() && info.frame.is_mouse_clicked(imgui::MouseButton::Right) {
+                info.request_context_menu();
+            }
+        });
     }
 
     fn is_open(&self) -> bool {
@@ -172,13 +169,13 @@ impl Window for ControlWindow {
         *info.new_rand = if info.new_rand.is_some() && info.frame.menu_item("Reset") {
             None
         } else if info.frame.menu_item("+1 RNG call") {
-            Some(FrameRng::Increment(current_increment+1))
+            Some(FrameRng::Increment(current_increment + 1))
         } else if info.frame.menu_item("+5 RNG calls") {
-            Some(FrameRng::Increment(current_increment+5))
+            Some(FrameRng::Increment(current_increment + 5))
         } else if info.frame.menu_item("+10 RNG calls") {
-            Some(FrameRng::Increment(current_increment+10))
+            Some(FrameRng::Increment(current_increment + 10))
         } else if info.frame.menu_item("+50 RNG calls") {
-            Some(FrameRng::Increment(current_increment+50))
+            Some(FrameRng::Increment(current_increment + 50))
         } else if info.frame.menu_item("Pick RNG") {
             info.request_modal(&mut self.rng_select);
             return false;
@@ -244,10 +241,7 @@ impl ControlWindow {
         let mut current_frame: Frame;
 
         if info.config.is_read_only && matches!(info.replay.get_frame(info.config.current_frame), Some(_)) {
-            current_frame = info.replay
-                .get_frame(info.config.current_frame)
-                .unwrap()
-                .clone();
+            current_frame = info.replay.get_frame(info.config.current_frame).unwrap().clone();
             frame = &mut current_frame;
         } else {
             if info.config.is_read_only {
@@ -322,16 +316,22 @@ impl ControlWindow {
 
         info.game.renderer.resize_framebuffer(info.config.ui_width.into(), info.config.ui_height.into(), true);
         info.game.renderer.set_view(
-            0,
-            0,
+            0, 0,
             info.config.ui_width.into(),
             info.config.ui_height.into(),
             0.0,
             0, 0,
             info.config.ui_width.into(),
-            info.config.ui_height.into()
+            info.config.ui_height.into(),
         );
-        info.game.renderer.clear_view(if *info.clean_state { crate::game::recording::CLEAR_COLOUR_GOOD } else { crate::game::recording::CLEAR_COLOUR_BAD }, 1.0);
+        info.game.renderer.clear_view(
+            if *info.clean_state {
+                crate::game::recording::CLEAR_COLOUR_GOOD
+            } else {
+                crate::game::recording::CLEAR_COLOUR_BAD
+            },
+            1.0,
+        );
         *info.renderer_state = info.game.renderer.state();
         info.game.renderer.set_state(info.ui_renderer_state);
         info.clear_context_menu();
@@ -397,7 +397,7 @@ impl ControlWindow {
             0,
             0,
             game.unscaled_width as _,
-            game.unscaled_height as _
+            game.unscaled_height as _,
         );
         game.renderer.draw_stored(0, 0, w, h);
         if let Err(e) = match game.frame() {

@@ -1,12 +1,6 @@
-use crate::{
-    game::recording::{
-        UIState,
-        keybinds::KeybindWindow,
-        input_edit::InputEditWindow,
-        console::ConsoleWindow,
-        macro_window::MacroWindow,
-        window::Openable,
-    },
+use crate::game::recording::{
+    console::ConsoleWindow, input_edit::InputEditWindow, keybinds::KeybindWindow, macro_window::MacroWindow,
+    window::Openable, UIState,
 };
 
 impl UIState<'_> {
@@ -18,7 +12,7 @@ impl UIState<'_> {
                 }
                 file_menu_token.end();
             }
-            
+
             if let Some(window_menu_token) = frame.begin_menu("Windows") {
                 if let Some(active_window_menu_token) = frame.begin_menu("Active Windows") {
                     for (window, focus) in &mut self.windows {
@@ -71,7 +65,7 @@ impl UIState<'_> {
                         )*
                     }};
                 }
-                
+
                 if let Some(open_menu_token) = frame.begin_menu("Open") {
                     openable! {
                         single KeybindWindow,
@@ -79,13 +73,13 @@ impl UIState<'_> {
                         multi ConsoleWindow,
                         multi MacroWindow,
                     }
-                    
+
                     open_menu_token.end();
                 }
 
                 window_menu_token.end();
             }
-            
+
             main_menu_bar_token.end();
         }
         true

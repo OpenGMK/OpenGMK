@@ -1,6 +1,6 @@
+use super::{Dialog, DialogState};
+use crate::game::{recording::window::EmulatorContext, replay::FrameRng};
 use imgui::{InputTextCallback, InputTextCallbackHandler};
-use crate::{game::{recording::window::EmulatorContext, replay::FrameRng}};
-use super::{DialogState, Dialog};
 
 pub struct StringInputPopup {
     name: &'static str,
@@ -23,7 +23,9 @@ impl InputTextCallbackHandler for CallbackHandler {
         if let Some(char_limit) = self.char_limit {
             let str = data.str();
             if char_limit < str.len() {
-                if let Some((_index, (byte_pos, _char))) = str.char_indices().enumerate().find(|(index, (_, _))| *index >= char_limit) {
+                if let Some((_index, (byte_pos, _char))) =
+                    str.char_indices().enumerate().find(|(index, (_, _))| *index >= char_limit)
+                {
                     data.remove_chars(byte_pos, str.len());
                 }
             }
@@ -48,10 +50,11 @@ impl Dialog for StringInputPopup {
                 frame.set_keyboard_focus_here(); // Auto-focus textbox if we just opened the dialog
             }
 
-            let submitted = frame.input_text("##textinput", &mut self.input_buffer)
-                                    .enter_returns_true(true)
-                                    .callback(InputTextCallback::EDIT, CallbackHandler { char_limit: self.char_limit })
-                                    .build();
+            let submitted = frame
+                .input_text("##textinput", &mut self.input_buffer)
+                .enter_returns_true(true)
+                .callback(InputTextCallback::EDIT, CallbackHandler { char_limit: self.char_limit })
+                .build();
 
             if frame.is_item_focused() {
                 keybindings.disable_bindings();
@@ -139,7 +142,7 @@ impl Dialog for RNGSelect {
 }
 
 impl RNGSelect {
-    pub fn new(name: &'static str, ) -> RNGSelect {
+    pub fn new(name: &'static str) -> RNGSelect {
         RNGSelect {
             input: StringInputPopup::new(name, Some(11)), // 2^32 is 10 characters in decimal + a potential sign for the number makes 11
             result: None,
