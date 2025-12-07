@@ -181,7 +181,7 @@ impl Value {
     /// Unary bit complement.
     pub fn complement(self) -> gml::Result<Self> {
         match self {
-            Self::Real(val) => Ok((!val.round().to_i32()).into()),
+            Self::Real(val) => Ok((!val.round().to_u64()).into()),
             _ => invalid_op!(Complement, self),
         }
     }
@@ -239,42 +239,42 @@ impl Value {
 
     pub fn bitand(self, rhs: Self) -> gml::Result<Self> {
         match (self, rhs) {
-            (Self::Real(lhs), Self::Real(rhs)) => Ok((lhs.round().to_i32() & rhs.round().to_i32()).into()),
+            (Self::Real(lhs), Self::Real(rhs)) => Ok((lhs.round().to_u64() & rhs.round().to_u64()).into()),
             (x, y) => invalid_op!(BitwiseAnd, x, y),
         }
     }
 
     pub fn bitand_assign(&mut self, rhs: Self) -> gml::Result<()> {
         match (self, rhs) {
-            (Self::Real(lhs), Self::Real(rhs)) => Ok(*lhs = (lhs.round().to_i32() & rhs.round().to_i32()).into()),
+            (Self::Real(lhs), Self::Real(rhs)) => Ok(*lhs = (lhs.round().to_u64() & rhs.round().to_u64()).into()),
             (x, y) => invalid_op!(AssignBitwiseAnd, x.clone(), y),
         }
     }
 
     pub fn bitor(self, rhs: Self) -> gml::Result<Self> {
         match (self, rhs) {
-            (Self::Real(lhs), Self::Real(rhs)) => Ok((lhs.round().to_i32() | rhs.round().to_i32()).into()),
+            (Self::Real(lhs), Self::Real(rhs)) => Ok((lhs.round().to_u64() | rhs.round().to_u64()).into()),
             (x, y) => invalid_op!(BitwiseOr, x, y),
         }
     }
 
     pub fn bitor_assign(&mut self, rhs: Self) -> gml::Result<()> {
         match (self, rhs) {
-            (Self::Real(lhs), Self::Real(rhs)) => Ok(*lhs = (lhs.round().to_i32() | rhs.round().to_i32()).into()),
+            (Self::Real(lhs), Self::Real(rhs)) => Ok(*lhs = (lhs.round().to_u64() | rhs.round().to_u64()).into()),
             (x, y) => invalid_op!(AssignBitwiseOr, x.clone(), y),
         }
     }
 
     pub fn bitxor(self, rhs: Self) -> gml::Result<Self> {
         match (self, rhs) {
-            (Self::Real(lhs), Self::Real(rhs)) => Ok((lhs.round().to_i32() ^ rhs.round().to_i32()).into()),
+            (Self::Real(lhs), Self::Real(rhs)) => Ok((lhs.round().to_u64() ^ rhs.round().to_u64()).into()),
             (x, y) => invalid_op!(BitwiseXor, x, y),
         }
     }
 
     pub fn bitxor_assign(&mut self, rhs: Self) -> gml::Result<()> {
         match (self, rhs) {
-            (Self::Real(lhs), Self::Real(rhs)) => Ok(*lhs = (lhs.round().to_i32() ^ rhs.round().to_i32()).into()),
+            (Self::Real(lhs), Self::Real(rhs)) => Ok(*lhs = (lhs.round().to_u64() ^ rhs.round().to_u64()).into()),
             (x, y) => invalid_op!(AssignBitwiseXor, x.clone(), y),
         }
     }
@@ -334,14 +334,14 @@ impl Value {
 
     pub fn shl(self, rhs: Self) -> gml::Result<Self> {
         match (self, rhs) {
-            (Self::Real(lhs), Self::Real(rhs)) => Ok((lhs.round().to_i32() << rhs.round().to_i32()).into()),
+            (Self::Real(lhs), Self::Real(rhs)) => Ok((lhs.round().to_u64() << rhs.round().to_i8()).into()),
             (x, y) => invalid_op!(BinaryShiftLeft, x, y),
         }
     }
 
     pub fn shr(self, rhs: Self) -> gml::Result<Self> {
         match (self, rhs) {
-            (Self::Real(lhs), Self::Real(rhs)) => Ok((lhs.round().to_i32() >> rhs.round().to_i32()).into()),
+            (Self::Real(lhs), Self::Real(rhs)) => Ok((lhs.round().to_u64() >> rhs.round().to_i8()).into()),
             (x, y) => invalid_op!(BinaryShiftRight, x, y),
         }
     }
@@ -427,6 +427,12 @@ impl From<i32> for Value {
 impl From<u32> for Value {
     fn from(value: u32) -> Self {
         Self::Real(value.into())
+    }
+}
+
+impl From<u64> for Value {
+    fn from(value: u64) -> Self {
+        (value as f64).into()
     }
 }
 

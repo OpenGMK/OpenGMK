@@ -147,6 +147,13 @@ impl From<u32> for Real {
     }
 }
 
+impl From<u64> for Real {
+    #[inline(always)]
+    fn from(i: u64) -> Self {
+        Self(i as f64)
+    }
+}
+
 impl From<f64> for Real {
     #[inline(always)]
     fn from(f: f64) -> Self {
@@ -264,6 +271,11 @@ impl Real {
     }
 
     #[inline(always)]
+    pub fn to_i8(self) -> i8 {
+        self.0 as i64 as i8
+    }
+
+    #[inline(always)]
     pub fn to_i32(self) -> i32 {
         self.0 as i64 as i32
     }
@@ -271,6 +283,11 @@ impl Real {
     #[inline(always)]
     pub fn to_u32(self) -> u32 {
         self.0 as i64 as u32
+    }
+
+    #[inline(always)]
+    pub fn to_u64(self) -> u64 {
+        self.0 as u64
     }
 
     #[inline(always)]
