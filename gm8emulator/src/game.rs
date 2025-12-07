@@ -34,6 +34,7 @@ use crate::{
         Object, Script, Sound, Timeline,
     },
     game::gm_save::GMSave,
+    game::replay::FrameRng,
     gml::{self, ds, ev, file, rand::Random, runtime::Instruction, Compiler, Context},
     handleman::{HandleArray, HandleList, HandleManager},
     input::{self, Input},
@@ -2199,8 +2200,37 @@ impl Game {
         }
     }
 
+    pub fn set_input_from_frame(&mut self, frame: &crate::game::replay::Frame) {
+        for ev in frame.events.iter() {
+            self.stored_events.push_back(ev.clone());
+        }
+
+        if let Some(seed) = &frame.new_seed {
+            match seed {
+                FrameRng::Override(new_seed) => self.rand.set_seed(*new_seed),
+                FrameRng::Increment(count) => for _ in 0..*count { self.rand.cycle(); },
+            }
+        }
+
+        if let Some(time) = frame.new_time {
+            self.clock = GameClock::SpoofedNanos(time);
+        }
+
+        self.input.mouse_move_to((frame.mouse_x as i32, frame.mouse_y as i32));
+        for ev in frame.inputs.iter() {
+            match ev {
+                replay::Input::KeyPress(v) => self.input.button_press(*v as u8, true),
+                replay::Input::KeyRelease(v) => self.input.button_release(*v as u8, true),
+                replay::Input::MousePress(b) => self.input.mouse_press(*b as i8, true),
+                replay::Input::MouseRelease(b) => self.input.mouse_release(*b as i8, true),
+                replay::Input::MouseWheelUp => self.input.mouse_scroll_up(),
+                replay::Input::MouseWheelDown => self.input.mouse_scroll_down(),
+            }
+        }
+    }
+
     // Replays some recorded inputs to the game
-    pub fn replay(mut self, replay: Replay, output_bin: Option<PathBuf>) -> Result<(), Box<dyn std::error::Error>> {
+    pub fn replay(mut self, replay: Replay, output_bin: Option<PathBuf>, start_save_path: Option<&PathBuf>) -> Result<(), Box<dyn std::error::Error>> {
         let mut frame_count: usize = 0;
         self.rand.set_seed(replay.start_seed);
         self.clock = GameClock::SpoofedNanos(replay.start_time);
@@ -2211,16 +2241,56 @@ impl Game {
             self.renderer.upload_sprite(Box::new([0, 0, 0, 0]), 1, 1, 0, 0).expect("Failed to upload blank sprite");
         }
 
-        for ev in replay.startup_events.iter() {
-            self.stored_events.push_back(ev.clone());
+        let mut clean_state = true;
+        if start_save_path.is_some() {
+            let mut save_buffer = savestate::Buffer::new();
+            match SaveState::from_file(start_save_path.unwrap(), &mut save_buffer) {
+                Ok(state) => {
+                    let (rep, ren) = state.clone().load_into(&mut self);
+                    if !replay.contains_part(&rep) {
+                        panic!("Savestate is not part of replay");
+                    }
+
+                    frame_count = rep.frame_count();
+                    clean_state = state.clean_state;
+                    self.renderer.set_state(&ren);
+                },
+                Err(e) => {
+                    panic!("(Fatal) Error loading savestate file: {:?}", e);
+                }
+            }
+        } else {
+            for ev in replay.startup_events.iter() {
+                self.stored_events.push_back(ev.clone());
+            }
+            self.init()?;
+            handle_scene_change!(self);
         }
-        self.init()?;
-        handle_scene_change!(self);
 
         let mut time_now = Instant::now();
         loop {
             self.window.poll_events();
             self.input.mouse_step();
+            
+            if self.frame_limit_at > 0 && frame_count == self.frame_limit_at || frame_count == replay.frame_count() {
+                if let Some(bin) = &output_bin {
+                    if start_save_path.is_some() {
+                        // Store the current framebuffer since it's used by the savestate.
+                        // Only matters if there already is a framebuffer stored which is the case when loading a savestate.
+                        self.renderer.resize_framebuffer(self.renderer.stored_size().0, self.renderer.stored_size().1, true);
+                    }
+                    let render_state = self.renderer.state();
+                    let mut new_replay = replay.clone();
+                    new_replay.truncate_frames(frame_count);
+                    match SaveState::from(&self, new_replay, render_state, clean_state)
+                        .save_to_file(bin, &mut savestate::Buffer::new())
+                    {
+                        Ok(()) => break Ok(()),
+                        Err(e) => break Err(format!("Error saving to {:?}: {:?}", output_bin, e).into()),
+                    }
+                }
+            }
+
             if let Some(frame) = replay.get_frame(frame_count) {
                 if !self.stored_events.is_empty() {
                     return Err(format!(
@@ -2231,37 +2301,7 @@ impl Game {
                     .into())
                 }
 
-                for ev in frame.events.iter() {
-                    self.stored_events.push_back(ev.clone());
-                }
-
-                if let Some(seed) = frame.new_seed {
-                    self.rand.set_seed(seed);
-                }
-
-                if let Some(time) = frame.new_time {
-                    self.clock = GameClock::SpoofedNanos(time);
-                }
-
-                self.input.mouse_move_to((frame.mouse_x as i32, frame.mouse_y as i32));
-                for ev in frame.inputs.iter() {
-                    match ev {
-                        replay::Input::KeyPress(v) => self.input.button_press(*v as u8, true),
-                        replay::Input::KeyRelease(v) => self.input.button_release(*v as u8, true),
-                        replay::Input::MousePress(b) => self.input.mouse_press(*b as i8, true),
-                        replay::Input::MouseRelease(b) => self.input.mouse_release(*b as i8, true),
-                        replay::Input::MouseWheelUp => self.input.mouse_scroll_up(),
-                        replay::Input::MouseWheelDown => self.input.mouse_scroll_down(),
-                    }
-                }
-            } else if let Some(bin) = &output_bin {
-                let render_state = self.renderer.state();
-                match SaveState::from(&mut self, replay.clone(), render_state)
-                    .save_to_file(bin, &mut savestate::Buffer::new())
-                {
-                    Ok(()) => break Ok(()),
-                    Err(e) => break Err(format!("Error saving to {:?}: {:?}", output_bin, e).into()),
-                }
+                self.set_input_from_frame(frame);
             }
 
             self.frame()?;

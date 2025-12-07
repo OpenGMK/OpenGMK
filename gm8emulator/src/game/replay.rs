@@ -9,7 +9,7 @@ use std::{
 };
 
 // Represents an entire replay (TAS) file
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Eq, PartialEq, Clone, Debug, Serialize, Deserialize)]
 pub struct Replay {
     // System time to use at the beginning of this replay.
     // Will be used to spoof some GML variables such as `current_time`.
@@ -25,19 +25,45 @@ pub struct Replay {
     frames: Vec<Frame>,
 }
 
+#[derive(Eq, PartialEq, Clone, Debug, Serialize, Deserialize)]
+pub enum FrameRng {
+    Override(i32),
+    Increment(i32),
+}
+
+impl FrameRng {
+    pub fn increase(&mut self) {
+        *self = match self {
+            FrameRng::Increment(amount) => FrameRng::Increment(*amount+1),
+            FrameRng::Override(seed) => FrameRng::Override(seed.wrapping_add(1))
+        }
+    }
+
+    pub fn decrease(&mut self) -> bool {
+        *self = match self {
+            FrameRng::Increment(amount) => if *amount <= 1 { FrameRng::Increment(0) } else { FrameRng::Increment(*amount-1) }
+            FrameRng::Override(seed) => FrameRng::Override(seed.wrapping_sub(1))
+        };
+
+        // Return false if we would not actually change the seed at all (0 increments).
+        // We can't identify this situation for Override since we don't know the original seed.
+        !matches!(*self, FrameRng::Increment(0))
+    }
+}
+
 // Associated data for a single frame of playback
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Eq, PartialEq, Clone, Debug, Serialize, Deserialize)]
 pub struct Frame {
     pub mouse_x: i32,
     pub mouse_y: i32,
     pub inputs: Vec<Input>,
     pub events: Vec<Event>,
-    pub new_seed: Option<i32>,
+    pub new_seed: Option<FrameRng>,
     pub new_time: Option<u128>,
 }
 
 // Stored events for certain things which must always happen the same way during replay
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Eq, PartialEq, Clone, Debug, Serialize, Deserialize)]
 pub enum Event {
     GetInteger(Value),   // value returned from get_integer()
     GetString(Value),    // value returned from get_string()
@@ -48,7 +74,7 @@ pub enum Event {
 }
 
 // An input event which takes place during a frame
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Eq, PartialEq, Clone, Debug, Serialize, Deserialize)]
 pub enum Input {
     KeyPress(u8),
     KeyRelease(u8),
@@ -154,13 +180,58 @@ impl Replay {
         self.frames.last_mut().unwrap() // Last cannot be None since we just pushed an element
     }
 
+    // Adds a new frame of input to the specified position of the replay.
+    // Mouse position will be the same as the previous frame unless this is the first frame,
+    // in which case it will be (0, 0)
+    pub fn insert_new_frame(&mut self, index: usize) -> &mut Frame {
+        let (mouse_x, mouse_y) = match self.frames.get(index-1) {
+            Some(frame) => (frame.mouse_x, frame.mouse_y),
+            None => (0, 0),
+        };
+        self.frames.insert(index, Frame {
+            mouse_x,
+            mouse_y,
+            inputs: Vec::new(),
+            events: Vec::new(),
+            new_seed: None,
+            new_time: None,
+        });
+        self.frames.get_mut(index).unwrap()
+    }
+
+    pub fn delete_frame(&mut self, index: usize) -> Frame {
+        self.frames.remove(index)
+    }
+
     // Gets the data associated with a given frame, if any
     pub fn get_frame(&self, index: usize) -> Option<&Frame> {
         self.frames.get(index)
     }
 
+    // Gets the data associated with a given frame, if any
+    pub fn get_frame_mut(&mut self, index: usize) -> Option<&mut Frame> {
+        self.frames.get_mut(index)
+    }
+
     // Gets the replay's frame count
     pub fn frame_count(&self) -> usize {
         self.frames.len()
+    }
+
+    pub fn truncate_frames(&mut self, len: usize) {
+        self.frames.truncate(len)
+    }
+
+    // Returns whether this replay begins the same way as the other one.
+    pub fn contains_part(&self, other: &Replay) -> bool {
+        if self.frame_count() > other.frame_count() {
+            let mut part = self.clone();
+            part.frames.truncate(other.frame_count());
+            part == *other
+        } else if self.frame_count() == other.frame_count() {
+            *self == *other
+        } else {
+            false
+        }
     }
 }

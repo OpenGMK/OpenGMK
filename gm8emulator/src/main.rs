@@ -4,6 +4,7 @@ mod game;
 mod gml;
 mod handleman;
 mod imgui_utils;
+mod imgui_key_utils;
 mod input;
 mod instance;
 mod instancelist;
@@ -50,11 +51,12 @@ fn xmain() -> i32 {
     opts.optflag("t", "singlethread", "parse gamedata synchronously");
     opts.optflag("v", "verbose", "enables verbose logging");
     opts.optflag("r", "realtime", "disables clock spoofing");
-    opts.optopt("l", "no-framelimit-until", "disables the frame-limiter until specified frame", "FRAME");
+    opts.optflagopt("l", "no-framelimit-until", "disables the frame-limiter until specified frame", "FRAME");
     opts.optopt("n", "project-name", "name of TAS project to create or load", "NAME");
     opts.optopt("f", "replay-file", "path to savestate file to replay", "FILE");
     opts.optopt("o", "output-file", "output savestate name in replay mode", "FILE.bin");
     opts.optmulti("a", "game-arg", "argument to pass to the game", "ARG");
+    opts.optflagopt("p", "start-save", "Either loads the savestate specified after this parameter or starts at the first frame. If a .gmtas is specified by -f this will start the replay from this savestate instead", "savestate");
 
     let matches = match opts.parse(&args[1..]) {
         Ok(matches) => matches,
@@ -91,6 +93,8 @@ fn xmain() -> i32 {
     let frame_limiter = !matches.opt_present("l");
     let verbose = matches.opt_present("v");
     let output_bin = matches.opt_str("o").map(PathBuf::from);
+    let pause = matches.opt_present("p");
+    let start_save_path = matches.opt_str("p").map(PathBuf::from);
     let project_path = matches.opt_str("n").map(|name| {
         let mut p = env::current_dir().expect("std::env::current_dir() failed");
         p.push("projects");
@@ -247,7 +251,7 @@ fn xmain() -> i32 {
 
     if let Err(err) = if let Some(path) = project_path {
         components.clock = time_now;
-        components.record(path);
+        components.record(path, pause, start_save_path.as_ref());
         Ok(())
     } else {
         // cache temp_dir and included files because the other functions take ownership
@@ -263,7 +267,7 @@ fn xmain() -> i32 {
             .map(|i| PathBuf::from(components.decode_str(i.name.as_ref()).into_owned()))
             .collect::<Vec<_>>();
         let result = if let Some(replay) = replay {
-            components.replay(replay, output_bin)
+            components.replay(replay, output_bin, start_save_path.as_ref())
         } else {
             components.clock = if spoof_time { time_now } else { GameClock::StartupEpoch(std::time::Instant::now()) };
             components.run()
