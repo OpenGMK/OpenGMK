@@ -54,7 +54,7 @@ fn xmain() -> i32 {
     opts.optflag("t", "singlethread", "parse gamedata synchronously");
     opts.optflag("v", "verbose", "enables verbose logging");
     opts.optflag("r", "realtime", "disables clock spoofing");
-    opts.optflag("d", "dump-video", "dump audiovideo encode on replay");
+    opts.optflag("c", "capture", "captures a recording");
     opts.optflagopt("l", "no-framelimit-until", "disables the frame-limiter until specified frame", "FRAME");
     opts.optopt("n", "project-name", "name of TAS project to create or load", "NAME");
     opts.optopt("f", "replay-file", "path to savestate file to replay", "FILE");

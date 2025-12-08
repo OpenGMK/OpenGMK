@@ -218,7 +218,7 @@ pub struct Game {
     pub play_type: PlayType,
     pub stored_events: VecDeque<replay::Event>,
     pub frame_limiter: bool,   // whether to limit FPS of gameplay by room_speed
-    pub frame_limit_at: usize, // on which frame to start limiting FPS
+    pub frame_limit_at: usize,   // on which frame to start limiting FPS
     pub ffmpeg_dumper: Option<Child>,
 
     pub audio: audio::AudioManager,
@@ -660,6 +660,7 @@ impl Game {
                 .spawn()
                 .expect("Failed to open FFmpeg stdin")
         });
+
         // Set up audio manager
         let mut audio = audio::AudioManager::new(play_type != PlayType::Record, dump_audiovideo);
 
@@ -1541,11 +1542,7 @@ impl Game {
         match self.gm_version {
             Version::GameMaker8_0 => {
                 let (encoded, _, is_bad) = self.encoding.encode(utf8);
-                if is_bad {
-                    None
-                } else {
-                    Some(encoded)
-                }
+                if is_bad { None } else { Some(encoded) }
             },
             Version::GameMaker8_1 => Some(Cow::from(utf8.as_bytes())),
         }
@@ -2281,6 +2278,7 @@ impl Game {
             *current_frame_time -= 50;
         }
     }
+
     pub fn set_input_from_frame(&mut self, frame: &crate::game::replay::Frame) {
         for ev in frame.events.iter() {
             self.stored_events.push_back(ev.clone());
@@ -2289,11 +2287,7 @@ impl Game {
         if let Some(seed) = &frame.new_seed {
             match seed {
                 FrameRng::Override(new_seed) => self.rand.set_seed(*new_seed),
-                FrameRng::Increment(count) => {
-                    for _ in 0..*count {
-                        self.rand.cycle();
-                    }
-                },
+                FrameRng::Increment(count) => for _ in 0..*count { self.rand.cycle(); },
             }
         }
 
@@ -2368,11 +2362,7 @@ impl Game {
                     if start_save_path.is_some() {
                         // Store the current framebuffer since it's used by the savestate.
                         // Only matters if there already is a framebuffer stored which is the case when loading a savestate.
-                        self.renderer.resize_framebuffer(
-                            self.renderer.stored_size().0,
-                            self.renderer.stored_size().1,
-                            true,
-                        );
+                        self.renderer.resize_framebuffer(self.renderer.stored_size().0, self.renderer.stored_size().1, true);
                     }
                     let render_state = self.renderer.state();
                     let mut new_replay = replay.clone();
@@ -2447,13 +2437,12 @@ impl Game {
             frame_count += 1;
         };
     }
+
     fn stop_audiovisual_dump(&mut self, dumper: Child) {
         dumper.wait_with_output().expect("video dumper should close");
-
         self.audio.stop_audio_dump();
 
         //combine audio and video dump into one file
-
         Command::new("ffmpeg")
             .arg("-y")
             .arg("-i")

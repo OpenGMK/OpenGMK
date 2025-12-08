@@ -12,13 +12,12 @@ use std::{
         Arc,
     },
 };
-use udon::source::Sample;
 use udon::{
     cycle::Cycle,
     rechanneler::Rechanneler,
     resampler::Resampler,
     session::{Api, Session},
-    source::{ChannelCount, SampleRate, Source},
+    source::{ChannelCount, Sample, SampleRate, Source},
     wav::WavPlayer,
 };
 
@@ -59,8 +58,9 @@ pub struct AudioManager {
     multimedia_end: Option<(i32, Option<u128>)>,
     audio_dumper: Option<Child>,
 }
+
 pub struct InterprocessSource {
-    reciever: Receiver<Sample>,
+    receiver: Receiver<Sample>,
 
     channels: ChannelCount,
 
@@ -68,8 +68,8 @@ pub struct InterprocessSource {
 }
 
 impl InterprocessSource {
-    pub fn new(reciever: Receiver<Sample>, channels: ChannelCount, sample_rate: SampleRate) -> InterprocessSource {
-        Self { reciever, channels, sample_rate }
+    pub fn new(receiver: Receiver<Sample>, channels: ChannelCount, sample_rate: SampleRate) -> InterprocessSource {
+        Self { receiver, channels, sample_rate }
     }
 }
 
@@ -83,15 +83,16 @@ impl Source for InterprocessSource {
     }
 
     fn write_samples(&mut self, buffer: &mut [Sample]) -> usize {
-        buffer.fill_with(|| self.reciever.recv().unwrap_or_default());
+        buffer.fill_with(|| self.receiver.recv().unwrap_or_default());
 
         buffer.len()
     }
 
     fn reset(&mut self) {}
+
 }
 impl AudioManager {
-    pub fn new(do_output: bool, do_dump_audio: bool) -> Self {
+    pub fn new(do_output: bool, dump_audio: bool) -> Self {
         // TODO: not all these unwraps
         let session = Session::new(Api::SoundIo).unwrap();
         let device = session.default_output_device().unwrap();
@@ -99,11 +100,11 @@ impl AudioManager {
         let channel_count = device.channel_count();
         let global_volume = Arc::new(AtomicU32::from(1.0f32.to_bits()));
         let (mixer, mixer_handle) = Mixer::new(sample_rate, channel_count, global_volume.clone());
-        let (sample_sender, sample_reciever) = mpsc::channel();
+        let (sample_sender, sample_receiver) = mpsc::channel();
 
-        let interprocess_source = InterprocessSource::new(sample_reciever, channel_count, sample_rate);
+        let interprocess_source = InterprocessSource::new(sample_receiver, channel_count, sample_rate);
 
-        let audio_dumper = do_dump_audio.then(|| {
+        let audio_dumper = dump_audio.then(|| {
             process::Command::new("ffmpeg")
                 .arg("-y")
                 .arg("-f")
@@ -122,7 +123,7 @@ impl AudioManager {
                 .expect("Failed to open FFmpeg stdin")
         });
 
-        if do_dump_audio {
+        if dump_audio {
             std::thread::spawn(move || {
                 let stream = session.open_output_stream(device).unwrap();
 
@@ -162,15 +163,16 @@ impl AudioManager {
             }
         }
     }
+
     pub fn dump_audio(&mut self) {
         if let Some(mixer) = &mut self.mixer {
+            // samplerate / fps * channels
             const AUDIO_SAMPLES_PER_FRAME: usize = 48000 / 50 * 2;
 
             let mut audio_output: [Sample; AUDIO_SAMPLES_PER_FRAME] = [0.0; AUDIO_SAMPLES_PER_FRAME];
 
-            mixer.write_samples(&mut audio_output);
-
             let stdin = self.audio_dumper.as_mut().unwrap().stdin.as_mut().expect("Failed to open stdin");
+            mixer.write_samples(&mut audio_output);
 
             unsafe {
                 let samples = std::slice::from_raw_parts(audio_output.as_ptr() as *const u8, audio_output.len() * 4);
@@ -185,11 +187,13 @@ impl AudioManager {
             }
         }
     }
+
     pub fn stop_audio_dump(&mut self) {
         if let Some(dumper) = self.audio_dumper.take() {
             dumper.wait_with_output().expect("audio dumper should close");
         }
     }
+
     pub fn add_mp3(&mut self, file: Box<[u8]>, sound_id: i32) -> Option<Mp3Handle> {
         Mp3Player::new(file).map(|player| Mp3Handle { player, id: sound_id }).ok()
     }
