@@ -3,8 +3,8 @@ mod asset;
 mod game;
 mod gml;
 mod handleman;
-mod imgui_utils;
 mod imgui_key_utils;
+mod imgui_utils;
 mod input;
 mod instance;
 mod instancelist;
@@ -30,10 +30,13 @@ const EXIT_FAILURE: i32 = 1;
 fn help(argv0: &str, opts: getopts::Options) {
     print!(
         "{}",
-        opts.usage(&format!("Usage: {} FILE [options]", match Path::new(argv0).file_name() {
-            Some(file) => file.to_str().unwrap_or(argv0),
-            None => argv0,
-        }))
+        opts.usage(&format!(
+            "Usage: {} FILE [options]",
+            match Path::new(argv0).file_name() {
+                Some(file) => file.to_str().unwrap_or(argv0),
+                None => argv0,
+            }
+        ))
     );
 }
 
@@ -51,6 +54,7 @@ fn xmain() -> i32 {
     opts.optflag("t", "singlethread", "parse gamedata synchronously");
     opts.optflag("v", "verbose", "enables verbose logging");
     opts.optflag("r", "realtime", "disables clock spoofing");
+    opts.optflag("d", "dump-video", "dump audiovideo encode on replay");
     opts.optflagopt("l", "no-framelimit-until", "disables the frame-limiter until specified frame", "FRAME");
     opts.optopt("n", "project-name", "name of TAS project to create or load", "NAME");
     opts.optopt("f", "replay-file", "path to savestate file to replay", "FILE");
@@ -69,18 +73,19 @@ fn xmain() -> i32 {
                 OptionDuplicated(opt) => eprintln!("duplicated option {}", opt),
                 UnexpectedArgument(arg) => eprintln!("unexpected argument {}", arg),
             }
-            return EXIT_FAILURE
+            return EXIT_FAILURE;
         },
     };
 
     if args.len() < 2 || matches.opt_present("h") {
         help(&process, opts);
-        return EXIT_SUCCESS
+        return EXIT_SUCCESS;
     }
 
     let strict = matches.opt_present("s");
     let multithread = !matches.opt_present("t");
     let spoof_time = !matches.opt_present("r");
+    let dump_audiovideo = matches.opt_present("d");
     let frame_limit_at = matches
         .opt_str("l")
         .map(|frame| match frame.parse::<usize>() {
@@ -105,7 +110,7 @@ fn xmain() -> i32 {
     if let Some(bin) = &output_bin {
         if bin.extension().and_then(|x| x.to_str()) != Some("bin") {
             eprintln!("invalid output file for -o: must be a .bin file");
-            return EXIT_FAILURE
+            return EXIT_FAILURE;
         }
     }
 
@@ -159,7 +164,7 @@ fn xmain() -> i32 {
         Ok(r) => r,
         Err(e) => {
             eprintln!("{}", e);
-            return EXIT_FAILURE
+            return EXIT_FAILURE;
         },
     };
 
@@ -168,10 +173,10 @@ fn xmain() -> i32 {
             &matches.free[0]
         } else if matches.free.len() > 1 {
             eprintln!("unexpected second input {}", matches.free[1]);
-            return EXIT_FAILURE
+            return EXIT_FAILURE;
         } else {
             eprintln!("no input file");
-            return EXIT_FAILURE
+            return EXIT_FAILURE;
         }
     };
 
@@ -185,7 +190,7 @@ fn xmain() -> i32 {
         Ok(data) => data,
         Err(err) => {
             eprintln!("failed to open '{}': {}", input, err);
-            return EXIT_FAILURE
+            return EXIT_FAILURE;
         },
     };
 
@@ -208,7 +213,7 @@ fn xmain() -> i32 {
         Ok(assets) => assets,
         Err(err) => {
             eprintln!("failed to load '{}' - {}", input, err);
-            return EXIT_FAILURE
+            return EXIT_FAILURE;
         },
     };
 
@@ -216,7 +221,7 @@ fn xmain() -> i32 {
         Ok(p) => p,
         Err(e) => {
             eprintln!("Failed to resolve game path: {}", e);
-            return EXIT_FAILURE
+            return EXIT_FAILURE;
         },
     };
 
@@ -238,12 +243,13 @@ fn xmain() -> i32 {
         encoding,
         frame_limiter,
         frame_limit_at,
+        dump_audiovideo,
         play_type,
     ) {
         Ok(g) => g,
         Err(e) => {
             eprintln!("Failed to launch game: {}", e);
-            return EXIT_FAILURE
+            return EXIT_FAILURE;
         },
     };
 
