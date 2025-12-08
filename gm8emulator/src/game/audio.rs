@@ -168,7 +168,6 @@ impl AudioManager {
         if let Some(mixer) = &mut self.mixer {
             // samplerate / fps * channels
             const AUDIO_SAMPLES_PER_FRAME: usize = 48000 / 50 * 2;
-
             let mut audio_output: [Sample; AUDIO_SAMPLES_PER_FRAME] = [0.0; AUDIO_SAMPLES_PER_FRAME];
 
             let stdin = self.audio_dumper.as_mut().unwrap().stdin.as_mut().expect("Failed to open stdin");
@@ -176,7 +175,6 @@ impl AudioManager {
 
             unsafe {
                 let samples = std::slice::from_raw_parts(audio_output.as_ptr() as *const u8, audio_output.len() * 4);
-
                 stdin.write_all(samples).unwrap();
             }
 
