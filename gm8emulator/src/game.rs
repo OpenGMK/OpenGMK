@@ -217,9 +217,9 @@ pub struct Game {
 
     pub play_type: PlayType,
     pub stored_events: VecDeque<replay::Event>,
-    pub frame_limiter: bool,   // whether to limit FPS of gameplay by room_speed
-    pub frame_limit_at: usize,   // on which frame to start limiting FPS
-    pub ffmpeg_dumper: Option<Child>,
+    pub frame_limiter: bool, // whether to limit FPS of gameplay by room_speed
+    pub frame_limit_at: usize, // on which frame to start limiting FPS
+    pub ffmpeg_recorder: Option<Child>,
 
     pub audio: audio::AudioManager,
 
@@ -336,7 +336,7 @@ impl Game {
         encoding: &'static Encoding,
         frame_limiter: bool,
         frame_limit_at: usize,
-        dump_audiovideo: bool,
+        capture_recording: bool,
         play_type: PlayType,
     ) -> Result<Self, Box<dyn std::error::Error>> {
         // Parse file path
@@ -633,7 +633,7 @@ impl Game {
         }
 
         let window = builder.build()?;
-        let ffmpeg_dumper = dump_audiovideo.then(|| {
+        let ffmpeg_recorder = capture_recording.then(|| {
             Command::new("ffmpeg")
                 .arg("-y")
                 .arg("-f")
@@ -653,7 +653,7 @@ impl Game {
                 .arg("veryslow")
                 .arg("-qp")
                 .arg("0")
-                .arg("dump.mkv")
+                .arg("capture.mkv")
                 .stdin(Stdio::piped())
                 .stdout(Stdio::null())
                 .stderr(Stdio::null())
@@ -662,7 +662,7 @@ impl Game {
         });
 
         // Set up audio manager
-        let mut audio = audio::AudioManager::new(play_type != PlayType::Record, dump_audiovideo);
+        let mut audio = audio::AudioManager::new(play_type != PlayType::Record, capture_recording);
 
         // TODO: specific flags here (make wb mutable)
 
@@ -1358,7 +1358,7 @@ impl Game {
             clock: GameClock::SpoofedNanos(0), // to avoid accessing the system timer for now
             frame_limiter,
             frame_limit_at,
-            ffmpeg_dumper,
+            ffmpeg_recorder,
             fps: 0,
             frame_counter: 0,
             parameters: game_arguments,
@@ -1755,8 +1755,8 @@ impl Game {
                 let w: i32 = self.window_inner_size.0.try_into().unwrap();
                 let h: i32 = self.window_inner_size.1.try_into().unwrap();
                 let pixels = self.renderer.get_pixels(0, 0, w, h);
-                if self.ffmpeg_dumper.is_some() {
-                    self.ffmpeg_dumper
+                if self.ffmpeg_recorder.is_some() {
+                    self.ffmpeg_recorder
                         .as_mut()
                         .unwrap()
                         .stdin
@@ -1802,7 +1802,7 @@ impl Game {
                         transition(self, trans_surf_old, trans_surf_new, width as _, height as _, progress)?;
                         if self.play_type != PlayType::Record {
                             self.renderer.present(width, height, self.scaling);
-                            self.dump_audiovideo_frame(&mut current_frame_time, 120);
+                            self.capture_recording_frame(&mut current_frame_time, 120);
                             let diff = current_time.elapsed();
                             if let Some(dur) = FRAME_TIME.checked_sub(diff) {
                                 gml::datetime::sleep(dur);
@@ -2222,11 +2222,11 @@ impl Game {
 
             self.frame()?;
 
-            self.dump_audiovideo_frame(&mut current_frame_time, self.room.speed);
+            self.capture_recording_frame(&mut current_frame_time, self.room.speed);
             if let Some(SceneChange::End) = self.scene_change {
                 println!("game ending");
-                if let Some(dumper) = self.ffmpeg_dumper.take() {
-                    self.stop_audiovisual_dump(dumper);
+                if let Some(recorder) = self.ffmpeg_recorder.take() {
+                    self.stop_recording_capture(recorder);
                 }
             }
             handle_scene_change!(self);
@@ -2261,18 +2261,18 @@ impl Game {
         }
     }
 
-    fn dump_audiovideo_frame(&mut self, current_frame_time: &mut u32, game_speed: u32) {
-        if let Some(ffmpeg_dumper) = self.ffmpeg_dumper.as_mut() {
+    fn capture_recording_frame(&mut self, current_frame_time: &mut u32, game_speed: u32) {
+        if let Some(ffmpeg_recorder) = self.ffmpeg_recorder.as_mut() {
             while *current_frame_time < 50 {
                 if self.scene_change.is_none() {
                     let w: i32 = self.window_inner_size.0.try_into().unwrap();
                     let h: i32 = self.window_inner_size.1.try_into().unwrap();
                     let pixels = self.renderer.get_pixels(0, 0, w, h);
-                    let stdin = ffmpeg_dumper.stdin.as_mut().expect("Failed to open stdin");
+                    let stdin = ffmpeg_recorder.stdin.as_mut().expect("Failed to open stdin");
                     stdin.write_all(&pixels).unwrap();
                 }
                 *current_frame_time += game_speed;
-                self.audio.dump_audio();
+                self.audio.capture_audio();
             }
 
             *current_frame_time -= 50;
@@ -2374,8 +2374,8 @@ impl Game {
                         Err(e) => break Err(format!("Error saving to {:?}: {:?}", output_bin, e).into()),
                     }
                 }
-                if let Some(dumper) = self.ffmpeg_dumper.take() {
-                    self.stop_audiovisual_dump(dumper);
+                if let Some(recorder) = self.ffmpeg_recorder.take() {
+                    self.stop_recording_capture(recorder);
                     break Ok(());
                 }
             }
@@ -2394,7 +2394,7 @@ impl Game {
             }
 
             self.frame()?;
-            self.dump_audiovideo_frame(&mut current_frame_time, self.room.speed);
+            self.capture_recording_frame(&mut current_frame_time, self.room.speed);
 
             match self.scene_change {
                 Some(SceneChange::Room(id)) => self.load_room(id)?,
@@ -2438,17 +2438,17 @@ impl Game {
         };
     }
 
-    fn stop_audiovisual_dump(&mut self, dumper: Child) {
-        dumper.wait_with_output().expect("video dumper should close");
-        self.audio.stop_audio_dump();
+    fn stop_recording_capture(&mut self, recorder: Child) {
+        recorder.wait_with_output().expect("video recorder should close");
+        self.audio.stop_audio_capture();
 
-        //combine audio and video dump into one file
+        //combine audio and video capture into one file
         Command::new("ffmpeg")
             .arg("-y")
             .arg("-i")
-            .arg("dump.mkv")
+            .arg("capture.mkv")
             .arg("-i")
-            .arg("dump.flac")
+            .arg("capture.flac")
             .arg("-c")
             .arg("copy")
             .arg("--")
@@ -2459,7 +2459,7 @@ impl Game {
             .spawn()
             .expect("Failed to open FFmpeg stdin")
             .wait_with_output()
-            .expect("ffmpeg dumper should close");
+            .expect("ffmpeg recorder should close");
     }
 
     // Gets the mouse position in room coordinates

@@ -85,7 +85,7 @@ fn xmain() -> i32 {
     let strict = matches.opt_present("s");
     let multithread = !matches.opt_present("t");
     let spoof_time = !matches.opt_present("r");
-    let dump_audiovideo = matches.opt_present("d");
+    let capture_recording = matches.opt_present("c");
     let frame_limit_at = matches
         .opt_str("l")
         .map(|frame| match frame.parse::<usize>() {
@@ -243,7 +243,7 @@ fn xmain() -> i32 {
         encoding,
         frame_limiter,
         frame_limit_at,
-        dump_audiovideo,
+        capture_recording,
         play_type,
     ) {
         Ok(g) => g,

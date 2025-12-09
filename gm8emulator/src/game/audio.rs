@@ -2,13 +2,13 @@ mod mixer;
 mod mp3;
 
 use serde::{Deserialize, Serialize};
-use std::io::Write;
-use std::process::{self, Child, Stdio};
-use std::sync::mpsc::{self, Receiver, Sender};
 use std::{
     collections::HashMap,
+    io::Write,
+    process::{self, Child, Stdio},
     sync::{
         atomic::{AtomicU32, Ordering},
+        mpsc::{self, Receiver, Sender},
         Arc,
     },
 };
@@ -56,14 +56,12 @@ pub struct AudioManager {
     global_volume: Arc<AtomicU32>,
     end_times: HashMap<i32, Option<u128>>,
     multimedia_end: Option<(i32, Option<u128>)>,
-    audio_dumper: Option<Child>,
+    audio_recorder: Option<Child>,
 }
 
 pub struct InterprocessSource {
     receiver: Receiver<Sample>,
-
     channels: ChannelCount,
-
     sample_rate: SampleRate,
 }
 
@@ -89,10 +87,9 @@ impl Source for InterprocessSource {
     }
 
     fn reset(&mut self) {}
-
 }
 impl AudioManager {
-    pub fn new(do_output: bool, dump_audio: bool) -> Self {
+    pub fn new(do_output: bool, capture_audio: bool) -> Self {
         // TODO: not all these unwraps
         let session = Session::new(Api::SoundIo).unwrap();
         let device = session.default_output_device().unwrap();
@@ -104,7 +101,7 @@ impl AudioManager {
 
         let interprocess_source = InterprocessSource::new(sample_receiver, channel_count, sample_rate);
 
-        let audio_dumper = dump_audio.then(|| {
+        let audio_recorder = capture_audio.then(|| {
             process::Command::new("ffmpeg")
                 .arg("-y")
                 .arg("-f")
@@ -115,7 +112,7 @@ impl AudioManager {
                 .arg(channel_count.to_string())
                 .arg("-i")
                 .arg("-")
-                .arg("dump.flac")
+                .arg("capture.flac")
                 .stdin(Stdio::piped())
                 .stdout(Stdio::null())
                 .stderr(Stdio::null())
@@ -123,7 +120,7 @@ impl AudioManager {
                 .expect("Failed to open FFmpeg stdin")
         });
 
-        if dump_audio {
+        if capture_audio {
             std::thread::spawn(move || {
                 let stream = session.open_output_stream(device).unwrap();
 
@@ -140,7 +137,7 @@ impl AudioManager {
                 global_volume,
                 end_times: HashMap::new(),
                 multimedia_end: None,
-                audio_dumper: audio_dumper,
+                audio_recorder: audio_recorder,
             };
         } else {
             std::thread::spawn(move || {
@@ -159,18 +156,18 @@ impl AudioManager {
                 global_volume,
                 end_times: HashMap::new(),
                 multimedia_end: None,
-                audio_dumper: audio_dumper,
+                audio_recorder: audio_recorder,
             }
         }
     }
 
-    pub fn dump_audio(&mut self) {
+    pub fn capture_audio(&mut self) {
         if let Some(mixer) = &mut self.mixer {
             // samplerate / fps * channels
             const AUDIO_SAMPLES_PER_FRAME: usize = 48000 / 50 * 2;
             let mut audio_output: [Sample; AUDIO_SAMPLES_PER_FRAME] = [0.0; AUDIO_SAMPLES_PER_FRAME];
 
-            let stdin = self.audio_dumper.as_mut().unwrap().stdin.as_mut().expect("Failed to open stdin");
+            let stdin = self.audio_recorder.as_mut().unwrap().stdin.as_mut().expect("Failed to open stdin");
             mixer.write_samples(&mut audio_output);
 
             unsafe {
@@ -186,9 +183,9 @@ impl AudioManager {
         }
     }
 
-    pub fn stop_audio_dump(&mut self) {
-        if let Some(dumper) = self.audio_dumper.take() {
-            dumper.wait_with_output().expect("audio dumper should close");
+    pub fn stop_audio_capture(&mut self) {
+        if let Some(recorder) = self.audio_recorder.take() {
+            recorder.wait_with_output().expect("audio recorder should close");
         }
     }
 
