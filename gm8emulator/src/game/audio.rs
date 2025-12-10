@@ -88,6 +88,7 @@ impl Source for InterprocessSource {
 
     fn reset(&mut self) {}
 }
+
 impl AudioManager {
     pub fn new(do_output: bool, capture_audio: bool) -> Self {
         // TODO: not all these unwraps
@@ -163,7 +164,7 @@ impl AudioManager {
 
     pub fn capture_audio(&mut self) {
         if let Some(mixer) = &mut self.mixer {
-            // samplerate / fps * channels
+            // samplerate / framerate * channels
             const AUDIO_SAMPLES_PER_FRAME: usize = 48000 / 50 * 2;
             let mut audio_output: [Sample; AUDIO_SAMPLES_PER_FRAME] = [0.0; AUDIO_SAMPLES_PER_FRAME];
 

@@ -1783,10 +1783,13 @@ impl Game {
                     // the builtin transitions will run too fast.
                     // This would be hell to emulate, so let's just standardize the framerate and call it a day.
                     // Most of the builtin transitions seem to run at around 120FPS in our tests, so let's go with that.
-                    const FRAME_TIME: Duration = Duration::from_nanos(1_000_000_000 / 120u64);
+                    const TRANSITION_FRAMERATE: u32 = 120;
+                    const FRAME_TIME: Duration = Duration::from_nanos(1_000_000_000 / TRANSITION_FRAMERATE as u64);
                     let mut current_time = Instant::now();
                     let perspective = self.renderer.get_perspective();
-                    let mut current_frame_time: u32 = 119;
+                    // the fps of the room transition minus 1 so that we don't dump a frame immediately.
+                    // If you start at 120 the transitions are 1 frame too long.
+                    let mut current_frame_time: u32 = TRANSITION_FRAMERATE - 1;
                     for i in 0..self.transition_steps + 1 {
                         let progress = Real::from(i) / self.transition_steps.into();
                         if self.surface_fix {
@@ -1802,7 +1805,7 @@ impl Game {
                         transition(self, trans_surf_old, trans_surf_new, width as _, height as _, progress)?;
                         if self.play_type != PlayType::Record {
                             self.renderer.present(width, height, self.scaling);
-                            self.capture_recording_frame(&mut current_frame_time, 120);
+                            self.capture_recording_frame(&mut current_frame_time, TRANSITION_FRAMERATE);
                             let diff = current_time.elapsed();
                             if let Some(dur) = FRAME_TIME.checked_sub(diff) {
                                 gml::datetime::sleep(dur);
