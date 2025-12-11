@@ -4,8 +4,11 @@ mod mp3;
 use serde::{Deserialize, Serialize};
 use std::{
     collections::HashMap,
+    io::Write,
+    process::{self, Child, Stdio},
     sync::{
         atomic::{AtomicU32, Ordering},
+        mpsc::{self, Receiver, Sender},
         Arc,
     },
 };
@@ -14,7 +17,7 @@ use udon::{
     rechanneler::Rechanneler,
     resampler::Resampler,
     session::{Api, Session},
-    source::{ChannelCount, SampleRate, Source},
+    source::{ChannelCount, Sample, SampleRate, Source},
     wav::WavPlayer,
 };
 
@@ -44,6 +47,8 @@ pub struct SoundParams {
 }
 
 pub struct AudioManager {
+    mixer: Option<Mixer>,
+    sample_sender: Option<Sender<Sample>>,
     mixer_handle: MixerHandle,
     mixer_channel_count: ChannelCount,
     mixer_sample_rate: SampleRate,
@@ -51,10 +56,41 @@ pub struct AudioManager {
     global_volume: Arc<AtomicU32>,
     end_times: HashMap<i32, Option<u128>>,
     multimedia_end: Option<(i32, Option<u128>)>,
+    audio_recorder: Option<Child>,
+}
+
+pub struct InterprocessSource {
+    receiver: Receiver<Sample>,
+    channels: ChannelCount,
+    sample_rate: SampleRate,
+}
+
+impl InterprocessSource {
+    pub fn new(receiver: Receiver<Sample>, channels: ChannelCount, sample_rate: SampleRate) -> InterprocessSource {
+        Self { receiver, channels, sample_rate }
+    }
+}
+
+impl Source for InterprocessSource {
+    fn channel_count(&self) -> ChannelCount {
+        self.channels
+    }
+
+    fn sample_rate(&self) -> SampleRate {
+        self.sample_rate
+    }
+
+    fn write_samples(&mut self, buffer: &mut [Sample]) -> usize {
+        buffer.fill_with(|| self.receiver.recv().unwrap_or_default());
+
+        buffer.len()
+    }
+
+    fn reset(&mut self) {}
 }
 
 impl AudioManager {
-    pub fn new(do_output: bool) -> Self {
+    pub fn new(do_output: bool, capture_audio: bool) -> Self {
         // TODO: not all these unwraps
         let session = Session::new(Api::SoundIo).unwrap();
         let device = session.default_output_device().unwrap();
@@ -62,20 +98,95 @@ impl AudioManager {
         let channel_count = device.channel_count();
         let global_volume = Arc::new(AtomicU32::from(1.0f32.to_bits()));
         let (mixer, mixer_handle) = Mixer::new(sample_rate, channel_count, global_volume.clone());
+        let (sample_sender, sample_receiver) = mpsc::channel();
 
-        std::thread::spawn(move || {
-            let stream = session.open_output_stream(device).unwrap();
-            stream.play(mixer).unwrap();
+        let interprocess_source = InterprocessSource::new(sample_receiver, channel_count, sample_rate);
+
+        let audio_recorder = capture_audio.then(|| {
+            process::Command::new("ffmpeg")
+                .arg("-y")
+                .arg("-f")
+                .arg("f32le")
+                .arg("-ar")
+                .arg(sample_rate.to_string())
+                .arg("-ac")
+                .arg(channel_count.to_string())
+                .arg("-i")
+                .arg("-")
+                .arg("capture.flac")
+                .stdin(Stdio::piped())
+                .stdout(Stdio::null())
+                .stderr(Stdio::null())
+                .spawn()
+                .expect("Failed to open FFmpeg stdin")
         });
 
-        Self {
-            mixer_handle,
-            mixer_channel_count: channel_count,
-            mixer_sample_rate: sample_rate,
-            do_output,
-            global_volume,
-            end_times: HashMap::new(),
-            multimedia_end: None,
+        if capture_audio {
+            std::thread::spawn(move || {
+                let stream = session.open_output_stream(device).unwrap();
+
+                stream.play(interprocess_source).unwrap();
+            });
+
+            return Self {
+                mixer: Some(mixer),
+                sample_sender: Some(sample_sender),
+                mixer_handle,
+                mixer_channel_count: channel_count,
+                mixer_sample_rate: sample_rate,
+                do_output,
+                global_volume,
+                end_times: HashMap::new(),
+                multimedia_end: None,
+                audio_recorder: audio_recorder,
+            };
+        } else {
+            std::thread::spawn(move || {
+                let stream = session.open_output_stream(device).unwrap();
+
+                stream.play(mixer).unwrap();
+            });
+
+            Self {
+                mixer: None,
+                sample_sender: None,
+                mixer_handle,
+                mixer_channel_count: channel_count,
+                mixer_sample_rate: sample_rate,
+                do_output,
+                global_volume,
+                end_times: HashMap::new(),
+                multimedia_end: None,
+                audio_recorder: audio_recorder,
+            }
+        }
+    }
+
+    pub fn capture_audio(&mut self) {
+        if let Some(mixer) = &mut self.mixer {
+            // samplerate / framerate * channels
+            const AUDIO_SAMPLES_PER_FRAME: usize = 48000 / 50 * 2;
+            let mut audio_output: [Sample; AUDIO_SAMPLES_PER_FRAME] = [0.0; AUDIO_SAMPLES_PER_FRAME];
+
+            let stdin = self.audio_recorder.as_mut().unwrap().stdin.as_mut().expect("Failed to open stdin");
+            mixer.write_samples(&mut audio_output);
+
+            unsafe {
+                let samples = std::slice::from_raw_parts(audio_output.as_ptr() as *const u8, audio_output.len() * 4);
+                stdin.write_all(samples).unwrap();
+            }
+
+            if let Some(sample_sender) = &self.sample_sender {
+                audio_output.iter().for_each(|s| {
+                    sample_sender.send(*s).unwrap();
+                })
+            }
+        }
+    }
+
+    pub fn stop_audio_capture(&mut self) {
+        if let Some(recorder) = self.audio_recorder.take() {
+            recorder.wait_with_output().expect("audio recorder should close");
         }
     }
 
