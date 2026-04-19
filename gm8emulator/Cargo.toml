@@ -35,7 +35,7 @@ rect_packer = "0.2.1"
 rmp3 = { version = "0.3", features = ["float"] }
 rust-ini = "0.17"
 serde = { version = "1.0", features = ["derive", "rc"] }
-serde_with = "3.15.1"
+serde_with = { version = "3.15.1", features = ["alloc", "macros"], default-features = false }
 time = { version = "0.3", features = ["local-offset", "macros"] }
 udon = { git = "https://github.com/Adamcake/udon", features = ["serde-derives", "wav"] }
 
