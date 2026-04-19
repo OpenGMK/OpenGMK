@@ -7,6 +7,6 @@ edition = "2021"
 rust-version = "1.77"
 
 [dependencies]
-byteorder = "1"
-flate2 = { version = "1.0", features = ["rust_backend"] }
-rayon = "1.2.0"
+byteorder = "1.5"
+flate2 = { version = "1.1", features = ["rust_backend"] }
+rayon = "1.10.0"

@@ -8,40 +8,39 @@ rust-version = "1.77"
 default-run = "gm8emulator"
 
 [build-dependencies]
-gl_generator = "0.14.0"
+gl_generator = "0.14"
 
 [target.'cfg(windows)'.build-dependencies]
 winres = "0.1"
 
 [dependencies]
-bincode = "1.2"
-byteorder = "1"
-clipboard = "0.5.0"
-encoding_rs = "0.8.23"
-getopts = "0.2.21"
-getrandom = "0.2"
-glob = "0.3.0"
+bincode = "1.3.3"
+byteorder = "1.5"
+clipboard = "0.5"
+encoding_rs = "0.8"
+getopts = "0.2"
+getrandom = "0.3.4"
+glob = "0.3"
 gm8exe = { path = "../gm8exe" }
 gml-parser = { path = "../gml-parser", features = ["runner-serde-derives"] }
-hex = "0.4.2"
-image = "0.23.6"
-imgui = { version = "0.12.0", features = ["tables-api"] }
-indexmap = { version = "1.3.2", features = ["serde-1"] }
-lzzzz = "0.8.0"
-memoffset = "0.6.5"
-phf = { version = "0.9.0", features = ["macros"] }
+hex = "0.4"
+image = { version = "0.25.6", features = ["bmp", "gif", "ico", "jpeg", "png", "tga", "tiff"], default-features = false }
+imgui = { version = "0.12", features = ["tables-api"] }
+indexmap = { version = "2.11.4", features = ["serde"] }
+lzzzz = "2.0"
+phf = { version = "0.13", features = ["macros"] }
 ramen = { git = "https://github.com/viriuwu/ramen", features = ["input", "parking-lot"] }
-rect_packer = "0.2.1"
+rect_packer = "0.2"
 rmp3 = { version = "0.3", features = ["float"] }
-rust-ini = "0.17"
+rust-ini = "0.21"
 serde = { version = "1.0", features = ["derive", "rc"] }
-serde_with = { version = "3.15.1", features = ["alloc", "macros"], default-features = false }
-time = { version = "0.3", features = ["local-offset", "macros"] }
+serde_with = { version = "3.16.1", features = ["alloc", "macros"], default-features = false }
+time = { version = "0.3.41", features = ["local-offset", "macros"] }
 udon = { git = "https://github.com/Adamcake/udon", features = ["serde-derives", "wav"] }
 
 [target.'cfg(all(target_os = "windows"))'.dependencies]
-crc32fast = "1.2"
-libffi = "1.0.0"
+crc32fast = "1.5"
+libffi = "3.1.0"
 
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"

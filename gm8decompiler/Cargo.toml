@@ -7,15 +7,15 @@ edition = "2021"
 rust-version = "1.77"
 
 [build-dependencies]
-time = { version = "0.3", features = ["std"], default-features = false }
+time = { version = "0.3.41", features = ["std"], default-features = false }
 
 [target.'cfg(windows)'.build-dependencies]
 winres = "0.1"
 
 [dependencies]
-byteorder = "1"
-flate2 = { version = "1.0", features = ["zlib-ng-compat"], default-features = false }
-getopts = "0.2.21"
+byteorder = "1.5"
+flate2 = { version = "1.1", features = ["zlib-ng-compat"], default-features = false }
+getopts = "0.2"
 gm8exe = { path = "../gm8exe" }
 gml-parser = { path = "../gml-parser" }
-rayon = "1.2"
+rayon = "1.10.0"

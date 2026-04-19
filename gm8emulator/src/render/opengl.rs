@@ -6,10 +6,9 @@ use crate::{
     },
     types::Colour,
 };
-use memoffset::offset_of;
 use ramen::{connection::Connection, window::Window};
 use rect_packer::DensePacker;
-use std::{any::Any, f64::consts::PI, ffi::CStr, mem::size_of, ptr};
+use std::{any::Any, f64::consts::PI, ffi::CStr, mem::{offset_of, size_of}, ptr};
 
 /// Auto-generated OpenGL bindings from gl_generator
 pub mod gl {
