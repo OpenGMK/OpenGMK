@@ -129,7 +129,7 @@ fn xmain() -> i32 {
             // if we can't find one, make one
             .unwrap_or_else(|| {
                 let mut random_int = [0u8; 4];
-                getrandom::fill(&mut random_int).expect("Couldn't generate a random number");
+                getrandom::getrandom(&mut random_int).expect("Couldn't generate a random number");
                 let path = [proj_path.clone(), format!("gm_ttt_{}", u32::from_le_bytes(random_int) % 100000).into()]
                     .iter()
                     .collect();

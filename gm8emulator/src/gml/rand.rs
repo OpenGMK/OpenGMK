@@ -88,6 +88,6 @@ impl Random {
 fn rand_int() -> i32 {
     // TODO: Use uninit_array() and array_assume_init() when stabilized (will require v1.78.X+ tho)
     let mut bytes = std::mem::MaybeUninit::<[u8; 4]>::uninit();
-    let _ = unsafe { getrandom::fill(&mut *bytes.as_mut_ptr()) };
+    let _ = unsafe { getrandom::getrandom(&mut *bytes.as_mut_ptr()) };
     i32::from_le_bytes(unsafe { bytes.assume_init() })
 }

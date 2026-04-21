@@ -19,14 +19,14 @@ byteorder = "1.5"
 clipboard = "0.5"
 encoding_rs = "0.8"
 getopts = "0.2"
-getrandom = "0.3.4"
+getrandom = "0.2"  # 0.3.4
 glob = "0.3"
 gm8exe = { path = "../gm8exe" }
 gml-parser = { path = "../gml-parser", features = ["runner-serde-derives"] }
 hex = "0.4"
 image = { version = "0.25.6", features = ["bmp", "gif", "ico", "jpeg", "png", "tga", "tiff"], default-features = false }
 imgui = { version = "0.12", features = ["tables-api"] }
-indexmap = { version = "2.11.4", features = ["serde"] }
+indexmap = { version = "2.5.0", features = ["serde"] }  # 2.11.4
 lzzzz = "2.0"
 phf = { version = "0.13", features = ["macros"] }
 ramen = { git = "https://github.com/viriuwu/ramen", features = ["input", "parking-lot"] }
