@@ -1738,6 +1738,7 @@ impl Game {
 
         // Run room start event for each instance
         self.run_other_event(4)?;
+
         if self.play_type != PlayType::Record {
             let w: i32 = self.window_inner_size.0.try_into().unwrap();
             let h: i32 = self.window_inner_size.1.try_into().unwrap();
@@ -1753,6 +1754,7 @@ impl Game {
                     .unwrap();
             }
         }
+
         if self.scene_change.is_some() {
             // GM8 would have a memory leak here. We're not doing that.
             if let Some(surf) = self.surfaces.remove(trans_surf_old) {
