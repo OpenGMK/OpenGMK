@@ -1739,6 +1739,22 @@ impl Game {
         // Run room start event for each instance
         self.run_other_event(4)?;
 
+        if self.play_type != PlayType::Record {
+            let w: i32 = self.window_inner_size.0.try_into().unwrap();
+            let h: i32 = self.window_inner_size.1.try_into().unwrap();
+            let pixels = self.renderer.get_pixels(0, 0, w, h);
+            if self.ffmpeg_recorder.is_some() {
+                self.ffmpeg_recorder
+                    .as_mut()
+                    .unwrap()
+                    .stdin
+                    .as_mut()
+                    .expect("Failed to open stdin")
+                    .write_all(&pixels)
+                    .unwrap();
+            }
+        }
+
         if self.scene_change.is_some() {
             // GM8 would have a memory leak here. We're not doing that.
             if let Some(surf) = self.surfaces.remove(trans_surf_old) {
@@ -1751,21 +1767,6 @@ impl Game {
             // Let then next frame handle it
             Ok(())
         } else {
-            if self.play_type != PlayType::Record {
-                let w: i32 = self.window_inner_size.0.try_into().unwrap();
-                let h: i32 = self.window_inner_size.1.try_into().unwrap();
-                let pixels = self.renderer.get_pixels(0, 0, w, h);
-                if self.ffmpeg_recorder.is_some() {
-                    self.ffmpeg_recorder
-                        .as_mut()
-                        .unwrap()
-                        .stdin
-                        .as_mut()
-                        .expect("Failed to open stdin")
-                        .write_all(&pixels)
-                        .unwrap();
-                }
-            }
             // Draw "frame 0", perform transition if applicable, and then return
             if self.auto_draw {
                 self.draw()?;
