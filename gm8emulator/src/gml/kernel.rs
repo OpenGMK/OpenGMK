@@ -4119,7 +4119,14 @@ impl Game {
     }
 
     pub fn ord(args: &[Value]) -> gml::Result<Value> {
-        expect_args!(args, [bytes]).map(|s| s.as_ref().get(0).copied().map(f64::from).unwrap_or_default().into())
+        expect_args!(args, [bytes]).map(|s| {
+            let v = s.as_ref().get(0).copied().map(|b| {
+                // Allows lowercase letters to be accepted
+                let b = if b.is_ascii_lowercase() { b.to_ascii_uppercase() } else { b };
+                f64::from(b)
+            }).unwrap_or_default();
+            v.into()
+        })
     }
 
     pub fn string_length(&self, args: &[Value]) -> gml::Result<Value> {
