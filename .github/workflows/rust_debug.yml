@@ -1,0 +1,56 @@
+name: Rust debug build
+
+on:
+  repository_dispatch:
+    types: [build]
+  workflow_dispatch:
+      inputs:
+        name:
+          description: 'Run?'
+          required: true
+          default: 'YES!'
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+    - uses: hecrj/setup-rust-action@master
+      with:
+        rust-version: stable
+    - uses: actions/setup-node@v1
+      with:
+        node-version: '10.x'
+    - run: npm install -g yarn
+    - uses: actions/checkout@v2
+    - name: Rust set up
+      run: |
+        set path="%USERPROFILE%\.cargo\bin"
+        rustup self update
+        rustup update
+        rustup install nightly
+        git submodule update --init --recursive
+        rustup target add i686-pc-windows-msvc --toolchain=nightly
+        cd "gm8emulator-wow64"
+        cargo +nightly build
+        mv target/i686-pc-windows-msvc/debug/gm8emulator-wow64.exe .
+        cd ..
+    - name: Build the GM8Emulator.zip artifact
+      run: cargo +nightly build
+    - name: Archive bin
+      run: |
+        mv gm8emulator-wow64/gm8emulator-wow64.exe target/debug
+        cd target/debug 
+        7z -tzip a GM8Emulator.zip control-panel.exe gm8emulator-wow64.exe gm8decompiler.exe gm8emulator.exe -mx0 | grep ing 
+        cd ../..
+        mv target/debug/GM8Emulator.zip .
+    - name: Upload artifact
+      uses: actions/upload-artifact@v2
+      with:
+          path: GM8Emulator.zip
