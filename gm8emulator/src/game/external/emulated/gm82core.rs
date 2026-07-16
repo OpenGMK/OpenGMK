@@ -1,13 +1,16 @@
 use super::FunctionMap;
 use crate::{
     game::Game,
-    gml::{Function, Result, Value},
+    gml::{runtime, Function, Result, Value},
 };
 use phf::phf_map;
 
 pub fn resize_backbuffer(game: &mut Game, args: &[Value]) -> Result<Value> {
-    let width = args[0].clone().into();
-    let height = args[1].clone().into();
+    if args.len() != 2 {
+        return Err(runtime::Error::WrongArgumentCount(2, args.len()))
+    }
+    let width: u32 = args[0].clone().into();
+    let height: u32 = args[1].clone().into();
     game.renderer.resize_framebuffer(width, height, false);
     Ok(Default::default())
 }
