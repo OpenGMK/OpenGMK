@@ -90,12 +90,23 @@ fn assert_ver_multiple(got: u32, expected: &[u32]) -> Result<(), Error> {
     if expected.contains(&got) { Ok(()) } else { Err(Error::VersionError { expected: expected[0], got }) }
 }
 
-#[derive(Debug, Default)]
+/// A string of characters encoded as UTF-8.
+#[derive(Default, PartialEq, Eq)]
 pub struct PascalString(pub Box<[u8]>);
+
+impl fmt::Debug for PascalString {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        if let Ok(string) = std::str::from_utf8(&self.0) {
+            write!(f, "{string:?}")
+        } else {
+            write!(f, "PascalString({} bytes)", self.0.len())
+        }
+    }
+}
 
 impl Display for PascalString {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        String::from_utf8_lossy(self.0.as_ref()).fmt(f)
+        write!(f, "{}", String::from_utf8_lossy(&self.0))
     }
 }
 
