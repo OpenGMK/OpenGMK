@@ -10,11 +10,13 @@ and libraries for working with gamedata yourself.
 >
 > Please also be aware that there might never _be_ a stable release, since [nothing ever happens](https://i.kym-cdn.com/entries/icons/original/000/045/689/nothing_e.jpg).
 
+## Downloading
+
+You can download pre-built binaries for Windows x86 from the [Releases tab](https://github.com/OpenGMK/OpenGMK/releases).
+
 ## Compiling
 
-There are unfortunately no pre-built binaries available to download.
-
-In order to use **GM8Decompiler** or **GM8Emulator**, you need to compile it yourself:
+If you want to compile **GM8Decompiler** or **GM8Emulator**:
 
 1. Install the [Rust toolchain](https://rustup.rs).
 2. Open a terminal (On Windows: Press <kbd>Win</kbd>+<kbd>R</kbd>, type "powershell", hit <kbd>Enter</kbd>).
@@ -42,8 +44,8 @@ cargo build --release
 > ```
 
 > [!WARNING]
-> Building for glibc on Windows does not work.
-> This is the case for target tuples ending in `-pc-windows-gnu`.
+> Only MSVC is currently supported for Windows.
+> This means that target tuples ending in `-pc-windows-gnu` may not compile.
 
 ### Native DLLs for 64-bit Windows
 
@@ -62,7 +64,8 @@ The binary should either be manually copied to the same folder as `gm8emulator.e
 or the `OPENGMK_WOW64_BINARY` environment variable should be set with the path to the binary.
 
 Alternatively, you could build the project as 32-bit on Windows directly, eliminating the need for the WoW64 server.
-You should note that this will produce a bit slower program, since 32-bit operating mode is no longer considered primary in today's processors, and the i686 instruction set is much older. In order to do this:
+You should note that this will produce a bit slower program, since 32-bit operating mode is no longer
+considered primary in today's processors, and the i686 instruction set is much older. In order to do this:
 
 ```sh
 # inside the OpenGMK folder
@@ -112,7 +115,7 @@ _All command-line steps will be streamlined in a future release._
 **A:** OpenGMK is made to support _GameMaker Classic_ games.
 It’s possible the game you are trying to load was actually made with _GameMaker: Studio_, which is not supported.
 
-If there is a `data.win`, `game.unx`, `game.ios` or similar file, then the game was 
+If there is a `data.win`, `game.unx`, `game.ios` or similar file, then the game was
 not made in GameMaker Classic and OpenGMK cannot decompile or emulate it.
 
 ---
