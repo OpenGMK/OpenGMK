@@ -67,12 +67,7 @@ struct RowColorStack<'a> {
 
 impl RowColorStack<'_> {
     fn new(ui: &Ui) -> RowColorStack {
-        RowColorStack {
-            ui,
-            row_color: None,
-            row_color_alt: None,
-            last_table_color: TableColor::NONE
-        }
+        RowColorStack { ui, row_color: None, row_color_alt: None, last_table_color: TableColor::NONE }
     }
 
     fn drop_current_colors(&mut self) {
@@ -95,13 +90,13 @@ impl RowColorStack<'_> {
         if self.last_table_color != color {
             self.last_table_color = color;
             match color {
-                TableColor::NONE => {},
+                TableColor::NONE => {}
                 TableColor::DISABLED => self.set_table_colors(BGCOLOR_DISABLED, BGCOLOR_DISABLED_ALT),
                 TableColor::SELECTED => self.set_table_colors(BGCOLOR_SELECTED, BGCOLOR_SELECTED_ALT),
                 TableColor::CURRENT => self.set_table_colors(BGCOLOR_CURRENT, BGCOLOR_CURRENT_ALT),
                 TableColor::DEFAULT => {
                     self.drop_current_colors();
-                },
+                }
             }
         }
     }
@@ -307,14 +302,14 @@ impl Window for InputEditWindow {
                     info.replay.get_frame_mut(frame_index).unwrap().new_seed = new_seed.clone();
                 }
                 self.is_selecting = MouseSelection::None; // Once the dialog is submitted, stop displaying the selection
-            },
+            }
             DialogState::Open => {
                 any_open = true;
 
                 // Kind of a hack but the dialog can only be opened with the right-click context menu by selecting certain frames.
                 // Closing the context menu hides the selection so we show it again for as long as the dialog is open
                 self.is_selecting = MouseSelection::Fixed;
-            },
+            }
             _ => self.is_selecting = MouseSelection::None, // Once the dialog is closed, stop displaying the selection (Closed, Cancelled, Invalid, etc)
         };
 
@@ -333,8 +328,11 @@ impl Openable<Self> for InputEditWindow {
 }
 
 impl InputEditWindow {
-    const ADDITIONAL_COLUMNS: usize = 3; // Frame counter, RNG Seed and Mouse columns
-    const ADDITIONAL_COLUMNS_INFRONT: usize = 1; // How many of the above column are in front of all the key buttons (only Frame column)
+    const ADDITIONAL_COLUMNS: usize = 3;
+    // Frame counter, RNG Seed and Mouse columns
+    const ADDITIONAL_COLUMNS_INFRONT: usize = 1;
+
+    // How many of the above column are in front of all the key buttons (only Frame column)
 
     fn new() -> Self {
         Self {
@@ -403,13 +401,7 @@ impl InputEditWindow {
     }
 
     fn display_context_menu(&mut self, info: &mut EmulatorContext) -> bool {
-        let EmulatorContext {
-            frame,
-            replay,
-            new_mouse_pos,
-            setting_mouse_pos,
-            ..
-        } = info;
+        let EmulatorContext { frame, replay, new_mouse_pos, setting_mouse_pos, .. } = info;
 
         if let Some(key_index) = self.context_menu_indices.1 {
             // Context menu is to modify input, show the key context menu
@@ -528,7 +520,7 @@ impl InputEditWindow {
                         } else {
                             Some(KeyState::NeutralWillPress)
                         }
-                    },
+                    }
 
                     KeyState::HeldWillRelease => {
                         if new_press {
@@ -536,7 +528,7 @@ impl InputEditWindow {
                         } else {
                             Some(KeyState::Neutral)
                         }
-                    },
+                    }
 
                     KeyState::HeldWillTriple => {
                         if new_press {
@@ -544,7 +536,7 @@ impl InputEditWindow {
                         } else {
                             Some(KeyState::NeutralWillDouble)
                         }
-                    },
+                    }
 
                     KeyState::Neutral
                     | KeyState::NeutralWillDouble
@@ -555,7 +547,7 @@ impl InputEditWindow {
                         } else {
                             None
                         }
-                    },
+                    }
 
                     KeyState::NeutralWillPress => {
                         if new_press {
@@ -563,7 +555,7 @@ impl InputEditWindow {
                         } else {
                             None
                         }
-                    },
+                    }
 
                     KeyState::NeutralWillTriple => {
                         if new_press {
@@ -571,7 +563,7 @@ impl InputEditWindow {
                         } else {
                             None
                         }
-                    },
+                    }
                 } {
                     // If the next frame will have to be adjusted, do that.
                     self.update_replay(frame_index + 1, key_index, replay, new_state);
@@ -595,8 +587,8 @@ impl InputEditWindow {
                             if !self.keys.contains(btn) {
                                 self.keys.push(*btn);
                             }
-                        },
-                        _ => {},
+                        }
+                        _ => {}
                     }
                 }
             }
@@ -615,8 +607,8 @@ impl InputEditWindow {
                             if let Some(index) = self.keys.iter().position(|k| k == current_key) {
                                 self.update_keystate(i, index, matches!(input, Input::KeyPress(_)));
                             }
-                        },
-                        _ => {},
+                        }
+                        _ => {}
                     }
                 }
 
@@ -642,15 +634,8 @@ impl InputEditWindow {
 
     fn draw_input_rows(&mut self, info: &mut EmulatorContext, row_color_stack: &mut RowColorStack) {
         let set_mouse_bind_pressed = info.keybind_pressed(Binding::SetMouse);
-        
-        let EmulatorContext {
-            replay,
-            frame,
-            config,
-            new_mouse_pos,
-            setting_mouse_pos,
-            ..
-        } = info;
+
+        let EmulatorContext { replay, frame, config, new_mouse_pos, setting_mouse_pos, .. } = info;
 
         let mouse_pos = frame.mouse_pos();
 
@@ -660,7 +645,8 @@ impl InputEditWindow {
         let clipped_above = (f32::max(self.scroll_y - TABLE_CLIPPING, 0.0) / TOTAL_INPUT_TABLE_HEIGHT).floor();
         let clipped_below =
             (f32::min(self.scroll_y + visible_height + TABLE_CLIPPING, float_count * TOTAL_INPUT_TABLE_HEIGHT)
-                / TOTAL_INPUT_TABLE_HEIGHT).floor();
+                / TOTAL_INPUT_TABLE_HEIGHT)
+                .floor();
 
         if clipped_above > 0.0 {
             // placeholder row for everything above the visible region. To make sure the size stays the same.
@@ -786,7 +772,7 @@ impl InputEditWindow {
                             } else {
                                 Some(FrameRng::Increment(count - 1))
                             }
-                        },
+                        }
                     };
                 } else if frame.is_mouse_clicked(imgui::MouseButton::Middle) {
                     current_frame.new_seed = None;
@@ -819,7 +805,8 @@ impl InputEditWindow {
             // If we clicked on a mouse input we haven't reached yet
             if i >= config.current_frame {
                 if (frame.is_mouse_clicked(imgui::MouseButton::Left) && mouse_hovered) // If we left clicked and are hovering this button
-                    || (i == config.current_frame && set_mouse_bind_pressed) // or it's the next frame to be run and we used the keybind
+                    || (i == config.current_frame && set_mouse_bind_pressed)
+                // or it's the next frame to be run and we used the keybind
                 {
                     **setting_mouse_pos = true;
                     **new_mouse_pos = Some((current_frame.mouse_x, current_frame.mouse_y));
@@ -888,7 +875,7 @@ impl InputEditWindow {
                     }
                     self.is_selecting = MouseSelection::None;
                 }
-            },
+            }
             MouseSelection::Right => {
                 if info.frame.is_mouse_released(imgui::MouseButton::Right) {
                     if info.request_context_menu() {
@@ -900,13 +887,13 @@ impl InputEditWindow {
                         }
                     }
                 }
-            },
-            MouseSelection::Fixed => {}, // Don't update the selection automatically if the selection was released (i.e. while context menu or popup are open)
+            }
+            MouseSelection::Fixed => {} // Don't update the selection automatically if the selection was released (i.e. while context menu or popup are open)
             _ => {
                 if !info.frame.is_any_mouse_down() {
                     self.is_selecting = MouseSelection::None;
                 }
-            },
+            }
         }
     }
 
@@ -935,11 +922,7 @@ impl InputEditWindow {
 
             // update all key states for the first non-deleted frame to match the previous frame.
             for key in 0..self.keys.len() {
-                let start_pressed = if start == 0 {
-                    false
-                } else {
-                    self.states[start-1][key].ends_in_press()
-                };
+                let start_pressed = if start == 0 { false } else { self.states[start - 1][key].ends_in_press() };
 
                 let state = self.update_keystate_front(start, key, start_pressed).clone();
                 self.update_replay(start, key, replay, state);
@@ -985,21 +968,21 @@ impl InputEditWindow {
                 } else {
                     KeyState::HeldWillRelease
                 }
-            },
+            }
             KeyState::HeldWillRelease => {
                 if pressed {
                     KeyState::HeldWillDouble
                 } else {
                     invalid!()
                 }
-            },
+            }
             KeyState::HeldWillDouble => {
                 if pressed {
                     invalid!()
                 } else {
                     KeyState::HeldWillTriple
                 }
-            },
+            }
             KeyState::HeldWillTriple => invalid!(),
 
             KeyState::Neutral => {
@@ -1008,21 +991,21 @@ impl InputEditWindow {
                 } else {
                     KeyState::NeutralWillCactus
                 }
-            },
+            }
             KeyState::NeutralWillPress => {
                 if pressed {
                     invalid!()
                 } else {
                     KeyState::NeutralWillDouble
                 }
-            },
+            }
             KeyState::NeutralWillDouble => {
                 if pressed {
                     KeyState::NeutralWillTriple
                 } else {
                     invalid!()
                 }
-            },
+            }
             KeyState::NeutralWillTriple => invalid!(),
 
             _ => {
@@ -1031,7 +1014,7 @@ impl InputEditWindow {
                 } else {
                     KeyState::HeldWillRelease
                 }
-            },
+            }
         };
     }
 
@@ -1043,14 +1026,14 @@ impl InputEditWindow {
                 KeyState::NeutralWillPress => KeyState::Held,
                 KeyState::Neutral | KeyState::NeutralWillDouble | KeyState::NeutralDoubleEveryFrame => {
                     KeyState::HeldWillRelease
-                },
+                }
                 KeyState::NeutralWillTriple => KeyState::HeldWillDouble,
                 KeyState::NeutralWillCactus => KeyState::HeldWillRelease,
 
                 KeyState::HeldWillRelease => KeyState::Neutral,
                 KeyState::Held | KeyState::HeldWillDouble | KeyState::HeldDoubleEveryFrame => {
                     KeyState::NeutralWillPress
-                },
+                }
                 KeyState::HeldWillTriple => KeyState::NeutralWillDouble,
             }
         }

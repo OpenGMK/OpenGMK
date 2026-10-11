@@ -37,21 +37,20 @@ pub enum TriggerKind {
 impl fmt::Display for TriggerKind {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            TriggerKind::Step => write!(f, "step"),
-            TriggerKind::BeginStep => write!(f, "begin step"),
-            TriggerKind::EndStep => write!(f, "end step"),
+            Self::Step => write!(f, "step"),
+            Self::BeginStep => write!(f, "begin step"),
+            Self::EndStep => write!(f, "end step"),
         }
     }
 }
 
 impl From<u32> for TriggerKind {
-    fn from(n: u32) -> TriggerKind {
+    fn from(n: u32) -> Self {
         match n {
-            0 => TriggerKind::Step,
-            1 => TriggerKind::BeginStep,
-            2 => TriggerKind::EndStep,
-
-            _ => TriggerKind::Step,
+            0 => Self::Step,
+            1 => Self::BeginStep,
+            2 => Self::EndStep,
+            _ => Self::Step,
         }
     }
 }
@@ -68,7 +67,7 @@ impl Asset for Trigger {
         let moment = TriggerKind::from(reader.read_u32::<LE>()?);
         let constant_name = reader.read_pas_string()?;
 
-        Ok(Trigger { name, condition, moment, constant_name })
+        Ok(Self { name, condition, moment, constant_name })
     }
 
     fn serialize_exe(&self, mut writer: impl io::Write, _version: GameVersion) -> io::Result<()> {

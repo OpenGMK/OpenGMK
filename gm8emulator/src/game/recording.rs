@@ -196,6 +196,7 @@ impl KeyState {
                 | Self::NeutralWillTriple
         )
     }
+
     pub fn starts_with_press(&self) -> bool {
         matches!(
             self,
@@ -215,25 +216,19 @@ impl KeyState {
             // target state expects button released, previous state is held
             *self = match target_state {
                 KeyState::Neutral
-                    | KeyState::NeutralWillCactus
-                    | KeyState::NeutralWillDouble
-                    | KeyState::NeutralDoubleEveryFrame
-                    => KeyState::HeldWillRelease,
-                KeyState::NeutralWillTriple
-                    | KeyState::NeutralWillPress
-                    => KeyState::HeldWillDouble,
+                | KeyState::NeutralWillCactus
+                | KeyState::NeutralWillDouble
+                | KeyState::NeutralDoubleEveryFrame => KeyState::HeldWillRelease,
+                KeyState::NeutralWillTriple | KeyState::NeutralWillPress => KeyState::HeldWillDouble,
                 _ => unreachable!(),
             };
         } else {
             // target state expects button held, previous state is released
             *self = match target_state {
-                KeyState::Held
-                    | KeyState::HeldWillDouble
-                    | KeyState::HeldDoubleEveryFrame
-                    => KeyState::NeutralWillPress,
-                KeyState::HeldWillTriple
-                    | KeyState::HeldWillRelease
-                    => KeyState::NeutralWillDouble,
+                KeyState::Held | KeyState::HeldWillDouble | KeyState::HeldDoubleEveryFrame => {
+                    KeyState::NeutralWillPress
+                }
+                KeyState::HeldWillTriple | KeyState::HeldWillRelease => KeyState::NeutralWillDouble,
                 _ => unreachable!(),
             };
         }
@@ -250,7 +245,7 @@ impl KeyState {
             Self::Held => Self::HeldWillRelease,
             Self::HeldWillRelease | Self::HeldWillDouble | Self::HeldWillTriple | Self::HeldDoubleEveryFrame => {
                 Self::Held
-            },
+            }
         }
     }
 
@@ -343,38 +338,38 @@ impl KeyState {
         match self {
             KeyState::Neutral => {
                 frame.rect(position + window_position, position + size + window_position, BTN_NEUTRAL_COL, alpha)
-            },
+            }
             KeyState::Held => {
                 frame.rect(position + window_position, position + size + window_position, BTN_HELD_COL, alpha)
-            },
+            }
             KeyState::NeutralWillPress => {
                 frame.rect(r1_min, r1_max, BTN_NEUTRAL_COL, alpha);
                 frame.rect(r2_min, r2_max, BTN_HELD_COL, alpha);
-            },
+            }
             KeyState::NeutralWillDouble | KeyState::NeutralDoubleEveryFrame => {
                 frame.rect(r1_min, r1_max, BTN_NEUTRAL_COL, alpha);
                 frame.rect(r2_min, r2_max, BTN_HDOUBLE_COL, alpha);
-            },
+            }
             KeyState::NeutralWillTriple => {
                 frame.rect(r1_min, r1_max, BTN_NEUTRAL_COL, alpha);
                 frame.rect(r2_min, r2_max, BTN_HTRIPLE_COL, alpha);
-            },
+            }
             KeyState::NeutralWillCactus => {
                 frame.rect(r1_min, r1_max, BTN_NEUTRAL_COL, alpha);
                 frame.rect(r2_min, r2_max, BTN_CACTUS_COL, alpha);
-            },
+            }
             KeyState::HeldWillRelease => {
                 frame.rect(r1_min, r1_max, BTN_HELD_COL, alpha);
                 frame.rect(r2_min, r2_max, BTN_NEUTRAL_COL, alpha);
-            },
+            }
             KeyState::HeldWillDouble | KeyState::HeldDoubleEveryFrame => {
                 frame.rect(r1_min, r1_max, BTN_HELD_COL, alpha);
                 frame.rect(r2_min, r2_max, BTN_NDOUBLE_COL, alpha);
-            },
+            }
             KeyState::HeldWillTriple => {
                 frame.rect(r1_min, r1_max, BTN_HELD_COL, alpha);
                 frame.rect(r2_min, r2_max, BTN_NTRIPLE_COL, alpha);
-            },
+            }
         }
         frame.rect_outline(
             position + window_position,
@@ -388,28 +383,28 @@ impl KeyState {
         match self {
             Self::NeutralWillPress => {
                 inputs.push(replay::Input::KeyPress(key));
-            },
+            }
             Self::NeutralWillDouble | Self::NeutralDoubleEveryFrame => {
                 inputs.push(replay::Input::KeyPress(key));
                 inputs.push(replay::Input::KeyRelease(key));
-            },
+            }
             Self::NeutralWillTriple => {
                 inputs.push(replay::Input::KeyPress(key));
                 inputs.push(replay::Input::KeyRelease(key));
                 inputs.push(replay::Input::KeyPress(key));
-            },
+            }
             Self::HeldWillRelease | Self::NeutralWillCactus => {
                 inputs.push(replay::Input::KeyRelease(key));
-            },
+            }
             Self::HeldWillDouble | Self::HeldDoubleEveryFrame => {
                 inputs.push(replay::Input::KeyRelease(key));
                 inputs.push(replay::Input::KeyPress(key));
-            },
+            }
             Self::HeldWillTriple => {
                 inputs.push(replay::Input::KeyRelease(key));
                 inputs.push(replay::Input::KeyPress(key));
                 inputs.push(replay::Input::KeyRelease(key));
-            },
+            }
             Self::Neutral | Self::Held => (),
         }
     }
@@ -475,7 +470,7 @@ impl ProjectConfig {
                 Err(_) => {
                     println!("Warning: Couldn't parse project.cfg. Using default configuration.");
                     default_config
-                },
+                }
             }
         } else {
             bincode::serialize_into(File::create(&config_path).expect("Couldn't write project.cfg"), &default_config)
@@ -544,9 +539,9 @@ impl Game {
                 let c = (31..34).contains(&(y - x).abs()) || (31..34).contains(&(y + x - 63).abs());
                 match (i & 1 != 0, i & 2 != 0) {
                     (false, false) => u8::from(c) * 255, // r
-                    (true, false)  => u8::from(c) * 255, // g
-                    (false, true)  => u8::from(c) * 255, // b
-                    (true, true)   => u8::from(c) * 255, // a
+                    (true, false) => u8::from(c) * 255,  // g
+                    (false, true) => u8::from(c) * 255,  // b
+                    (true, true) => u8::from(c) * 255,   // a
                 }
             })
             .collect::<Vec<_>>()
@@ -617,7 +612,7 @@ impl Game {
                             } else if pause {
                                 println!("Warning: Game is not part of backup replay");
                             }
-                        },
+                        }
                         Err(e) => err_string = Some(format!("Warning: Failed to load backup replay: {:?}", e)),
                     }
                 }
@@ -641,13 +636,13 @@ impl Game {
                             Err(e) => {
                                 Err(format!("(Fatal) Game ended during startup, then crashed during Game End: {}", e)
                                     .into())
-                            },
+                            }
                         }
-                    },
+                    }
                     Some(SceneChange::Load(ref mut path)) => {
                         let path = std::mem::take(path);
                         self.load_gm_save(path)
-                    },
+                    }
                     None => Ok(()),
                 },
                 Err(e) => Err(e),
@@ -677,7 +672,7 @@ impl Game {
                         savestate = SaveState::from(self, replay.clone(), renderer_state.clone(), false);
                         startup_successful = false;
                         game_running = false;
-                    },
+                    }
                 }
             } else {
                 let mut save_replay = replay.clone();
@@ -717,11 +712,11 @@ impl Game {
                                     } else {
                                         replay = rep;
                                     }
-                                },
+                                }
                                 Err(e) => {
                                     err_string = Some(format!("Warning: Failed to load backup replay: {:?}", e));
                                     replay = rep
-                                },
+                                }
                             }
                         }
                     } else {
@@ -743,7 +738,7 @@ impl Game {
                     self.renderer.resize_framebuffer(config.ui_width.into(), config.ui_height.into(), false);
                     self.renderer.set_state(&ui_renderer_state);
                     savestate = state;
-                },
+                }
                 Err(e) => {
                     // Just to initialize renderer_state and keep the compiler happy, this won't be used...
                     renderer_state = ui_renderer_state.clone();
@@ -751,7 +746,7 @@ impl Game {
                     savestate = SaveState::from(self, replay.clone(), renderer_state.clone(), false);
                     startup_successful = false;
                     game_running = false;
-                },
+                }
             }
         }
 
@@ -913,7 +908,8 @@ impl UIState<'_> {
             let time = self.clean_state_instant.unwrap().elapsed().as_millis();
             if time < GRID_CHANGE_TIME as _ {
                 self.grid_colour = self.grid_colour.lerp(target_grid_colour, time as f64 / GRID_CHANGE_TIME as f64);
-                self.grid_colour_background = self.grid_colour_background.lerp(target_grid_background, time as f64 / GRID_CHANGE_TIME as f64);
+                self.grid_colour_background =
+                    self.grid_colour_background.lerp(target_grid_background, time as f64 / GRID_CHANGE_TIME as f64);
             } else {
                 self.clean_state_instant = None;
                 self.grid_colour = target_grid_colour;
@@ -977,11 +973,11 @@ impl UIState<'_> {
                             .renderer
                             .set_view(clip_x, clip_y, clip_w, clip_h, 0.0, clip_x, clip_y, clip_w, clip_h);
                         self.game.renderer.draw_primitive_2d();
-                    },
+                    }
                     DrawCmd::RawCallback { callback, raw_cmd } => {
                         unsafe { callback(draw_list.raw(), raw_cmd) };
-                    },
-                    DrawCmd::ResetRenderState => {},
+                    }
+                    DrawCmd::ResetRenderState => {}
                 }
             }
         }
@@ -1027,13 +1023,13 @@ impl UIState<'_> {
                         Key::LeftAlt | Key::RightAlt => io.add_key_event(imgui::Key::ModAlt, state),
                         _ => (),
                     }
-                },
+                }
                 Event::Input(chr) => {
                     io.add_input_character(chr);
-                },
+                }
                 Event::MouseMove((x, y)) => {
                     io.mouse_pos = [x as f32, y as f32];
-                },
+                }
                 ev @ Event::MouseDown(btn) | ev @ Event::MouseUp(btn) => usize::try_from(input::ramen2mb(btn))
                     .ok()
                     .and_then(|x| x.checked_sub(1))
@@ -1047,15 +1043,15 @@ impl UIState<'_> {
                     io.display_size = [f32::from(width), f32::from(height)];
                     self.game.renderer.resize_framebuffer(width as _, height as _, false);
                     self.clear_context_menu = true;
-                },
+                }
                 Event::Focus(false) => {
                     io.clear_inputs();
                     self.clear_context_menu = true;
-                },
+                }
                 Event::Maximise(b) => {
                     self.config.ui_maximised = b;
                     self.clear_context_menu = true;
-                },
+                }
                 Event::CloseRequest => return false,
                 _ => (),
             }
@@ -1147,7 +1143,7 @@ impl UIState<'_> {
                 // Close old context menu
                 match self.windows.get_mut(self.context_menu_window.unwrap()) {
                     Some((win, _)) => win.context_menu_close(),
-                    None => {},
+                    None => {}
                 }
             }
 
@@ -1168,7 +1164,7 @@ impl UIState<'_> {
                     if let Some(modal) = context._modal_dialog {
                         new_modal_window = Some((index, modal));
                     }
-                },
+                }
                 None => self.context_menu_window = None,
             }
         }
@@ -1185,7 +1181,7 @@ impl UIState<'_> {
                     if !win.handle_modal(&mut context) {
                         self.modal_window_handler = None;
                     }
-                },
+                }
                 None => self.modal_window_handler = None,
             }
         }

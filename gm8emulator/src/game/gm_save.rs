@@ -83,7 +83,7 @@ impl GMSave {
 
     pub fn into_game(self, game: &mut Game) -> Result<(), String> {
         if self.game_id != game.game_id {
-            return Err("tried to load save file for different game".into())
+            return Err("tried to load save file for different game".into());
         }
 
         game.room.id = self.room_id;
@@ -138,7 +138,7 @@ impl GMSave {
                         "Bad room width/height {},{} loading room {} from state",
                         x_max, y_max, game.room.id
                     )
-                    .into())
+                    .into());
                 }
                 (x_max as u32, y_max as u32)
             }

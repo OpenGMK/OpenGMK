@@ -91,13 +91,13 @@ impl<'de, T: de::Deserialize<'de>, const N: usize> de::Deserialize<'de> for Arra
                             return Err(de::Error::invalid_length(
                                 i,
                                 &format!("a [{}; {}]", type_name::<T>(), N).as_str(),
-                            ))
+                            ));
                         },
                         Err(err) => unsafe {
                             for el in &mut (&mut *inst.as_mut_ptr()).0[..i] {
                                 ptr::drop_in_place(el);
                             }
-                            return Err(err)
+                            return Err(err);
                         },
                     }
                     i += 1;

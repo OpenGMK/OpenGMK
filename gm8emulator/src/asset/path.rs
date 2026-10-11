@@ -150,13 +150,13 @@ impl Path {
                                 y: (node_pair[1].point.y - node_pair[0].point.y) * lerp + node_pair[0].point.y,
                                 speed: (node_pair[1].point.speed - node_pair[0].point.speed) * lerp
                                     + node_pair[0].point.speed,
-                            }
+                            };
                         }
                     }
                     // We must be after the final control node, so return that
                     self.end
                 }
-            },
+            }
         }
     }
 }

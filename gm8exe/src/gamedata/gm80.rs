@@ -15,7 +15,7 @@ where
     // Verify size is large enough to do the following checks - otherwise it can't be this format
     if exe.get_ref().len() < 0x144AC0 + 4 {
         log!(logger, "File too short for this format (0x{:X} bytes)", exe.get_ref().len());
-        return Ok(false)
+        return Ok(false);
     }
 
     // Check for the standard 8.0 loading sequence
@@ -37,16 +37,16 @@ where
                     log!(logger, "GM8.0 magic check's JNZ is patched out");
                     None
                 }
-            },
+            }
             0x90 => {
                 exe.seek(SeekFrom::Current(4))?;
                 log!(logger, "GM8.0 magic check is patched out with NOP");
                 None
-            },
+            }
             i => {
                 log!(logger, "Unknown instruction in place of magic CMP: {}", i);
-                return Ok(false)
-            },
+                return Ok(false);
+            }
         };
 
         // There should be a CMP for the next dword, it's usually a version header (0x320)
@@ -67,16 +67,16 @@ where
                             println!("GM8.0 header version check's JNZ is patched out");
                             None
                         }
-                    },
+                    }
                     0x90 => {
                         exe.seek(SeekFrom::Current(4))?;
                         log!(logger, "GM8.0 header version check is patched out with NOP");
                         None
-                    },
+                    }
                     i => {
                         log!(logger, "Unknown instruction in place of magic CMP: {}", i);
-                        return Ok(false)
-                    },
+                        return Ok(false);
+                    }
                 }
             } else {
                 log!(logger, "GM8.0 header version check appears patched out");
@@ -98,11 +98,11 @@ where
                         Ok(h) => h,
                         _ => {
                             log!(logger, "Passed end of stream looking for GM8.0 header, so quitting");
-                            return Ok(false)
-                        },
+                            return Ok(false);
+                        }
                     };
                     if header1 == n {
-                        break
+                        break;
                     } else {
                         log!(
                             logger,
@@ -115,22 +115,22 @@ where
                         exe.seek(SeekFrom::Current(10000 - 4))?;
                     }
                 }
-            },
+            }
             None => {
                 exe.seek(SeekFrom::Current(4))?;
-            },
+            }
         }
         match gm80_header_ver {
             Some(n) => {
                 let header2 = exe.read_u32::<LE>()?;
                 if header2 != n {
                     log!(logger, "Failed to read GM8.0 header: expected version {}, got {}", n, header2);
-                    return Ok(false)
+                    return Ok(false);
                 }
-            },
+            }
             None => {
                 exe.seek(SeekFrom::Current(4))?;
-            },
+            }
         }
 
         exe.seek(SeekFrom::Current(8))?;

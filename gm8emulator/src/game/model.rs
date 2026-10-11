@@ -34,14 +34,14 @@ impl Command {
                 }
                 .into();
                 0
-            },
+            }
             Command::End => 1,
             Command::Vertex { pos, normal, tex_coord } => {
                 args[..3].copy_from_slice(pos);
                 args[3..6].copy_from_slice(normal);
                 args[6..8].copy_from_slice(tex_coord);
                 8
-            },
+            }
             Command::VertexColour { pos, normal, tex_coord, col: (col, alpha) } => {
                 args[..3].copy_from_slice(pos);
                 args[3..6].copy_from_slice(normal);
@@ -49,13 +49,13 @@ impl Command {
                 args[8] = (*col).into();
                 args[9] = *alpha;
                 9
-            },
+            }
             Command::Block { pos1, pos2, tex_repeat } => {
                 args[..3].copy_from_slice(pos1);
                 args[3..6].copy_from_slice(pos2);
                 args[6..8].copy_from_slice(tex_repeat);
                 10
-            },
+            }
             Command::Cylinder { pos1, pos2, tex_repeat, closed, steps } => {
                 args[..3].copy_from_slice(pos1);
                 args[3..6].copy_from_slice(pos2);
@@ -63,7 +63,7 @@ impl Command {
                 args[8] = (*closed as i32).into();
                 args[9] = (*steps).into();
                 11
-            },
+            }
             Command::Cone { pos1, pos2, tex_repeat, closed, steps } => {
                 args[..3].copy_from_slice(pos1);
                 args[3..6].copy_from_slice(pos2);
@@ -71,26 +71,26 @@ impl Command {
                 args[8] = (*closed as i32).into();
                 args[9] = (*steps).into();
                 12
-            },
+            }
             Command::Ellipsoid { pos1, pos2, tex_repeat, steps } => {
                 args[..3].copy_from_slice(pos1);
                 args[3..6].copy_from_slice(pos2);
                 args[6..8].copy_from_slice(tex_repeat);
                 args[8] = (*steps).into();
                 13
-            },
+            }
             Command::Wall { pos1, pos2, tex_repeat } => {
                 args[..3].copy_from_slice(pos1);
                 args[3..6].copy_from_slice(pos2);
                 args[6..8].copy_from_slice(tex_repeat);
                 14
-            },
+            }
             Command::Floor { pos1, pos2, tex_repeat } => {
                 args[..3].copy_from_slice(pos1);
                 args[3..6].copy_from_slice(pos2);
                 args[6..8].copy_from_slice(tex_repeat);
                 15
-            },
+            }
         };
         (cmd, args)
     }

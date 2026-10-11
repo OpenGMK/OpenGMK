@@ -46,22 +46,10 @@ pub enum Node {
     Variable { accessor: VariableAccessor },
     Field { accessor: FieldAccessor },
 
-    ContextFunction {
-        args: Box<[Node]>,
-        function: gml::ContextFunction
-    },
-    StateFunction {
-        args: Box<[Node]>,
-        function: gml::StateFunction
-    },
-    RoutineFunction {
-        args: Box<[Node]>,
-        function: gml::RoutineFunction,
-    },
-    ValueFunction {
-        args: Box<[Node]>,
-        function: gml::ValueFunction
-    },
+    ContextFunction { args: Box<[Node]>, function: gml::ContextFunction },
+    StateFunction { args: Box<[Node]>, function: gml::StateFunction },
+    RoutineFunction { args: Box<[Node]>, function: gml::RoutineFunction },
+    ValueFunction { args: Box<[Node]>, function: gml::ValueFunction },
 
     Unary { child: Box<Node>, operator: UnaryOperator },
     Binary { left: Box<Node>, right: Box<Node>, operator: BinaryOperator, type_unsafe: bool },
@@ -191,10 +179,10 @@ impl Display for Error {
             Self::ExtensionFunctionNotLoaded(id) => write!(f, "extension function {} not loaded", id),
             Self::InvalidOperandsUnary(op, x) => {
                 write!(f, "invalid operands {} to {} operator ({1}{})", x.ty_str(), op, x)
-            },
+            }
             Self::InvalidOperandsBinary(op, x, y) => {
                 write!(f, "invalid operands {} and {} to {} operator ({} {2} {})", x.ty_str(), y.ty_str(), op, x, y)
-            },
+            }
             Self::InvalidUnaryOperator(op) => write!(f, "invalid unary operator {}", op),
             Self::InvalidBinaryOperator(op) => write!(f, "invalid binary operator {}", op),
             Self::InvalidAssignment(expr) => write!(f, "invalid assignment {}", expr),
@@ -219,7 +207,7 @@ impl Display for Error {
                 } else {
                     write!(f, "uninitialized variable \"{}[{}]\"", v, *i)
                 }
-            },
+            }
             Self::UninitializedArgument(n) => write!(f, "uninitialized argument #{}", n),
             Self::TooManyArrayDimensions(n) => write!(f, "too many array dimensions ({})", n),
             Self::WrongArgumentCount(exp, got) => write!(f, "wrong argument count (expected: {}, got: {})", exp, got),
@@ -249,7 +237,7 @@ impl fmt::Debug for Instruction {
             Instruction::EvalExpression { node } => write!(f, "EvalExpression({:?})", node),
             Instruction::IfElse { cond, if_body, else_body } => {
                 write!(f, "IfElse({:?}, if={:?}, else={:?}", cond, if_body, else_body)
-            },
+            }
             Instruction::LoopUntil { cond, body } => write!(f, "LoopUntil({:?}, {:?})", cond, body),
             Instruction::LoopWhile { cond, body } => write!(f, "LoopWhile({:?}, {:?})", cond, body),
             Instruction::LoopFor { cond, body, step } => write!(f, "LoopFor({:?}, {:?}, {:?})", cond, body, step),
@@ -258,7 +246,7 @@ impl fmt::Debug for Instruction {
             Instruction::SetReturnValue { value } => write!(f, "SetReturnValue({:?})", value),
             Instruction::Switch { input, cases, default, body } => {
                 write!(f, "Switch({:?}, cases={:?}, default={:?}, {:?}", input, cases, default, body)
-            },
+            }
             Instruction::With { target, body } => write!(f, "With({:?}, {:?})", target, body),
             Instruction::GlobalVar { fields } => write!(f, "GlobalVar({:?})", fields),
             Instruction::RuntimeError { error } => write!(f, "RuntimeError({:?})", error),
@@ -278,30 +266,30 @@ impl fmt::Debug for Node {
             Node::Field { accessor } => write!(f, "<field: {:?}>", accessor),
 
             Node::ContextFunction { args, function } => {
-                let (fn_id, fn_name) = mappings::find_function_by_address(function)
-                    .map(|(i, v)| (i+1, v)).unwrap_or((0, "?unknown?"));
+                let (fn_id, fn_name) =
+                    mappings::find_function_by_address(function).map(|(i, v)| (i + 1, v)).unwrap_or((0, "?unknown?"));
                 write!(f, "<context fn #{}: {}({:?})", fn_id, fn_name, args)
-            },
+            }
             Node::StateFunction { args, function } => {
-                let (fn_id, fn_name) = mappings::find_function_by_address(function)
-                    .map(|(i, v)| (i+1, v)).unwrap_or((0, "?unknown?"));
+                let (fn_id, fn_name) =
+                    mappings::find_function_by_address(function).map(|(i, v)| (i + 1, v)).unwrap_or((0, "?unknown?"));
                 write!(f, "<state fn #{}: {}({:?})", fn_id, fn_name, args)
-            },
+            }
             Node::RoutineFunction { args, function } => {
-                let (fn_id, fn_name) = mappings::find_function_by_address(function)
-                    .map(|(i, v)| (i+1, v)).unwrap_or((0, "?unknown?"));
+                let (fn_id, fn_name) =
+                    mappings::find_function_by_address(function).map(|(i, v)| (i + 1, v)).unwrap_or((0, "?unknown?"));
                 write!(f, "<routine fn #{}: {}({:?})", fn_id, fn_name, args)
-            },
+            }
             Node::ValueFunction { args, function } => {
-                let (fn_id, fn_name) = mappings::find_function_by_address(function)
-                    .map(|(i, v)| (i+1, v)).unwrap_or((0, "?unknown?"));
+                let (fn_id, fn_name) =
+                    mappings::find_function_by_address(function).map(|(i, v)| (i + 1, v)).unwrap_or((0, "?unknown?"));
                 write!(f, "<value fn #{}: {}({:?})", fn_id, fn_name, args)
-            },
+            }
 
             Node::Unary { child, operator } => write!(f, "<unary {:?}: {:?}>", operator, child),
             Node::Binary { left, right, operator, type_unsafe } => {
                 write!(f, "<binary {:?}: {:?}, {:?}, {:?}>", operator, left, right, type_unsafe)
-            },
+            }
             Node::Script { args, script_id } => write!(f, "<script {:?}: {:?}>", script_id, args),
             Node::ExtensionFunction { args, id } => write!(f, "<extfn {:?}: {:?}>", id, args),
 
@@ -371,35 +359,35 @@ impl Game {
                     Target::Single(None) => (),
                     Target::Single(Some(instance)) => {
                         self.set_instance_field(instance, accessor.index, array_index, value);
-                    },
+                    }
                     Target::Objects(index) => {
                         let mut iter = self.room.instance_list.iter_by_identity(index);
                         while let Some(instance) = iter.next(&self.room.instance_list) {
                             self.set_instance_field(instance, accessor.index, array_index, value.clone());
                         }
-                    },
+                    }
                     Target::All => {
                         let mut iter = self.room.instance_list.iter_by_drawing();
                         while let Some(instance) = iter.next(&self.room.instance_list) {
                             self.set_instance_field(instance, accessor.index, array_index, value.clone());
                         }
-                    },
+                    }
                     Target::Global => {
                         if let Some(field) = self.globals.fields.get_mut(&accessor.index) {
                             field.set(array_index, value)
                         } else {
                             self.globals.fields.insert(accessor.index, Field::new(array_index, value));
                         }
-                    },
+                    }
                     Target::Local => {
                         if let Some(field) = context.locals.fields.get_mut(&accessor.index) {
                             field.set(array_index, value)
                         } else {
                             context.locals.fields.insert(accessor.index, Field::new(array_index, value));
                         }
-                    },
+                    }
                 }
-            },
+            }
             Instruction::SetVariable { accessor, value } => {
                 let target = self.get_target(context, &accessor.owner, false)?;
                 let array_index = self.get_array_index(&accessor.array, context)?;
@@ -409,38 +397,38 @@ impl Game {
                     Target::Single(None) => (),
                     Target::Single(Some(instance)) => {
                         self.set_instance_var(instance, &accessor.var, array_index, value, context)?;
-                    },
+                    }
                     Target::Objects(index) => {
                         let mut iter = self.room.instance_list.iter_by_identity(index);
                         while let Some(instance) = iter.next(&self.room.instance_list) {
                             self.set_instance_var(instance, &accessor.var, array_index, value.clone(), context)?;
                         }
-                    },
+                    }
                     Target::All => {
                         let mut iter = self.room.instance_list.iter_by_drawing();
                         while let Some(instance) = iter.next(&self.room.instance_list) {
                             self.set_instance_var(instance, &accessor.var, array_index, value.clone(), context)?;
                         }
-                    },
+                    }
                     Target::Global => {
                         if let Some(field) = self.globals.vars.get_mut(&accessor.var) {
                             field.set(array_index, value)
                         } else {
                             self.globals.vars.insert(accessor.var, Field::new(array_index, value));
                         }
-                    },
+                    }
                     Target::Local => {
                         if let Some(field) = context.locals.vars.get_mut(&accessor.var) {
                             field.set(array_index, value)
                         } else {
                             context.locals.vars.insert(accessor.var, Field::new(array_index, value));
                         }
-                    },
+                    }
                 }
-            },
+            }
             Instruction::EvalExpression { node } => {
                 context.return_value = self.eval(node, context)?;
-            },
+            }
             Instruction::IfElse { cond, if_body, else_body } => {
                 let return_type = if self.eval(cond, context)?.is_truthy() {
                     self.execute(if_body, context)
@@ -448,9 +436,9 @@ impl Game {
                     self.execute(else_body, context)
                 }?;
                 if return_type != ReturnType::Normal {
-                    return Ok(return_type)
+                    return Ok(return_type);
                 }
-            },
+            }
             Instruction::LoopUntil { cond, body } => loop {
                 match self.execute(body, context)? {
                     ReturnType::Normal => (),
@@ -459,7 +447,7 @@ impl Game {
                     ReturnType::Exit => return Ok(ReturnType::Exit),
                 }
                 if self.eval(cond, context)?.is_truthy() {
-                    break
+                    break;
                 }
             },
             Instruction::LoopWhile { cond, body } => {
@@ -471,22 +459,22 @@ impl Game {
                         ReturnType::Exit => return Ok(ReturnType::Exit),
                     }
                 }
-            },
+            }
             Instruction::LoopFor { cond, body, step } => {
                 while self.eval(cond, context)?.is_truthy() {
                     match self.execute(body, context)? {
                         ReturnType::Normal => {
                             self.execute(step, context)?;
-                        },
+                        }
                         ReturnType::Continue => {
                             self.execute(step, context)?;
-                            continue
-                        },
+                            continue;
+                        }
                         ReturnType::Break => break,
                         ReturnType::Exit => return Ok(ReturnType::Exit),
                     }
                 }
-            },
+            }
             Instruction::Return { return_type } => return Ok(*return_type),
             Instruction::Repeat { count, body } => {
                 for _ in 0..self.eval(count, context)?.round() {
@@ -497,10 +485,10 @@ impl Game {
                         ReturnType::Exit => return Ok(ReturnType::Exit),
                     }
                 }
-            },
+            }
             Instruction::SetReturnValue { value } => {
                 context.return_value = self.eval(value, context)?;
-            },
+            }
             Instruction::Switch { input, cases, default, body } => {
                 let input = self.eval(input, context)?;
                 for (cond, start) in cases.iter() {
@@ -508,16 +496,16 @@ impl Game {
                         return Ok(match self.execute(&body[*start..], context)? {
                             ReturnType::Break => ReturnType::Normal,
                             x => x,
-                        })
+                        });
                     }
                 }
                 if let Some(start) = default {
                     return Ok(match self.execute(&body[*start..], context)? {
                         ReturnType::Break => ReturnType::Normal,
                         x => x,
-                    })
+                    });
                 }
-            },
+            }
             Instruction::With { target, body } => {
                 let old_this = context.this;
                 let old_other = context.other;
@@ -529,17 +517,17 @@ impl Game {
                     gml::SELF | gml::UNSPECIFIED => {
                         if self.execute(body, context)? == ReturnType::Exit {
                             context.other = old_other;
-                            return Ok(ReturnType::Exit)
+                            return Ok(ReturnType::Exit);
                         }
-                    },
+                    }
                     gml::OTHER => {
                         context.this = old_other;
                         if self.execute(body, context)? == ReturnType::Exit {
                             context.this = old_this;
                             context.other = old_other;
-                            return Ok(ReturnType::Exit)
+                            return Ok(ReturnType::Exit);
                         }
-                    },
+                    }
                     gml::ALL => {
                         let mut iter = self.room.instance_list.iter_by_drawing();
                         while let Some(instance) = iter.next(&self.room.instance_list) {
@@ -551,11 +539,11 @@ impl Game {
                                 ReturnType::Exit => {
                                     context.this = old_this;
                                     context.other = old_other;
-                                    return Ok(ReturnType::Exit)
-                                },
+                                    return Ok(ReturnType::Exit);
+                                }
                             }
                         }
-                    },
+                    }
                     i if i < 0 => (),
                     i if i < 100_000 => {
                         let mut iter = self.room.instance_list.iter_by_identity(i);
@@ -568,11 +556,11 @@ impl Game {
                                 ReturnType::Exit => {
                                     context.this = old_this;
                                     context.other = old_other;
-                                    return Ok(ReturnType::Exit)
-                                },
+                                    return Ok(ReturnType::Exit);
+                                }
                             }
                         }
-                    },
+                    }
                     i => {
                         if let Some(instance) = self.room.instance_list.get_by_instid(i) {
                             context.this = instance;
@@ -580,23 +568,23 @@ impl Game {
                                 ReturnType::Exit => {
                                     context.this = old_this;
                                     context.other = old_other;
-                                    return Ok(ReturnType::Exit)
-                                },
+                                    return Ok(ReturnType::Exit);
+                                }
                                 _ => (),
                             }
                         }
-                    },
+                    }
                 }
 
                 context.this = old_this;
                 context.other = old_other;
-            },
+            }
             Instruction::GlobalVar { fields } => {
                 self.globalvars.extend(fields);
                 for &field in fields {
                     self.globals.fields.entry(field).or_insert(Field::new(0, Default::default()));
                 }
-            },
+            }
             Instruction::RuntimeError { error } => return Err(error.clone()),
         }
 
@@ -612,35 +600,35 @@ impl Game {
                 } else {
                     Err(gml::Error::NonexistentAsset(asset::Type::Constant, *constant_id as i32))
                 }
-            },
+            }
             Node::ContextFunction { args, function } => {
                 let mut arg_values: [Value; 16] = Default::default();
                 for (src, dest) in args.iter().zip(arg_values.iter_mut()) {
                     *dest = self.eval(src, context)?;
                 }
                 function.0(self, context, &arg_values[..args.len()])
-            },
+            }
             Node::StateFunction { args, function } => {
                 let mut arg_values: [Value; 16] = Default::default();
                 for (src, dest) in args.iter().zip(arg_values.iter_mut()) {
                     *dest = self.eval(src, context)?;
                 }
                 function.0(self, &arg_values[..args.len()])
-            },
+            }
             Node::RoutineFunction { args, function } => {
                 let mut arg_values: [Value; 16] = Default::default();
                 for (src, dest) in args.iter().zip(arg_values.iter_mut()) {
                     *dest = self.eval(src, context)?;
                 }
                 function.0(self, &arg_values[..args.len()])
-            },
+            }
             Node::ValueFunction { args, function } => {
                 let mut arg_values: [Value; 16] = Default::default();
                 for (src, dest) in args.iter().zip(arg_values.iter_mut()) {
                     *dest = self.eval(src, context)?;
                 }
                 function.0(&arg_values[..args.len()])
-            },
+            }
             Node::Script { args, script_id } => {
                 if let Some(Some(script)) = self.assets.scripts.get(*script_id) {
                     let instructions = script.compiled.clone();
@@ -656,7 +644,7 @@ impl Game {
                 } else {
                     Err(Error::NonexistentAsset(asset::Type::Script, *script_id as i32))
                 }
-            },
+            }
             Node::ExtensionFunction { args, id } => {
                 let mut arg_values: [Value; 16] = Default::default();
                 for (src, dest) in args.iter().zip(arg_values.iter_mut()) {
@@ -664,7 +652,7 @@ impl Game {
                 }
 
                 self.run_extension_function(*id, context, arg_values, args.len())
-            },
+            }
             Node::Field { accessor } => {
                 let target = self.get_target(context, &accessor.owner, self.globalvars.contains(&accessor.index))?;
                 let array_index = self.get_array_index(&accessor.array, context)?;
@@ -690,7 +678,7 @@ impl Game {
                                 ))
                             }
                         }
-                    },
+                    }
                     Target::All => {
                         if let Some(instance) = self.room.instance_list.iter_by_drawing().next(&self.room.instance_list)
                         {
@@ -705,7 +693,7 @@ impl Game {
                                 ))
                             }
                         }
-                    },
+                    }
                     Target::Global => match self.globals.fields.get(&accessor.index).and_then(|x| x.get(array_index)) {
                         Some(i) => Ok(i),
                         None => {
@@ -715,9 +703,9 @@ impl Game {
                                 return Err(Error::UninitializedVariable(
                                     self.compiler.get_field_name(accessor.index).unwrap(),
                                     array_index,
-                                ))
+                                ));
                             }
-                        },
+                        }
                     },
                     Target::Local => {
                         match context.locals.fields.get(&accessor.index).and_then(|x| x.get(array_index)) {
@@ -729,13 +717,13 @@ impl Game {
                                     return Err(Error::UninitializedVariable(
                                         self.compiler.get_field_name(accessor.index).unwrap(),
                                         array_index,
-                                    ))
+                                    ));
                                 }
-                            },
+                            }
                         }
-                    },
+                    }
                 }
-            },
+            }
             Node::Variable { accessor } => {
                 let target = self.get_target(context, &accessor.owner, false)?;
                 let array_index = self.get_array_index(&accessor.array, context)?;
@@ -747,7 +735,7 @@ impl Game {
                     )),
                     Target::Single(Some(instance)) => {
                         self.get_instance_var(instance, &accessor.var, array_index, context)
-                    },
+                    }
                     Target::Objects(index) => {
                         if let Some(instance) =
                             self.room.instance_list.iter_by_identity(index).next(&self.room.instance_list)
@@ -769,7 +757,7 @@ impl Game {
                                 ))
                             }
                         }
-                    },
+                    }
                     Target::All => {
                         if let Some(instance) = self.room.instance_list.iter_by_drawing().next(&self.room.instance_list)
                         {
@@ -790,7 +778,7 @@ impl Game {
                                 ))
                             }
                         }
-                    },
+                    }
                     Target::Global => match self.globals.vars.get(&accessor.var).and_then(|x| x.get(array_index)) {
                         Some(i) => Ok(i),
                         None => {
@@ -806,9 +794,9 @@ impl Game {
                                             .0,
                                     ),
                                     array_index,
-                                ))
+                                ));
                             }
-                        },
+                        }
                     },
                     Target::Local => match context.locals.vars.get(&accessor.var).and_then(|x| x.get(array_index)) {
                         Some(i) => Ok(i),
@@ -825,12 +813,12 @@ impl Game {
                                             .0,
                                     ),
                                     array_index,
-                                ))
+                                ));
                             }
-                        },
+                        }
                     },
                 }
-            },
+            }
             Node::Binary { left, right, operator, type_unsafe } => {
                 // the + in += can happen here, and += ignores errors in the + portion
                 let left = self.eval(left, context)?;
@@ -839,7 +827,7 @@ impl Game {
                     Err(_) if *type_unsafe => Ok(left),
                     res => res,
                 }
-            },
+            }
             Node::Unary { child, operator } => operator.call(self.eval(child, context)?),
             Node::RuntimeError { error } => Err(error.clone()),
         }
@@ -851,8 +839,12 @@ impl Game {
             ArrayAccessor::None => Ok(0),
             ArrayAccessor::Single(node) => {
                 let index = self.eval(node, context)?.round();
-                if index < 0 || index >= 32000 { Err(Error::InvalidArrayIndex(index)) } else { Ok(index as u32) }
-            },
+                if index < 0 || index >= 32000 {
+                    Err(Error::InvalidArrayIndex(index))
+                } else {
+                    Ok(index as u32)
+                }
+            }
             ArrayAccessor::Double(node1, node2) => {
                 let index1 = self.eval(node1, context)?.round();
                 let index2 = self.eval(node2, context)?.round();
@@ -863,7 +855,7 @@ impl Game {
                 } else {
                     Ok(((index1 * 32000) + index2) as u32)
                 }
-            },
+            }
         }
     }
 
@@ -930,22 +922,22 @@ impl Game {
                 let sprite = self.get_instance_mask_sprite(instance_handle);
                 instance.update_bbox(sprite);
                 Ok(instance.bbox_left.get().into())
-            },
+            }
             InstanceVariable::BboxRight => {
                 let sprite = self.get_instance_mask_sprite(instance_handle);
                 instance.update_bbox(sprite);
                 Ok(instance.bbox_right.get().into())
-            },
+            }
             InstanceVariable::BboxTop => {
                 let sprite = self.get_instance_mask_sprite(instance_handle);
                 instance.update_bbox(sprite);
                 Ok(instance.bbox_top.get().into())
-            },
+            }
             InstanceVariable::BboxBottom => {
                 let sprite = self.get_instance_mask_sprite(instance_handle);
                 instance.update_bbox(sprite);
                 Ok(instance.bbox_bottom.get().into())
-            },
+            }
             InstanceVariable::SpriteIndex => Ok(instance.sprite_index.get().into()),
             InstanceVariable::ImageIndex => Ok(instance.image_index.get().into()),
             InstanceVariable::ImageSingle => {
@@ -954,7 +946,7 @@ impl Game {
                 } else {
                     Ok(Value::from(-1i32))
                 }
-            },
+            }
             InstanceVariable::ImageNumber => match self.get_instance_sprite(instance_handle) {
                 Some(sprite) => Ok(sprite.frames.len().into()),
                 None => Ok(Value::from(0i32)),
@@ -966,7 +958,7 @@ impl Game {
                 } else {
                     Ok(Value::from(0.0))
                 }
-            },
+            }
             InstanceVariable::SpriteHeight => {
                 if let Some(sprite) = self.get_instance_sprite(instance_handle) {
                     let height: Real = sprite.height.into();
@@ -974,21 +966,21 @@ impl Game {
                 } else {
                     Ok(Value::from(0.0))
                 }
-            },
+            }
             InstanceVariable::SpriteXoffset => {
                 if let Some(sprite) = self.get_instance_sprite(instance_handle) {
                     Ok(sprite.origin_x.into())
                 } else {
                     Ok(Value::from(0.0))
                 }
-            },
+            }
             InstanceVariable::SpriteYoffset => {
                 if let Some(sprite) = self.get_instance_sprite(instance_handle) {
                     Ok(sprite.origin_y.into())
                 } else {
                     Ok(Value::from(0.0))
                 }
-            },
+            }
             InstanceVariable::ImageXscale => Ok(instance.image_xscale.get().into()),
             InstanceVariable::ImageYscale => Ok(instance.image_yscale.get().into()),
             InstanceVariable::ImageAngle => Ok(instance.image_angle.get().into()),
@@ -1057,7 +1049,7 @@ impl Game {
                 self.encode_str_maybe(cwd)
                     .map(|x| x.into_owned().into())
                     .ok_or(gml::Error::BadDirectoryError(cwd.to_string()))
-            },
+            }
             InstanceVariable::TempDirectory => Ok(self.temp_directory.clone().into()),
             InstanceVariable::ProgramDirectory => Ok(self.program_directory.clone().into()),
             InstanceVariable::InstanceCount => Ok(self.room.instance_list.count_all().into()),
@@ -1071,7 +1063,7 @@ impl Game {
             InstanceVariable::BackgroundShowcolor => Ok(self.room.show_colour.into()),
             InstanceVariable::BackgroundVisible => {
                 Ok(self.room.backgrounds.get(array_index as usize).unwrap_or(&self.room.backgrounds[0]).visible.into())
-            },
+            }
             InstanceVariable::BackgroundForeground => Ok(self
                 .room
                 .backgrounds
@@ -1088,15 +1080,19 @@ impl Game {
                 .into()),
             InstanceVariable::BackgroundX => {
                 Ok(self.room.backgrounds.get(array_index as usize).unwrap_or(&self.room.backgrounds[0]).x_offset.into())
-            },
+            }
             InstanceVariable::BackgroundY => {
                 Ok(self.room.backgrounds.get(array_index as usize).unwrap_or(&self.room.backgrounds[0]).y_offset.into())
-            },
+            }
             InstanceVariable::BackgroundWidth => {
                 let index =
                     self.room.backgrounds.get(array_index as usize).unwrap_or(&self.room.backgrounds[0]).background_id;
-                if let Some(bg) = self.assets.backgrounds.get_asset(index) { Ok(bg.width.into()) } else { Ok(0.into()) }
-            },
+                if let Some(bg) = self.assets.backgrounds.get_asset(index) {
+                    Ok(bg.width.into())
+                } else {
+                    Ok(0.into())
+                }
+            }
             InstanceVariable::BackgroundHeight => {
                 let index =
                     self.room.backgrounds.get(array_index as usize).unwrap_or(&self.room.backgrounds[0]).background_id;
@@ -1105,7 +1101,7 @@ impl Game {
                 } else {
                     Ok(0.into())
                 }
-            },
+            }
             InstanceVariable::BackgroundHtiled => Ok(self
                 .room
                 .backgrounds
@@ -1122,69 +1118,69 @@ impl Game {
                 .into()),
             InstanceVariable::BackgroundXscale => {
                 Ok(self.room.backgrounds.get(array_index as usize).unwrap_or(&self.room.backgrounds[0]).xscale.into())
-            },
+            }
             InstanceVariable::BackgroundYscale => {
                 Ok(self.room.backgrounds.get(array_index as usize).unwrap_or(&self.room.backgrounds[0]).yscale.into())
-            },
+            }
             InstanceVariable::BackgroundHspeed => {
                 Ok(self.room.backgrounds.get(array_index as usize).unwrap_or(&self.room.backgrounds[0]).hspeed.into())
-            },
+            }
             InstanceVariable::BackgroundVspeed => {
                 Ok(self.room.backgrounds.get(array_index as usize).unwrap_or(&self.room.backgrounds[0]).vspeed.into())
-            },
+            }
             InstanceVariable::BackgroundBlend => {
                 Ok(self.room.backgrounds.get(array_index as usize).unwrap_or(&self.room.backgrounds[0]).blend.into())
-            },
+            }
             InstanceVariable::BackgroundAlpha => {
                 Ok(self.room.backgrounds.get(array_index as usize).unwrap_or(&self.room.backgrounds[0]).alpha.into())
-            },
+            }
             InstanceVariable::ViewEnabled => Ok(self.room.views_enabled.into()),
             InstanceVariable::ViewCurrent => Ok(self.view_current.into()),
             InstanceVariable::ViewVisible => {
                 Ok(self.room.views.get(array_index as usize).unwrap_or(&self.room.views[0]).visible.into())
-            },
+            }
             InstanceVariable::ViewXview => {
                 Ok(self.room.views.get(array_index as usize).unwrap_or(&self.room.views[0]).source_x.into())
-            },
+            }
             InstanceVariable::ViewYview => {
                 Ok(self.room.views.get(array_index as usize).unwrap_or(&self.room.views[0]).source_y.into())
-            },
+            }
             InstanceVariable::ViewWview => {
                 Ok(self.room.views.get(array_index as usize).unwrap_or(&self.room.views[0]).source_w.into())
-            },
+            }
             InstanceVariable::ViewHview => {
                 Ok(self.room.views.get(array_index as usize).unwrap_or(&self.room.views[0]).source_h.into())
-            },
+            }
             InstanceVariable::ViewXport => {
                 Ok(self.room.views.get(array_index as usize).unwrap_or(&self.room.views[0]).port_x.into())
-            },
+            }
             InstanceVariable::ViewYport => {
                 Ok(self.room.views.get(array_index as usize).unwrap_or(&self.room.views[0]).port_y.into())
-            },
+            }
             InstanceVariable::ViewWport => {
                 Ok(self.room.views.get(array_index as usize).unwrap_or(&self.room.views[0]).port_w.into())
-            },
+            }
             InstanceVariable::ViewHport => {
                 Ok(self.room.views.get(array_index as usize).unwrap_or(&self.room.views[0]).port_h.into())
-            },
+            }
             InstanceVariable::ViewAngle => {
                 Ok(self.room.views.get(array_index as usize).unwrap_or(&self.room.views[0]).angle.into())
-            },
+            }
             InstanceVariable::ViewHborder => {
                 Ok(self.room.views.get(array_index as usize).unwrap_or(&self.room.views[0]).follow_hborder.into())
-            },
+            }
             InstanceVariable::ViewVborder => {
                 Ok(self.room.views.get(array_index as usize).unwrap_or(&self.room.views[0]).follow_vborder.into())
-            },
+            }
             InstanceVariable::ViewHspeed => {
                 Ok(self.room.views.get(array_index as usize).unwrap_or(&self.room.views[0]).follow_hspeed.into())
-            },
+            }
             InstanceVariable::ViewVspeed => {
                 Ok(self.room.views.get(array_index as usize).unwrap_or(&self.room.views[0]).follow_vspeed.into())
-            },
+            }
             InstanceVariable::ViewObject => {
                 Ok(self.room.views.get(array_index as usize).unwrap_or(&self.room.views[0]).follow_target.into())
-            },
+            }
             InstanceVariable::MouseX => Ok(self.get_mouse_in_room().0.into()),
             InstanceVariable::MouseY => Ok(self.get_mouse_in_room().1.into()),
             InstanceVariable::MouseButton => Ok(f64::from(self.input.mouse_button()).into()),
@@ -1259,14 +1255,14 @@ impl Game {
                     instance.bbox_is_stale.set(true);
                     instance.x.set(v);
                 }
-            },
+            }
             InstanceVariable::Y => {
                 let v: Real = value.into();
                 if v != instance.y.get() {
                     instance.bbox_is_stale.set(true);
                     instance.y.set(v);
                 }
-            },
+            }
             InstanceVariable::Xprevious => instance.xprevious.set(value.into()),
             InstanceVariable::Yprevious => instance.yprevious.set(value.into()),
             InstanceVariable::Xstart => instance.xstart.set(value.into()),
@@ -1280,21 +1276,18 @@ impl Game {
             InstanceVariable::GravityDirection => instance.gravity_direction.set(value.into()),
             InstanceVariable::Alarm => {
                 instance.alarms.borrow_mut().insert(array_index, value.into());
-            },
+            }
             InstanceVariable::Solid => instance.solid.set(value.is_truthy()),
             InstanceVariable::Visible => instance.visible.set(value.is_truthy()),
             InstanceVariable::Persistent => instance.persistent.set(value.is_truthy()),
             InstanceVariable::Depth => instance.depth.set(value.into()),
             InstanceVariable::SpriteIndex => {
                 let v: i32 = value.into();
-                instance.set_sprite_index(
-                    v,
-                    self.assets.sprites.get_asset(v).map_or(0, |s| s.frames.len())
-                );
-            },
+                instance.set_sprite_index(v, self.assets.sprites.get_asset(v).map_or(0, |s| s.frames.len()));
+            }
             InstanceVariable::ImageIndex => {
                 instance.image_index.set(value.into());
-            },
+            }
             InstanceVariable::ImageSingle => {
                 let img = Real::from(value);
                 if img >= Real::from(0.0) {
@@ -1303,28 +1296,28 @@ impl Game {
                 } else {
                     instance.image_speed.set(Real::from(1.0));
                 }
-            },
+            }
             InstanceVariable::ImageXscale => {
                 let v: Real = value.into();
                 if v != instance.image_xscale.get() {
                     instance.bbox_is_stale.set(true);
                     instance.image_xscale.set(v);
                 }
-            },
+            }
             InstanceVariable::ImageYscale => {
                 let v: Real = value.into();
                 if v != instance.image_yscale.get() {
                     instance.bbox_is_stale.set(true);
                     instance.image_yscale.set(v);
                 }
-            },
+            }
             InstanceVariable::ImageAngle => {
                 let v: Real = value.into();
                 if v != instance.image_angle.get() {
                     instance.bbox_is_stale.set(true);
                     instance.image_angle.set(v);
                 }
-            },
+            }
             InstanceVariable::ImageAlpha => instance.image_alpha.set(value.into()),
             InstanceVariable::ImageBlend => instance.image_blend.set(value.into()),
             InstanceVariable::ImageSpeed => instance.image_speed.set(value.into()),
@@ -1334,11 +1327,11 @@ impl Game {
                     instance.bbox_is_stale.set(true);
                     instance.mask_index.set(v);
                 }
-            },
+            }
             InstanceVariable::PathPosition => {
                 let new_value = Real::from(value).max(Real::from(0.0)).min(Real::from(1.0));
                 instance.path_position.set(new_value);
-            },
+            }
             InstanceVariable::PathPositionprevious => instance.path_positionprevious.set(value.into()),
             InstanceVariable::PathSpeed => instance.path_speed.set(value.into()),
             InstanceVariable::PathScale => instance.path_scale.set(value.into()),
@@ -1376,24 +1369,24 @@ impl Game {
                 if old_lives > 0 && self.lives <= 0 {
                     self.run_other_event(6)?;
                 }
-            },
+            }
             InstanceVariable::Health => {
                 let old_health = self.health;
                 self.health = value.into();
                 if old_health > 0.into() && self.health <= 0.into() {
                     self.run_other_event(9)?;
                 }
-            },
+            }
             InstanceVariable::RoomCaption => {
                 self.room.caption = value.into();
-            },
+            }
             InstanceVariable::RoomSpeed => {
                 let speed: i32 = value.into();
                 if speed <= 0 {
-                    return Err(Error::InvalidRoomSpeed(speed))
+                    return Err(Error::InvalidRoomSpeed(speed));
                 }
                 self.room.speed = speed as _
-            },
+            }
             InstanceVariable::RoomPersistent => self.room.persistent = value.is_truthy(),
             InstanceVariable::BackgroundColor => self.room.colour = (value.round() as u32).into(),
             InstanceVariable::BackgroundShowcolor => self.room.show_colour = value.is_truthy(),
@@ -1517,7 +1510,7 @@ impl Game {
                         self.input.set_mouse_button(mb);
                     }
                 }
-            },
+            }
             InstanceVariable::MouseLastbutton => {
                 let button = value.round();
                 if let Ok(mb) = i8::try_from(button) {
@@ -1525,26 +1518,26 @@ impl Game {
                         self.input.set_mouse_lastbutton(mb);
                     }
                 }
-            },
+            }
             InstanceVariable::KeyboardKey => {
                 let code = value.round();
                 if let Ok(vk) = u8::try_from(code) {
                     self.input.set_keyboard_key(vk);
                 }
-            },
+            }
             InstanceVariable::KeyboardLastkey => {
                 let code = value.round();
                 if let Ok(vk) = u8::try_from(code) {
                     self.input.set_keyboard_lastkey(vk);
                 }
-            },
+            }
             InstanceVariable::KeyboardLastchar => todo!("keyboard_lastchar setter"),
             InstanceVariable::KeyboardString => todo!("keyboard_string setter"),
             InstanceVariable::CursorSprite => self.cursor_sprite = value.round(),
             InstanceVariable::ShowScore => {
                 self.has_set_show_score = true;
                 self.score_capt_d = value.is_truthy()
-            },
+            }
             InstanceVariable::ShowLives => self.lives_capt_d = value.is_truthy(),
             InstanceVariable::ShowHealth => self.health_capt_d = value.is_truthy(),
             InstanceVariable::CaptionScore => self.score_capt = value.into(),
@@ -1562,7 +1555,11 @@ impl Game {
         let instance = self.room.instance_list.get(instance);
         let index = instance.sprite_index.get();
         if index >= 0 {
-            if let Some(Some(sprite)) = self.assets.sprites.get(index as usize) { Some(sprite) } else { None }
+            if let Some(Some(sprite)) = self.assets.sprites.get(index as usize) {
+                Some(sprite)
+            } else {
+                None
+            }
         } else {
             None
         }
@@ -1573,10 +1570,18 @@ impl Game {
         let index = {
             let instance = self.room.instance_list.get(instance);
             let index = instance.mask_index.get();
-            if index >= 0 { index } else { instance.sprite_index.get() }
+            if index >= 0 {
+                index
+            } else {
+                instance.sprite_index.get()
+            }
         };
         if index >= 0 {
-            if let Some(Some(sprite)) = self.assets.sprites.get(index as usize) { Some(sprite) } else { None }
+            if let Some(Some(sprite)) = self.assets.sprites.get(index as usize) {
+                Some(sprite)
+            } else {
+                None
+            }
         } else {
             None
         }
@@ -1625,7 +1630,7 @@ impl Game {
                 } else {
                     Ok(Target::Single(Some(context.this)))
                 }
-            },
+            }
             InstanceIdentifier::Expression(node) => {
                 let value = self.eval(node, context).map(i32::from)?;
                 match value {
@@ -1638,7 +1643,7 @@ impl Game {
                     i if i >= 100_000 => Ok(Target::Single(self.room.instance_list.get_by_instid(i))),
                     i => Ok(Target::Objects(i)),
                 }
-            },
+            }
         }
     }
 }

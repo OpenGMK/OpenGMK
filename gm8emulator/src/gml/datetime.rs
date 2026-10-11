@@ -55,8 +55,10 @@ impl DateTime {
     pub fn from_nanos(nanos: u128) -> Self {
         // manual unix timestamp because we need a PrimitiveDateTime
         // also split into seconds and nanos because time::Duration::nanoseconds takes an i64
-        Self(time::macros::date!(1970 - 1 - 1).midnight()
-            + time::Duration::new((nanos / 1_000_000_000) as _, (nanos % 1_000_000_000) as _))
+        Self(
+            time::macros::date!(1970 - 1 - 1).midnight()
+                + time::Duration::new((nanos / 1_000_000_000) as _, (nanos % 1_000_000_000) as _),
+        )
     }
 
     pub fn date(&self) -> Self {
@@ -78,9 +80,9 @@ impl DateTime {
 
     pub fn from_ymdhms(y: i32, mo: i32, d: i32, h: i32, mi: i32, s: i32) -> Option<Self> {
         time::Date::from_calendar_date(y, i32_to_month(mo)?, d as _)
-                .and_then(|d| d.with_hms(h as _, mi as _, s as _))
-                .ok()
-                .map(Self)
+            .and_then(|d| d.with_hms(h as _, mi as _, s as _))
+            .ok()
+            .map(Self)
     }
 
     pub fn year(&self) -> i32 {
@@ -138,7 +140,11 @@ impl From<DateTime> for Real {
         let ipart = Real::from((dt.0 - epoch()).whole_days() as f64);
         let fpart = Real::from((dt.time().0 - epoch()).whole_milliseconds() as f64) / Real::from(86400000);
         // the time part is the abs(fract()) of the datetime so that part increases backwards before the epoch
-        if dt.0 >= epoch() { ipart + fpart } else { ipart - 1.into() - fpart }
+        if dt.0 >= epoch() {
+            ipart + fpart
+        } else {
+            ipart - 1.into() - fpart
+        }
     }
 }
 

@@ -72,7 +72,7 @@ where
         GameVersion::GameMaker8_0 => enc.write_u32::<LE>(settings.vsync as u32)?,
         GameVersion::GameMaker8_1 => {
             enc.write_u32::<LE>(((settings.force_cpu_render as u32) << 7) | (settings.vsync as u32))?
-        },
+        }
     };
     enc.write_u32::<LE>(settings.disable_screensaver as u32)?;
     enc.write_u32::<LE>(settings.f4_fullscreen_toggle as u32)?;
@@ -94,10 +94,10 @@ where
                 let mut backdata_enc = ZlibWriter::new();
                 backdata_enc.write_buffer(&data)?;
                 backdata_enc.finish(&mut enc)?;
-            },
+            }
             None => {
                 enc.write_u32::<LE>(0)?;
-            },
+            }
         }
 
         match &settings.frontdata {
@@ -106,10 +106,10 @@ where
                 let mut frontdata_enc = ZlibWriter::new();
                 frontdata_enc.write_buffer(&data)?;
                 frontdata_enc.finish(&mut enc)?;
-            },
+            }
             None => {
                 enc.write_u32::<LE>(0)?;
-            },
+            }
         }
     }
 
@@ -123,10 +123,10 @@ where
             let mut ci_enc = ZlibWriter::new();
             ci_enc.write_buffer(&data)?;
             ci_enc.finish(&mut enc)?;
-        },
+        }
         None => {
             enc.write_u32::<LE>(0)?;
-        },
+        }
     }
 
     enc.write_u32::<LE>(settings.transparent as u32)?;
@@ -195,10 +195,10 @@ where
                     Some(asset) => {
                         enc.write_u32::<LE>(true as u32)?;
                         write_fn(&mut enc, asset, version)?;
-                    },
+                    }
                     None => {
                         enc.write_u32::<LE>(false as u32)?;
-                    },
+                    }
                 }
                 enc.finish()
             })
@@ -216,10 +216,10 @@ where
                 Some(asset) => {
                     enc.write_u32::<LE>(true as u32)?;
                     write_fn(&mut enc, asset, version)?;
-                },
+                }
                 None => {
                     enc.write_u32::<LE>(false as u32)?;
-                },
+                }
             }
             let buf = enc.finish()?;
             writer.write_u32::<LE>(buf.len() as u32)?;
@@ -274,10 +274,10 @@ where
             writer.write_u32::<LE>(true as u32)?;
             writer.write_u32::<LE>(data.len() as u32)?;
             writer.write_buffer(data)?;
-        },
+        }
         None => {
             writer.write_u32::<LE>(false as u32)?;
-        },
+        }
     }
     writer.write_u32::<LE>(
         (sound.fx.chorus as u32)
@@ -535,8 +535,16 @@ where
         for tile in &room.tiles {
             compat += &format!(
                 "{}{}",
-                if tile.xscale != 1.0 || tile.yscale != 1.0 { format!("tile_set_scale({},{},{});\r\n", tile.id, tile.xscale, tile.yscale) } else { String::new() },
-                if tile.blend != u32::MAX { format!("tile_set_blend({},{});\r\n", tile.id, tile.blend) } else { String::new() },
+                if tile.xscale != 1.0 || tile.yscale != 1.0 {
+                    format!("tile_set_scale({},{},{});\r\n", tile.id, tile.xscale, tile.yscale)
+                } else {
+                    String::new()
+                },
+                if tile.blend != u32::MAX {
+                    format!("tile_set_blend({},{});\r\n", tile.id, tile.blend)
+                } else {
+                    String::new()
+                },
             );
         }
     }
@@ -679,19 +687,19 @@ where
             ExportSetting::NoExport => {
                 enc.write_u32::<LE>(0)?;
                 enc.write_pas_string(&"".into())?;
-            },
+            }
             ExportSetting::TempFolder => {
                 enc.write_u32::<LE>(1)?;
                 enc.write_pas_string(&"".into())?;
-            },
+            }
             ExportSetting::GameFolder => {
                 enc.write_u32::<LE>(2)?;
                 enc.write_pas_string(&"".into())?;
-            },
+            }
             ExportSetting::CustomFolder(f) => {
                 enc.write_u32::<LE>(3)?;
                 enc.write_pas_string(f)?;
-            },
+            }
         }
         enc.write_u32::<LE>(file.overwrite_file as u32)?;
         enc.write_u32::<LE>(file.free_memory as u32)?;
@@ -720,7 +728,7 @@ where
     W: io::Write,
 {
     writer.write_u32::<LE>(800)?; // TODO: why is this hardcoded?? come on adam
-    // maybe others are too ?
+                                  // maybe others are too ?
     let mut enc = ZlibWriter::new();
     enc.write_u32::<LE>(info.bg_colour.into())?;
     enc.write_u32::<LE>(info.new_window as u32)?;

@@ -173,13 +173,13 @@ impl EmulatorContext<'_> {
                     savestate::WriteError::IOErr(err) => format!("Failed to write savestate #{}: {}", slot, err),
                     savestate::WriteError::CompressErr(err) => {
                         format!("Failed to compress savestate #{}: {}", slot, err)
-                    },
+                    }
                     savestate::WriteError::SerializeErr(err) => {
                         format!("Failed to serialize savestate #{}: {}", slot, err)
-                    },
+                    }
                 });
                 false
-            },
+            }
         }
     }
 
@@ -198,13 +198,13 @@ impl EmulatorContext<'_> {
                         savestate::ReadError::IOErr(err) => format!("Error reading {}:\n\n{}", filename, err),
                         savestate::ReadError::DecompressErr(err) => {
                             format!("Error decompressing {}:\n\n{}", filename, err)
-                        },
+                        }
                         savestate::ReadError::DeserializeErr(err) => {
                             format!("Error deserializing {}:\n\n{}", filename, err)
-                        },
+                        }
                     });
                     None
-                },
+                }
             }
         } else {
             None

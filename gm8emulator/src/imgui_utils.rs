@@ -64,11 +64,7 @@ pub trait UiCustomFunction {
     fn invisible_button_with_size_and_pos(&self, name: &str, size: Vec2<f32>, position: Vec2<f32>) -> bool;
     fn coloured_text(&self, text: &str, col: Colour);
     fn text_centered(&self, text: &str, center: Vec2<f32>);
-    fn callback<T>(
-        &self,
-        callback: unsafe extern "C" fn(*const c::ImDrawList, *const c::ImDrawCmd),
-        data_ptr: &mut T,
-    );
+    fn callback<T>(&self, callback: unsafe extern "C" fn(*const c::ImDrawList, *const c::ImDrawCmd), data_ptr: &mut T);
     fn mouse_pos(&self) -> Vec2<f32>;
     fn rect(&self, min: Vec2<f32>, max: Vec2<f32>, colour: Colour, alpha: u8);
     fn rect_outline(&self, min: Vec2<f32>, max: Vec2<f32>, colour: Colour, alpha: u8);
@@ -94,20 +90,15 @@ use imgui::sys as c;
 
 impl<Name: AsRef<str>> TableColumnSetupCustomFunction<Name> for TableColumnSetup<Name> {
     fn with_flags(name: Name, flags: imgui::TableColumnFlags) -> Self {
-        Self {
-            name,
-            flags,
-            init_width_or_weight: 0.0,
-            user_id: imgui::Id::default(),
-        }
+        Self { name, flags, init_width_or_weight: 0.0, user_id: imgui::Id::default() }
     }
-    fn with_flags_and_init_width_or_weight(name: Name, flags: imgui::TableColumnFlags, init_width_or_weight: f32) -> Self {
-        Self {
-            name,
-            flags,
-            init_width_or_weight,
-            user_id: imgui::Id::default(),
-        }
+
+    fn with_flags_and_init_width_or_weight(
+        name: Name,
+        flags: imgui::TableColumnFlags,
+        init_width_or_weight: f32,
+    ) -> Self {
+        Self { name, flags, init_width_or_weight, user_id: imgui::Id::default() }
     }
 }
 
@@ -135,7 +126,7 @@ fn index_to_imgui(index: usize, include_mouse: bool, include_modifiers: bool) ->
             } else {
                 None
             }
-        },
+        }
 
         Some(imgui::Key::ModCtrl)
         | Some(imgui::Key::ModAlt)
@@ -146,7 +137,7 @@ fn index_to_imgui(index: usize, include_mouse: bool, include_modifiers: bool) ->
             } else {
                 None
             }
-        },
+        }
 
         _ => button,
     }
@@ -174,11 +165,7 @@ impl UiCustomFunction for imgui::Ui {
                 "__popup\0".as_ptr() as _,
                 c::ImVec2 {
                     x: pos.0.min(display_size.0 - size.0),
-                    y: if pos.1 + size.1 > display_size.1 && pos.1 >= size.1 {
-                        pos.1 - size.1
-                    } else {
-                        pos.1
-                    },
+                    y: if pos.1 + size.1 > display_size.1 && pos.1 >= size.1 { pos.1 - size.1 } else { pos.1 },
                 },
                 0,
             );
@@ -211,11 +198,7 @@ impl UiCustomFunction for imgui::Ui {
         self.text(text);
     }
 
-    fn callback<T>(
-        &self,
-        callback: unsafe extern "C" fn(*const c::ImDrawList, *const c::ImDrawCmd),
-        data_ptr: &mut T,
-    ) {
+    fn callback<T>(&self, callback: unsafe extern "C" fn(*const c::ImDrawList, *const c::ImDrawCmd), data_ptr: &mut T) {
         unsafe {
             c::ImDrawList_AddCallback(c::igGetWindowDrawList(), Some(callback), data_ptr as *mut T as *mut _);
         }
@@ -324,17 +307,17 @@ impl UiCustomFunction for imgui::Ui {
             //  I unfortunately can't remember what that was for, or whether or not that was a
             //  mistake or not but it seems to work fine without.
             .flags(
-                  imgui::WindowFlags::NO_TITLE_BAR
-                | imgui::WindowFlags::NO_RESIZE
-                | imgui::WindowFlags::NO_MOVE
-                | imgui::WindowFlags::NO_SCROLLBAR
-                | imgui::WindowFlags::NO_SCROLL_WITH_MOUSE
-                | imgui::WindowFlags::NO_COLLAPSE
-                | imgui::WindowFlags::ALWAYS_AUTO_RESIZE
-                | imgui::WindowFlags::NO_BACKGROUND
-                | imgui::WindowFlags::NO_SAVED_SETTINGS
-                | imgui::WindowFlags::NO_MOUSE_INPUTS
-                | imgui::WindowFlags::NO_NAV_INPUTS
+                imgui::WindowFlags::NO_TITLE_BAR
+                    | imgui::WindowFlags::NO_RESIZE
+                    | imgui::WindowFlags::NO_MOVE
+                    | imgui::WindowFlags::NO_SCROLLBAR
+                    | imgui::WindowFlags::NO_SCROLL_WITH_MOUSE
+                    | imgui::WindowFlags::NO_COLLAPSE
+                    | imgui::WindowFlags::ALWAYS_AUTO_RESIZE
+                    | imgui::WindowFlags::NO_BACKGROUND
+                    | imgui::WindowFlags::NO_SAVED_SETTINGS
+                    | imgui::WindowFlags::NO_MOUSE_INPUTS
+                    | imgui::WindowFlags::NO_NAV_INPUTS,
             )
             .position(pos, imgui::Condition::Always)
             .build(|| {

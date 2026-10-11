@@ -101,7 +101,7 @@ pub trait HandleManager<T>: private::HandleStorage<T> {
         for (index, slot) in self.iter_mut().enumerate() {
             if slot.is_none() {
                 slot.replace(cvt(init_handle())?);
-                return Ok(index.try_into().unwrap())
+                return Ok(index.try_into().unwrap());
             }
         }
         self.push_from(init_handle)

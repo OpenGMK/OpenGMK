@@ -97,25 +97,25 @@ impl std::fmt::Debug for GmlBody {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error> {
         match self {
             GmlBody::ContextFunction(func) => {
-                let (fn_id, fn_name) = mappings::find_function_by_address(func)
-                    .map(|(i, v)| (i+1, v)).unwrap_or((0, "<unknown>"));
+                let (fn_id, fn_name) =
+                    mappings::find_function_by_address(func).map(|(i, v)| (i + 1, v)).unwrap_or((0, "<unknown>"));
                 write!(f, "Body::ContextFunction({}:{})", fn_id, fn_name)
-            },
+            }
             GmlBody::StateFunction(func) => {
-                let (fn_id, fn_name) = mappings::find_function_by_address(func)
-                    .map(|(i, v)| (i+1, v)).unwrap_or((0, "<unknown>"));
+                let (fn_id, fn_name) =
+                    mappings::find_function_by_address(func).map(|(i, v)| (i + 1, v)).unwrap_or((0, "<unknown>"));
                 write!(f, "Body::StateFunction({}:{})", fn_id, fn_name)
-            },
+            }
             GmlBody::RoutineFunction(func) => {
-                let (fn_id, fn_name) = mappings::find_function_by_address(func)
-                    .map(|(i, v)| (i+1, v)).unwrap_or((0, "<unknown>"));
+                let (fn_id, fn_name) =
+                    mappings::find_function_by_address(func).map(|(i, v)| (i + 1, v)).unwrap_or((0, "<unknown>"));
                 write!(f, "Body::RoutineFunction({}:{})", fn_id, fn_name)
-            },
+            }
             GmlBody::ValueFunction(func) => {
-                let (fn_id, fn_name) = mappings::find_function_by_address(func)
-                    .map(|(i, v)| (i+1, v)).unwrap_or((0, "<unknown>"));
+                let (fn_id, fn_name) =
+                    mappings::find_function_by_address(func).map(|(i, v)| (i + 1, v)).unwrap_or((0, "<unknown>"));
                 write!(f, "Body::ValueFunction({}:{})", fn_id, fn_name)
-            },
+            }
             GmlBody::Code(code) => write!(f, "Body::Code({:?})", code),
         }
     }
@@ -163,17 +163,18 @@ impl Tree {
                                         body: match function {
                                             gml::Function::Runtime(f) => GmlBody::ContextFunction(gml::FunctionPtr(*f)),
                                             gml::Function::Engine(f) => GmlBody::StateFunction(gml::FunctionPtr(*f)),
-                                            gml::Function::Volatile(f) |
-                                            gml::Function::Constant(f) => GmlBody::RoutineFunction(gml::FunctionPtr(*f)),
+                                            gml::Function::Volatile(f) | gml::Function::Constant(f) => {
+                                                GmlBody::RoutineFunction(gml::FunctionPtr(*f))
+                                            }
                                             gml::Function::Pure(f) => GmlBody::ValueFunction(gml::FunctionPtr(*f)),
                                         },
                                         is_condition: action.is_condition,
                                     },
                                 });
                             } else {
-                                return Err(format!("Unknown function: {} in action {}", action.fn_name, i))
+                                return Err(format!("Unknown function: {} in action {}", action.fn_name, i));
                             }
-                        },
+                        }
 
                         // Execution type CODE is a bit special depending on the action kind..
                         execution_type::CODE | _ => {
@@ -194,9 +195,9 @@ impl Tree {
                                     is_condition: action.is_condition,
                                 },
                             });
-                        },
+                        }
                     }
-                },
+                }
 
                 kind::ELSE => {
                     output.push(Action {
@@ -206,7 +207,7 @@ impl Tree {
                         invert_condition: action.invert_condition,
                         body: Body::Else,
                     });
-                },
+                }
 
                 kind::BEGIN_GROUP => output.push(Action {
                     index: i,
@@ -232,7 +233,7 @@ impl Tree {
                         invert_condition: action.invert_condition,
                         body: Body::Exit,
                     });
-                },
+                }
 
                 kind::REPEAT => {
                     output.push(Action {
@@ -244,7 +245,7 @@ impl Tree {
                             count: compiler.compile_expression(&action.param_strings[0].0).map_err(|e| e.message)?,
                         },
                     });
-                },
+                }
 
                 kind::VARIABLE => {
                     let mut code = action.param_strings[0].0.to_vec();
@@ -261,7 +262,7 @@ impl Tree {
                             is_condition: false,
                         },
                     });
-                },
+                }
 
                 kind::CODE => {
                     output.push(Action {
@@ -275,7 +276,7 @@ impl Tree {
                             is_condition: false,
                         },
                     });
-                },
+                }
 
                 _ => (),
             }
@@ -343,9 +344,9 @@ impl Game {
                 Body::BlockEnd => {
                     block_depth = block_depth.saturating_sub(1);
                     if block_depth == 0 {
-                        return i + 1
+                        return i + 1;
                     }
-                },
+                }
                 Body::Repeat { .. } => (),
                 Body::Normal { is_condition, .. } if is_condition => (),
                 Body::Normal { .. } | Body::Comment | Body::Exit | Body::Else if block_depth > 0 => (),
@@ -369,12 +370,12 @@ impl Game {
         let mut skip_count = 0;
         for (i, action) in slice.iter().enumerate() {
             if self.scene_change.is_some() {
-                return Ok((ReturnType::Exit, i))
+                return Ok((ReturnType::Exit, i));
             }
 
             if skip_count > 0 {
                 skip_count -= 1;
-                continue
+                continue;
             }
 
             match &action.body {
@@ -420,9 +421,9 @@ impl Game {
                                     context.argument_count = args.len();
                                     self.execute(code, &mut context)?;
                                     context.return_value
-                                },
+                                }
                             };
-                        },
+                        }
                         Some(i) if i < 0 => (),
                         Some(i) => {
                             context.other = this;
@@ -445,10 +446,10 @@ impl Game {
                                         context.argument_count = args.len();
                                         self.execute(code, &mut context)?;
                                         context.return_value.clone()
-                                    },
+                                    }
                                 };
                             }
-                        },
+                        }
                     }
 
                     if *is_condition {
@@ -462,7 +463,7 @@ impl Game {
                                             skip_count +=
                                                 1 + slice.get(i + 1 + len + 1..).map(Self::skip_actions).unwrap_or(0);
                                         };
-                                    },
+                                    }
                                     (ReturnType::Exit, len) => return Ok((ReturnType::Exit, i + len)),
                                 }
                             }
@@ -486,16 +487,16 @@ impl Game {
                                         (ReturnType::Continue, len) => skip_count += 1 + len,
                                         (ReturnType::Exit, len) => {
                                             return Ok((ReturnType::Exit, i + 1 + skip_count + 1 + len))
-                                        },
+                                        }
                                     }
                                 }
                             }
                         }
                     }
                     if one_block && block_depth == 0 {
-                        return Ok((ReturnType::Continue, i + 1 + skip_count))
+                        return Ok((ReturnType::Continue, i + 1 + skip_count));
                     }
-                },
+                }
                 Body::Repeat { count } => {
                     if let Some(body) = slice.get(i + 1..) {
                         let mut context = Context {
@@ -518,14 +519,14 @@ impl Game {
                         }
                         skip_count = slice.get(i + 1..).map(Self::skip_actions).unwrap_or(0);
                     }
-                },
+                }
                 Body::BlockBegin => block_depth += 1,
                 Body::BlockEnd => {
                     block_depth = block_depth.saturating_sub(1);
                     if one_block && block_depth == 0 {
-                        return Ok((ReturnType::Continue, i + 1 + skip_count))
+                        return Ok((ReturnType::Continue, i + 1 + skip_count));
                     }
-                },
+                }
                 Body::Exit => return Ok((ReturnType::Exit, i)),
                 Body::Else | Body::Comment => (),
             }

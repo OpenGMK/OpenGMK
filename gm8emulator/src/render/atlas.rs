@@ -66,11 +66,11 @@ impl AtlasBuilder {
         }
 
         if width <= 0 || height <= 0 {
-            return Some(AtlasRef(-1))
+            return Some(AtlasRef(-1));
         }
 
         if width > self.max_size || height > self.max_size {
-            return None
+            return None;
         }
 
         for (id, packer) in self.packers.iter_mut().enumerate() {
@@ -78,7 +78,7 @@ impl AtlasBuilder {
                 let (atlas_ref, data) = to_texture(id as _, rect, data, origin_x, origin_y);
                 let id = self.textures.len() as i32;
                 self.textures.push((atlas_ref.clone(), data));
-                return Some(AtlasRef(id))
+                return Some(AtlasRef(id));
             } else {
                 loop {
                     let (pwidth, pheight) = packer.size();
@@ -87,14 +87,14 @@ impl AtlasBuilder {
                     } else if (pheight * 2) <= self.max_size {
                         packer.resize(pwidth, pheight * 2);
                     } else {
-                        break
+                        break;
                     }
 
                     if let Some(rect) = packer.pack(width, height, false) {
                         let (atlas_ref, data) = to_texture(id as _, rect, data, origin_x, origin_y);
                         let id = self.textures.len() as i32;
                         self.textures.push((atlas_ref.clone(), data));
-                        return Some(AtlasRef(id))
+                        return Some(AtlasRef(id));
                     }
                 }
             }

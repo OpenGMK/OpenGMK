@@ -115,19 +115,19 @@ impl Asset for IncludedFile {
             ExportSetting::NoExport => {
                 writer.write_u32::<LE>(0)?;
                 writer.write_pas_string(&"".into())?;
-            },
+            }
             ExportSetting::TempFolder => {
                 writer.write_u32::<LE>(1)?;
                 writer.write_pas_string(&"".into())?;
-            },
+            }
             ExportSetting::GameFolder => {
                 writer.write_u32::<LE>(2)?;
                 writer.write_pas_string(&"".into())?;
-            },
+            }
             ExportSetting::CustomFolder(folder) => {
                 writer.write_u32::<LE>(3)?;
                 writer.write_pas_string(folder)?;
-            },
+            }
         }
         writer.write_u32::<LE>(self.overwrite_file.into())?;
         writer.write_u32::<LE>(self.free_memory.into())?;

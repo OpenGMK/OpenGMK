@@ -10,7 +10,7 @@ use gm8exe::{
     GameAssets,
 };
 use gml_parser::{
-    ast::{self, AST},
+    ast::{self, Ast},
     token::Operator,
 };
 use std::{
@@ -67,24 +67,24 @@ pub fn process(assets: &mut GameAssets) {
                         *expression = PascalString(deobfuscator.process_expression(&expression.0, assets)?.into());
                     }
                 }
-            },
+            }
             5 => {
                 // "repeat"
                 action.param_strings[0] =
                     PascalString(deobfuscator.process_expression(&action.param_strings[0].0, assets)?.into());
-            },
+            }
             6 => {
                 // "variable"
                 for i in 0..=1 {
                     action.param_strings[i] =
                         PascalString(deobfuscator.process_expression(&action.param_strings[i].0, assets)?.into());
                 }
-            },
+            }
             7 => {
                 // "code"
                 action.param_strings[0] =
                     PascalString(deobfuscator.process_gml(&action.param_strings[0].0, assets)?.into());
-            },
+            }
             _ => (),
         }
 
@@ -96,7 +96,7 @@ pub fn process(assets: &mut GameAssets) {
         match deobfuscator.process_gml(&script.source.0, assets2) {
             Ok(res) => {
                 script.source = PascalString(res.into());
-            },
+            }
             Err(err) => {
                 eprintln!(
                     "[Warning] Failed to deobfuscate script {} ({}): {}",
@@ -104,7 +104,7 @@ pub fn process(assets: &mut GameAssets) {
                     std::str::from_utf8(&script.name.0).unwrap_or("<INVALID UTF-8>"),
                     err,
                 )
-            },
+            }
         }
     }
 
@@ -152,7 +152,7 @@ pub fn process(assets: &mut GameAssets) {
         match deobfuscator.process_gml(&room.creation_code.0, assets2) {
             Ok(res) => {
                 room.creation_code = PascalString(res.into());
-            },
+            }
             Err(err) => {
                 eprintln!(
                     "[Warning] Failed to deobfuscate creation code for room {} ({}): {}",
@@ -160,13 +160,13 @@ pub fn process(assets: &mut GameAssets) {
                     std::str::from_utf8(&room.name.0).unwrap_or("<INVALID UTF-8>"),
                     err,
                 )
-            },
+            }
         }
         for instance in room.instances.iter_mut() {
             match deobfuscator.process_gml(&instance.creation_code.0, assets2) {
                 Ok(res) => {
                     instance.creation_code = PascalString(res.into());
-                },
+                }
                 Err(err) => {
                     eprintln!(
                         "[Warning] Failed to deobfuscate creation code for instance {} in room {} ({}): {}",
@@ -175,7 +175,7 @@ pub fn process(assets: &mut GameAssets) {
                         std::str::from_utf8(&room.name.0).unwrap_or("<INVALID UTF-8>"),
                         err,
                     )
-                },
+                }
             }
         }
     }
@@ -185,7 +185,7 @@ pub fn process(assets: &mut GameAssets) {
         match deobfuscator.process_expression(&trigger.condition.0, assets2) {
             Ok(res) => {
                 trigger.condition = PascalString(res.into());
-            },
+            }
             Err(err) => {
                 eprintln!(
                     "[Warning] Failed to deobfuscate condition for trigger {} ({}): {}",
@@ -193,7 +193,7 @@ pub fn process(assets: &mut GameAssets) {
                     std::str::from_utf8(&trigger.name.0).unwrap_or("<INVALID UTF-8>"),
                     err,
                 )
-            },
+            }
         }
     }
 
@@ -202,7 +202,7 @@ pub fn process(assets: &mut GameAssets) {
         match deobfuscator.process_expression(&constant.expression.0, assets2) {
             Ok(res) => {
                 constant.expression = PascalString(res.into());
-            },
+            }
             Err(err) => {
                 eprintln!(
                     "[Warning] Failed to deobfuscate condition for constant {} ({}): {}",
@@ -210,7 +210,7 @@ pub fn process(assets: &mut GameAssets) {
                     std::str::from_utf8(&constant.name.0).unwrap_or("<INVALID UTF-8>"),
                     err,
                 )
-            },
+            }
         }
     }
 
@@ -257,7 +257,7 @@ pub fn process(assets: &mut GameAssets) {
 impl DeobfState {
     pub fn process_gml(&mut self, input: &[u8], assets: &GameAssets) -> Result<Vec<u8>, ast::Error> {
         let mut output = Vec::new();
-        let ast = AST::new(input)?;
+        let ast = Ast::new(input)?;
 
         let mut writer = ExprWriter {
             assets,
@@ -279,7 +279,7 @@ impl DeobfState {
 
     pub fn process_expression(&mut self, input: &[u8], assets: &GameAssets) -> Result<Vec<u8>, ast::Error> {
         let mut output = Vec::new();
-        let expr = AST::expression(input)?;
+        let expr = Ast::expression(input)?;
         let mut writer = ExprWriter {
             assets,
             deobf: self,
@@ -301,7 +301,7 @@ impl DeobfState {
                 let pos = self.fields.len();
                 self.fields.push(field.into());
                 pos
-            },
+            }
         }
     }
 
@@ -316,7 +316,7 @@ impl DeobfState {
                 } else {
                     self.constants.get(ident).copied()
                 }
-            },
+            }
             ast::Expr::LiteralReal(real) => Some(*real),
             ast::Expr::Unary(unary) => {
                 let child = self.simplify(&unary.child, assets)?;
@@ -325,7 +325,7 @@ impl DeobfState {
                     Operator::Subtract => Some(-child),
                     _ => None, // technically there's others. none used by obf
                 }
-            },
+            }
             ast::Expr::Binary(binary) => {
                 let left = self.simplify(&binary.left, assets)?;
                 let right = self.simplify(&binary.right, assets)?;
@@ -334,7 +334,7 @@ impl DeobfState {
                     Operator::Subtract => Some(left - right),
                     _ => None, // rest are unsupported
                 }
-            },
+            }
             _ => None,
         }
     }
@@ -381,16 +381,16 @@ impl<'a, 'b, 'c> ExprWriter<'a, 'b, 'c> {
                 } else {
                     self.write_field(expr);
                 }
-            },
+            }
             ast::Expr::LiteralReal(real) => {
                 let _ = write!(self.output, "{}", real);
-            },
+            }
             ast::Expr::LiteralString(string) => {
                 let quote = if string.iter().any(|&x| x == b'"') { b'\'' } else { b'"' };
                 self.output.push(quote);
                 self.output.extend_from_slice(string);
                 self.output.push(quote);
-            },
+            }
             ast::Expr::Unary(expr) => {
                 let op = op_to_str(expr.op);
                 self.output.extend_from_slice(op);
@@ -402,12 +402,12 @@ impl<'a, 'b, 'c> ExprWriter<'a, 'b, 'c> {
                     match &expr.child {
                         ast::Expr::Binary(b) if !matches!(b.op, Operator::Deref | Operator::Index) => {
                             write_wrapped(self, &expr.child)
-                        },
+                        }
                         _ => self.process_expr(&expr.child),
                     }
                 }
                 self.is_gml_expr = prev_state;
-            },
+            }
             ast::Expr::Binary(expr) => {
                 let prev_state = self.is_gml_expr;
                 self.is_gml_expr = true;
@@ -453,7 +453,7 @@ impl<'a, 'b, 'c> ExprWriter<'a, 'b, 'c> {
                                 -7 => self.output.extend_from_slice(b"local"),
                                 i => {
                                     let _ = write!(self.output, "({})", i);
-                                },
+                                }
                             }
                         } else {
                             // Write the whole LHS expression normally
@@ -464,13 +464,13 @@ impl<'a, 'b, 'c> ExprWriter<'a, 'b, 'c> {
                         match &expr.left {
                             ast::Expr::LiteralIdentifier(_) => {
                                 self.process_expr(&expr.left);
-                            },
+                            }
                             ast::Expr::Binary(b) if matches!(b.op, Operator::Index | Operator::Deref) => {
                                 self.process_expr(&expr.left);
-                            },
+                            }
                             _ => {
                                 write_wrapped(self, &expr.left);
-                            },
+                            }
                         }
                     }
 
@@ -490,13 +490,13 @@ impl<'a, 'b, 'c> ExprWriter<'a, 'b, 'c> {
                                 | ast::Expr::Unary(_)
                                 | ast::Expr::Function(_) => {
                                     writer.process_expr(expr);
-                                },
+                                }
                                 ast::Expr::Binary(b) if matches!(b.op, Operator::Index | Operator::Deref) => {
                                     writer.process_expr(expr);
-                                },
+                                }
                                 _ => {
                                     write_wrapped(writer, expr);
-                                },
+                                }
                             }
                         } else {
                             writer.process_expr(expr);
@@ -524,7 +524,7 @@ impl<'a, 'b, 'c> ExprWriter<'a, 'b, 'c> {
                 if !self.is_gml_expr {
                     push_str!(";\r\n");
                 }
-            },
+            }
             ast::Expr::DoUntil(expr) => {
                 push_str!("do ");
                 self.write_expr_grouped(&expr.body, false);
@@ -533,7 +533,7 @@ impl<'a, 'b, 'c> ExprWriter<'a, 'b, 'c> {
                 self.process_expr(&expr.cond);
                 self.is_gml_expr = false;
                 push_str!(");\r\n");
-            },
+            }
             ast::Expr::For(expr) => {
                 fn remove_truncate(x: &mut Vec<u8>, pat: &[u8]) {
                     if x.ends_with(pat) {
@@ -554,7 +554,7 @@ impl<'a, 'b, 'c> ExprWriter<'a, 'b, 'c> {
                 push_str!(") ");
                 self.is_gml_expr = false;
                 self.write_expr_grouped(&expr.body, true);
-            },
+            }
             ast::Expr::Function(expr) => {
                 if let Some(idx) = self
                     .assets
@@ -584,7 +584,7 @@ impl<'a, 'b, 'c> ExprWriter<'a, 'b, 'c> {
                 } else {
                     push_str!(");\r\n");
                 }
-            },
+            }
             ast::Expr::Group(exprs) => {
                 let skip_newline = self.group_skip_newline;
                 self.group_skip_newline = false;
@@ -616,7 +616,7 @@ impl<'a, 'b, 'c> ExprWriter<'a, 'b, 'c> {
                 } else {
                     push_str!("}\r\n");
                 }
-            },
+            }
             ast::Expr::If(expr) => {
                 push_str!("if (");
                 self.is_gml_expr = true;
@@ -636,7 +636,7 @@ impl<'a, 'b, 'c> ExprWriter<'a, 'b, 'c> {
                 } else {
                     push_str!("\r\n");
                 }
-            },
+            }
             ast::Expr::Repeat(expr) => {
                 push_str!("repeat (");
                 self.is_gml_expr = true;
@@ -644,7 +644,7 @@ impl<'a, 'b, 'c> ExprWriter<'a, 'b, 'c> {
                 self.is_gml_expr = false;
                 push_str!(") ");
                 self.write_expr_grouped(&expr.body, true);
-            },
+            }
             ast::Expr::Switch(expr) => {
                 push_str!("switch (");
                 self.is_gml_expr = true;
@@ -652,7 +652,7 @@ impl<'a, 'b, 'c> ExprWriter<'a, 'b, 'c> {
                 self.is_gml_expr = false;
                 push_str!(") ");
                 self.write_expr_grouped(&expr.body, true);
-            },
+            }
             ast::Expr::Var(expr) => {
                 if !expr.vars.is_empty() {
                     push_str!("var ");
@@ -664,7 +664,7 @@ impl<'a, 'b, 'c> ExprWriter<'a, 'b, 'c> {
                     }
                     push_str!(";\r\n");
                 }
-            },
+            }
             ast::Expr::GlobalVar(expr) => {
                 if !expr.vars.is_empty() {
                     push_str!("globalvar ");
@@ -676,7 +676,7 @@ impl<'a, 'b, 'c> ExprWriter<'a, 'b, 'c> {
                     }
                     push_str!(";\r\n");
                 }
-            },
+            }
             ast::Expr::With(expr) => {
                 push_str!("with (");
                 self.is_gml_expr = true;
@@ -698,7 +698,7 @@ impl<'a, 'b, 'c> ExprWriter<'a, 'b, 'c> {
                 self.is_gml_expr = false;
                 push_str!(") ");
                 self.write_expr_grouped(&expr.body, true);
-            },
+            }
             ast::Expr::While(expr) => {
                 push_str!("while (");
                 self.is_gml_expr = true;
@@ -706,14 +706,14 @@ impl<'a, 'b, 'c> ExprWriter<'a, 'b, 'c> {
                 self.is_gml_expr = false;
                 push_str!(") ");
                 self.write_expr_grouped(&expr.body, true);
-            },
+            }
             ast::Expr::Case(expr) => {
                 push_str!("case ");
                 self.is_gml_expr = true;
                 self.process_expr(expr);
                 self.is_gml_expr = false;
                 push_str!(":\r\n");
-            },
+            }
             ast::Expr::Default => push_str!("default:\r\n"),
             ast::Expr::Continue => push_str!("continue;\r\n"),
             ast::Expr::Break => push_str!("break;\r\n"),
@@ -724,7 +724,7 @@ impl<'a, 'b, 'c> ExprWriter<'a, 'b, 'c> {
                 self.process_expr(expr);
                 self.is_gml_expr = false;
                 push_str!(";\r\n");
-            },
+            }
         }
     }
 

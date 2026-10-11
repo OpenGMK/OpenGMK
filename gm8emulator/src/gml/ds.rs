@@ -48,7 +48,7 @@ impl Map {
                     index -= 1;
                 }
                 Some(index)
-            },
+            }
             Err(_) => None,
         }
     }
@@ -61,7 +61,7 @@ impl Map {
                     index -= 1;
                 }
                 index
-            },
+            }
             Err(index) => index,
         }
     }
@@ -74,7 +74,7 @@ impl Map {
                     index += 1;
                 }
                 index
-            },
+            }
             Err(index) => index,
         }
     }
@@ -87,7 +87,7 @@ impl Map {
 impl Priority {
     fn extremity(&self, precision: Real, diff: Ordering) -> Option<usize> {
         if self.priorities.is_empty() {
-            return None
+            return None;
         }
         let mut ext = 0;
         for i in 1..self.priorities.len() {
@@ -274,7 +274,7 @@ pub fn cmp(v1: &Value, v2: &Value, precision: Real) -> Ordering {
             } else {
                 x.partial_cmp(&y).unwrap()
             }
-        },
+        }
         (Value::Str(x), Value::Str(y)) => x.cmp(y),
         (Value::Real(_), Value::Str(_)) => Ordering::Less,
         (Value::Str(_), Value::Real(_)) => Ordering::Greater,

@@ -39,7 +39,7 @@ pub fn find_icons(data: &mut io::Cursor<&mut [u8]>, pe_sections: &[PESection]) -
             let leaf_count = data.read_u16::<LE>()?;
             if leaf_count == 0 {
                 // No leaves under RT_ICON, so no icon
-                return Ok(None)
+                return Ok(None);
             }
 
             // Get each leaf
@@ -70,7 +70,7 @@ pub fn find_icons(data: &mut io::Cursor<&mut [u8]>, pe_sections: &[PESection]) -
             let leaf_count = data.read_u16::<LE>()? + data.read_u16::<LE>()?;
             if leaf_count == 0 {
                 // No leaves under RT_GROUP_ICON, so no icon
-                return Ok(None)
+                return Ok(None);
             }
 
             data.seek(SeekFrom::Current(4))?;
@@ -89,7 +89,7 @@ pub fn find_icons(data: &mut io::Cursor<&mut [u8]>, pe_sections: &[PESection]) -
                 ico_header.seek(SeekFrom::Current(4))?;
                 let image_count = usize::from(ico_header.read_u16::<LE>()?);
 
-                let raw_header_size = (6 + (image_count * 16)) as usize;
+                let raw_header_size = 6 + (image_count * 16);
                 let raw_body_size: u32 = icons.iter().map(|t| t.2).sum();
                 let mut raw_file: Vec<u8> = Vec::with_capacity(raw_header_size + (raw_body_size as usize));
                 let mut raw_file_body: Vec<u8> = Vec::with_capacity(raw_body_size as usize);
@@ -111,12 +111,12 @@ pub fn find_icons(data: &mut io::Cursor<&mut [u8]>, pe_sections: &[PESection]) -
                             if let Some(v) = extract_virtual_bytes(data, pe_sections, icon.1, icon.2 as usize)? {
                                 raw_file_body.extend_from_slice(&v);
                             }
-                            break
+                            break;
                         }
                     }
                 }
                 raw_file.append(&mut raw_file_body);
-                return Ok(Some(raw_file))
+                return Ok(Some(raw_file));
             }
         }
     }
@@ -126,7 +126,7 @@ pub fn find_icons(data: &mut io::Cursor<&mut [u8]>, pe_sections: &[PESection]) -
 
 /// Extracts some bytes from the file from their location in the initialized exe's memory
 fn extract_virtual_bytes(
-    data: &mut io::Cursor<&mut [u8]>,
+    data: &io::Cursor<&mut [u8]>,
     pe_sections: &[PESection],
     rva: u32,
     size: usize,
@@ -138,7 +138,7 @@ fn extract_virtual_bytes(
             // data is in this section
             let offset_on_disk = rva - section.virtual_address;
             let data_location = (section.disk_address + offset_on_disk) as usize;
-            return Ok(data.get_ref().get(data_location..data_location + size).map(|chunk| chunk.to_vec()))
+            return Ok(data.get_ref().get(data_location..data_location + size).map(|chunk| chunk.to_vec()));
         }
     }
 

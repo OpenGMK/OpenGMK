@@ -137,7 +137,7 @@ impl MacroWindow {
                                 StateChange::Click(index) => info.keyboard_state.get_mut(*index).unwrap().click(),
                                 StateChange::ChangeTo(index, state) => {
                                     info.keyboard_state.get_mut(*index).unwrap().reset_to_state(*state)
-                                },
+                                }
                             }
                         }
                     }
@@ -193,7 +193,7 @@ impl MacroWindow {
                     } else {
                         unexpected_token!("Couldn't identify button '{}'");
                     };
-                },
+                }
                 TokenType::PreviousKey => {
                     if state_change.is_some() {
                         unexpected_token!();
@@ -202,7 +202,7 @@ impl MacroWindow {
                     } else {
                         unexpected_token!("Cannot use token '{}' as no button was previously defined");
                     }
-                },
+                }
                 TokenType::Modifier => {
                     if matches!(state_change, None | Some(StateChange::ChangeTo(..))) || last_keycode.is_none() {
                         unexpected_token!();
@@ -212,38 +212,38 @@ impl MacroWindow {
                         "(R)" => {
                             state_change =
                                 Some(StateChange::ChangeTo(last_keycode.unwrap(), KeyState::NeutralWillCactus))
-                        },
+                        }
                         "(RP)" => {
                             state_change = Some(StateChange::ChangeTo(last_keycode.unwrap(), KeyState::HeldWillDouble))
-                        },
+                        }
                         "(RPR)" => {
                             state_change = Some(StateChange::ChangeTo(last_keycode.unwrap(), KeyState::HeldWillTriple))
-                        },
+                        }
                         "(H)" => state_change = Some(StateChange::ChangeTo(last_keycode.unwrap(), KeyState::Held)),
                         "(P)" => {
                             state_change =
                                 Some(StateChange::ChangeTo(last_keycode.unwrap(), KeyState::NeutralWillPress))
-                        },
+                        }
                         "(PR)" => {
                             state_change =
                                 Some(StateChange::ChangeTo(last_keycode.unwrap(), KeyState::NeutralWillDouble))
-                        },
+                        }
                         "(PRP)" => {
                             state_change =
                                 Some(StateChange::ChangeTo(last_keycode.unwrap(), KeyState::NeutralWillTriple))
-                        },
+                        }
                         _ => {
                             unexpected_token!("Unknown modifier token '{}'")
-                        },
+                        }
                     }
-                },
+                }
                 TokenType::KeySeparator => {
                     if state_change.is_none() {
                         unexpected_token!();
                     }
                     changes.push(state_change.unwrap());
                     state_change = None;
-                },
+                }
                 TokenType::NextFrame => {
                     if state_change.is_some() {
                         changes.push(state_change.unwrap());
@@ -252,10 +252,10 @@ impl MacroWindow {
 
                     self.input_frames.push(changes.clone());
                     changes.clear();
-                },
+                }
                 TokenType::Number => {
                     unexpected_token!();
-                },
+                }
             };
         }
         if state_change.is_some() {
@@ -296,10 +296,10 @@ impl MacroWindow {
                     None => {
                         tt = Some(if chr.is_alphabetic() { TokenType::Key } else { TokenType::Number });
                         push_char!();
-                    },
+                    }
                     Some(TokenType::Key) => {
                         push_char!();
-                    },
+                    }
                     Some(TokenType::Number) => {
                         if chr.is_numeric() {
                             push_char!();
@@ -307,7 +307,7 @@ impl MacroWindow {
                             tt = None;
                             break;
                         }
-                    },
+                    }
                     Some(TokenType::Modifier) => {
                         if *chr == 'P' || *chr == 'R' {
                             push_char!();
@@ -315,11 +315,11 @@ impl MacroWindow {
                             tt = None;
                             break;
                         }
-                    },
+                    }
                     _ => {
                         tt = None;
                         break;
-                    },
+                    }
                 }
             } else {
                 match chr {
@@ -328,25 +328,25 @@ impl MacroWindow {
                         tt = Some(TokenType::PreviousKey);
                         push_char!();
                         break;
-                    },
+                    }
                     '>' => {
                         check_no_tokentype!();
                         push_char!();
                         tt = Some(TokenType::NextFrame);
                         break;
-                    },
+                    }
                     ',' => {
                         check_no_tokentype!();
                         push_char!();
                         tt = Some(TokenType::KeySeparator);
                         break;
-                    },
+                    }
                     '(' => {
                         check_no_tokentype!();
                         push_char!();
                         tt = Some(TokenType::Modifier);
                         token_valid = false;
-                    },
+                    }
                     ')' => {
                         if tt == Some(TokenType::Modifier) {
                             push_char!();
@@ -356,11 +356,11 @@ impl MacroWindow {
                             tt = None;
                             break;
                         }
-                    },
+                    }
                     _ => {
                         tt = None;
                         break;
-                    },
+                    }
                 }
             }
         }

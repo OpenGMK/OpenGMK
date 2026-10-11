@@ -8,13 +8,13 @@ pub struct Colour {
 
 impl Colour {
     /// Constructs a new Colour from RGB values.
-    pub const fn new(r: u8, g: u8, b: u8, a: u8) -> Colour {
-        Colour { r, g, b, a }
+    pub const fn new(r: u8, g: u8, b: u8, a: u8) -> Self {
+        Self { r, g, b, a }
     }
 
     /// Creates a Colour from an ABGR decimal value.
-    pub fn from_abgr_packed(val: u32) -> Colour {
-        Colour {
+    pub const fn from_abgr_packed(val: u32) -> Self {
+        Self {
             r: (val & 0xFF) as u8,
             g: ((val >> 8) & 0xFF) as u8,
             b: ((val >> 16) & 0xFF) as u8,
@@ -23,12 +23,12 @@ impl Colour {
     }
 
     /// Converts the colour to an ABGR decimal value.
-    pub fn as_decimal(self) -> u32 {
+    pub const fn as_decimal(self) -> u32 {
         (self.a as u32) << 24 | (self.b as u32) << 16 | (self.g as u32) << 8 | self.r as u32
     }
 
     /// Creates a tuple of (r, g, b) values from self.
-    pub fn as_rgba(self) -> (u8, u8, u8, u8) {
+    pub const fn as_rgba(self) -> (u8, u8, u8, u8) {
         (self.r, self.g, self.b, self.a)
     }
 
@@ -39,19 +39,19 @@ impl Colour {
 }
 
 impl From<(u8, u8, u8, u8)> for Colour {
-    fn from(rgb: (u8, u8, u8, u8)) -> Colour {
-        Colour::new(rgb.0, rgb.1, rgb.2, rgb.3)
+    fn from(rgb: (u8, u8, u8, u8)) -> Self {
+        Self::new(rgb.0, rgb.1, rgb.2, rgb.3)
     }
 }
 
 impl From<u32> for Colour {
-    fn from(n: u32) -> Colour {
-        Colour::from_abgr_packed(n)
+    fn from(n: u32) -> Self {
+        Self::from_abgr_packed(n)
     }
 }
 
 impl From<Colour> for u32 {
-    fn from(col: Colour) -> u32 {
+    fn from(col: Colour) -> Self {
         col.as_decimal()
     }
 }

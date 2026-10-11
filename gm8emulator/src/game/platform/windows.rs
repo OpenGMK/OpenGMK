@@ -77,12 +77,12 @@ fn trim_drive(drive: Option<char>) -> Vec<u16> {
             let mut out: Vec<u16> = vec![0, 0, b':'.into(), b'\\'.into(), 0];
             letter.encode_utf16(&mut out[..]);
             out
-        },
+        }
         None => {
             let dir = std::env::current_dir().unwrap();
             let osstr: &OsStr = dir.as_ref();
             osstr.encode_wide().chain(Some(0)).collect()
-        },
+        }
     }
 }
 

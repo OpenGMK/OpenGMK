@@ -56,24 +56,24 @@ impl Game {
                         // For collision events, we need to check the target's parent tree too..
                         if let Some(target_object) = self.assets.objects.get_asset(event_sub as _) {
                             if target_object.parent_index < 0 {
-                                return Ok(())
+                                return Ok(());
                             } else {
                                 object_id = original_object_id;
                                 event_sub = target_object.parent_index as u32;
                             }
                         }
                     } else {
-                        return Ok(())
+                        return Ok(());
                     }
                 }
                 if let Some(object) = self.assets.objects.get_asset(object_id) {
                     if let Some(event) = object.events.get(event_id).and_then(|x| x.get(&event_sub)) {
-                        break event.clone()
+                        break event.clone();
                     } else {
                         object_id = object.parent_index;
                     }
                 } else {
-                    return Ok(())
+                    return Ok(());
                 }
             };
 
@@ -156,7 +156,7 @@ impl Game {
                                 // Decrement it, run the event if it hit 0
                                 *alarm -= 1;
                                 *alarm == 0
-                            },
+                            }
                             _ => false,
                         };
                         if run_event {
@@ -648,7 +648,7 @@ impl Game {
                             // If inst1 doesn't exist anymore, we don't want to use it for any further collisions,
                             // so skip using it for anything else
                             if !inst1.is_active() {
-                                continue 'iter1
+                                continue 'iter1;
                             }
                         }
                     }

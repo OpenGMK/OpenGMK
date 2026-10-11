@@ -148,13 +148,7 @@ impl Window for InstanceReportWindow {
     fn show_window(&mut self, info: &mut EmulatorContext) {
         let previous_len = info.config.watched_ids.len();
         {
-            let EmulatorContext {
-                game,
-                frame,
-                config,
-                instance_reports,
-                ..
-            } = info;
+            let EmulatorContext { game, frame, config, instance_reports, .. } = info;
 
             self.instance_images.clear();
             self.instance_images.reserve(config.watched_ids.len());
@@ -179,10 +173,7 @@ impl Window for InstanceReportWindow {
 
 impl InstanceReportWindow {
     pub fn new() -> Self {
-        Self {
-            instance_images: Vec::new(),
-            report_count: 0,
-        }
+        Self { instance_images: Vec::new(), report_count: 0 }
     }
 
     fn show_text(frame: &imgui::Ui, text: &String) {
@@ -236,7 +227,7 @@ impl InstanceReportWindow {
                                 array.iter().for_each(|s| Self::show_text(frame, s));
                                 node2.end();
                             }
-                        },
+                        }
                     });
                     node.end();
                 }
@@ -268,11 +259,10 @@ impl InstanceReportWindow {
                     let min_y = center_y - (sprite.height / 2) as f32;
                     frame
                         .get_window_draw_list()
-                        .add_image(
-                            TextureId::new(atlas_ref.0 as usize),
-                            [min_x, min_y],
-                            [min_x + sprite.width as f32, min_y + sprite.height as f32],
-                        )
+                        .add_image(TextureId::new(atlas_ref.0 as usize), [min_x, min_y], [
+                            min_x + sprite.width as f32,
+                            min_y + sprite.height as f32,
+                        ])
                         .col(instance.image_blend.get() as u32 | 0xFF000000)
                         .build();
                 }

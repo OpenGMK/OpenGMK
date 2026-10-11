@@ -72,7 +72,7 @@ where
             } else {
                 Err(ReaderError::UnknownFormat)
             }
-        },
+        }
         None => {
             if let Some(antidec_settings) = antidec::check80(exe)? {
                 // antidec2 protection in the base exe (so without UPX on top of it)
@@ -119,6 +119,6 @@ where
                     Err(ReaderError::UnknownFormat)
                 }
             }
-        },
+        }
     }
 }

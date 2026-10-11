@@ -75,7 +75,7 @@ impl Game {
                         1 => {
                             // Continue from start
                             instance.path_position.set(opposite_position);
-                        },
+                        }
                         2 => {
                             // Continue from end
                             let path_start_pos = if reversed { Real::from(1.0) } else { Real::from(0.0) };
@@ -94,7 +94,7 @@ impl Game {
                             );
                             instance.path_xstart.set(instance.path_xstart.get() + size_h * instance.path_scale.get());
                             instance.path_ystart.set(instance.path_ystart.get() + size_v * instance.path_scale.get());
-                        },
+                        }
                         3 => {
                             // Reverse
                             instance.path_position.set(Real::from(1.0) - (opposite_position));
@@ -103,12 +103,12 @@ impl Game {
                             } else {
                                 -instance.path_speed.get().abs()
                             });
-                        },
+                        }
                         _ => {
                             // Stop
                             instance.path_position.set(1.into());
                             instance.path_index.set(-1);
-                        },
+                        }
                     }
 
                     // Set flag to run path end event
@@ -223,7 +223,7 @@ impl Game {
                 instance.y.set(old_y - instance.speed.get() * side_angle.to_radians().sin());
                 instance.bbox_is_stale.set(true);
                 if collider(self, handle).is_none() {
-                    break
+                    break;
                 }
                 bounce = true;
             }

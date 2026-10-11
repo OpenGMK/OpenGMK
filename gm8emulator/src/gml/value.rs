@@ -84,14 +84,14 @@ impl Value {
                 } else {
                     other
                 }
-            },
+            }
             (Value::Real(a), Value::Str(_)) => {
                 if *a.as_ref() < 0.0 {
                     other
                 } else {
                     self
                 }
-            },
+            }
             (Value::Str(_), Value::Real(_)) => self,
             (Value::Str(a), Value::Str(b)) => {
                 if a > b {
@@ -99,7 +99,7 @@ impl Value {
                 } else {
                     other
                 }
-            },
+            }
         }
     }
 
@@ -112,14 +112,14 @@ impl Value {
                 } else {
                     self
                 }
-            },
+            }
             (Value::Real(a), Value::Str(_)) => {
                 if *a.as_ref() > 0.0 {
                     other
                 } else {
                     self
                 }
-            },
+            }
             (Value::Str(_), Value::Real(_)) => other,
             (Value::Str(a), Value::Str(b)) => {
                 if a > b {
@@ -127,7 +127,7 @@ impl Value {
                 } else {
                     self
                 }
-            },
+            }
         }
     }
 
@@ -217,7 +217,7 @@ impl Value {
                 buf.extend_from_slice(lhs.as_ref());
                 buf.extend_from_slice(rhs.as_ref());
                 Ok(buf.into())
-            },
+            }
             (x, y) => invalid_op!(Add, x, y),
         }
     }
@@ -232,7 +232,7 @@ impl Value {
                 buf.extend_from_slice(rhs.as_ref());
                 *lhs = buf.into();
                 Ok(())
-            },
+            }
             (x, y) => invalid_op!(AssignAdd, x.clone(), y),
         }
     }
@@ -305,7 +305,11 @@ impl Value {
             (Self::Real(lhs), Self::Real(rhs)) => Ok((lhs * rhs).into()),
             (Self::Real(lhs), Self::Str(rhs)) => Ok({
                 let repeat = lhs.round().to_i32();
-                if repeat > 0 { rhs.as_ref().repeat(repeat as usize).into() } else { "".into() }
+                if repeat > 0 {
+                    rhs.as_ref().repeat(repeat as usize).into()
+                } else {
+                    "".into()
+                }
             }),
             (x, y) => invalid_op!(Multiply, x, y),
         }
@@ -375,13 +379,13 @@ impl Value {
                 bytes.resize(4, 0);
                 bytes.extend_from_slice(&f64::from(*x).to_le_bytes());
                 bytes.resize(16, 0);
-            },
+            }
             Self::Str(s) => {
                 bytes.push(1);
                 bytes.resize(12, 0);
                 bytes.extend_from_slice(&(s.as_ref().len() as u32).to_le_bytes());
                 bytes.extend_from_slice(s.as_ref());
-            },
+            }
         }
         bytes
     }
@@ -397,7 +401,7 @@ impl Value {
                     let mut buf = vec![0; len as usize];
                     reader.read_exact(&mut buf).ok()?;
                     Some(buf.into())
-                },
+                }
                 _ => None,
             }
         } else {

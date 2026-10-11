@@ -108,7 +108,7 @@ fn interlace(
 
     if progress == length {
         game.renderer.draw_sprite(surf_new.atlas_ref, 0.0, 0.0, 1.0, 1.0, 0.0, 0xffffff, 1.0);
-        return
+        return;
     }
 
     if progress <= half_length {

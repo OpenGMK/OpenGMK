@@ -40,7 +40,7 @@ impl<'a> Lexer<'a> {
                         lines_skipped += 1;
                     }
                     self.iter.next();
-                },
+                }
                 _ => break lines_skipped,
             }
         }
@@ -74,10 +74,10 @@ impl<'a> Iterator for Lexer<'a> {
                             Some(&(tail, ch)) => match ch {
                                 b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'_' => {
                                     self.iter.next();
-                                },
-                                _ => break sl(&self.src, head.0..tail),
+                                }
+                                _ => break sl(self.src, head.0..tail),
                             },
-                            None => break sl(&self.src, head.0..),
+                            None => break sl(self.src, head.0..),
                         }
                     }
                 };
@@ -115,7 +115,7 @@ impl<'a> Iterator for Lexer<'a> {
 
                     _ => Token::Identifier(identifier),
                 }
-            },
+            }
 
             // real literal or . operator
             // in a real literal, every dot after the first one is ignored
@@ -150,7 +150,7 @@ impl<'a> Iterator for Lexer<'a> {
                                 factor /= 10.0;
                             }
                             result = result * 10.0 + f64::from(dec);
-                        },
+                        }
                         b'.' => point_seen = true,
                         _ => break,
                     }
@@ -158,7 +158,7 @@ impl<'a> Iterator for Lexer<'a> {
                 }
 
                 Token::Real(result * factor)
-            },
+            }
 
             // string literal
             // note: unclosed string literals at eof are accepted, however each script ends in:
@@ -180,18 +180,18 @@ impl<'a> Iterator for Lexer<'a> {
                 let string = loop {
                     // matching next() here implicitly skips closing quote
                     match self.iter.next() {
-                        Some((tail, ch)) if ch == quote => break sl(&self.src, head..tail),
+                        Some((tail, ch)) if ch == quote => break sl(self.src, head..tail),
                         Some(_) => (),
 
                         // In GML, if a quote is unclosed it's still a valid string,
                         // but interestingly enough unclosed strings end in CRLF and three spaces.
                         // This is likely due to how the runner allocates scripts and is UB,
                         // and to match the runner behaviour we append that to the end of scripts.
-                        None => break sl(&self.src, head..),
+                        None => break sl(self.src, head..),
                     }
                 };
                 Token::String(string)
-            },
+            }
 
             // hexadecimal real literal.
             // a single $ with no valid hexadecimal chars after it is equivalent to $0.
@@ -209,10 +209,10 @@ impl<'a> Iterator for Lexer<'a> {
                         Some(&(tail, ch)) => match ch {
                             b'0'..=b'9' | b'a'..=b'f' | b'A'..=b'F' => {
                                 self.iter.next();
-                            },
-                            _ => break sl(&self.src, head..tail),
+                            }
+                            _ => break sl(self.src, head..tail),
                         },
-                        None => break sl(&self.src, head..),
+                        None => break sl(self.src, head..),
                     }
                 };
 
@@ -227,7 +227,7 @@ impl<'a> Iterator for Lexer<'a> {
                         u64::from_str_radix(s, 16).unwrap_or(u64::MAX) as f64,
                     )
                 }
-            },
+            }
 
             // operator, separator or possibly just an invalid character
             0x00..=b'~' => {
@@ -285,11 +285,11 @@ impl<'a> Iterator for Lexer<'a> {
                                         b'\n' | b'\r' => break,
                                         _ => {
                                             self.iter.next();
-                                        },
+                                        }
                                     }
                                 }
-                                return self.next()
-                            },
+                                return self.next();
+                            }
 
                             _ => return Some(Token::Operator(op)),
                         };
@@ -330,15 +330,15 @@ impl<'a> Iterator for Lexer<'a> {
                                     self.iter.next();
                                     if let Some(&(_, b'/')) = self.iter.peek() {
                                         self.iter.next();
-                                        break
+                                        break;
                                     }
-                                },
+                                }
                                 _ => {
                                     self.iter.next();
-                                },
+                                }
                             }
                         }
-                        return self.next()
+                        return self.next();
                     } else if op == Operator::LessThan && ch2 == b'>' {
                         // <> is the same as != (let's call it a diamond)
 
@@ -359,13 +359,13 @@ impl<'a> Iterator for Lexer<'a> {
                 } else {
                     token1
                 }
-            },
+            }
 
             // invalid unicode
             _ => {
                 self.iter.next(); // skip (if possible)
                 Token::InvalidChar(head.0, head.1)
-            },
+            }
         })
     }
 }

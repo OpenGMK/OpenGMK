@@ -128,7 +128,7 @@ impl PrimitiveBuilder {
             PrimitiveType::TriFan | PrimitiveType::TriStrip if self.vertices.len() < 3 => (None, None),
             PrimitiveType::TriStrip | PrimitiveType::TriFan => {
                 (Some(self.vertices[self.vertices.len() - 2]), self.vertices.last().copied())
-            },
+            }
         };
         if let Some(v1) = v1 {
             self.vertices.push(v1);
@@ -294,7 +294,7 @@ pub trait RendererTrait {
         y3: f64,
         x4: f64,
         y4: f64,
-        alpha: f64
+        alpha: f64,
     );
     fn set_view_matrix(&mut self, view: [f32; 16]);
     fn set_viewproj_matrix(&mut self, view: [f32; 16], proj: [f32; 16]);
@@ -552,7 +552,13 @@ impl Default for RendererOptions {
 }
 
 impl Renderer {
-    pub fn new(backend: (), connection: &Connection, options: &RendererOptions, window: &Window, clear_colour: Colour) -> Result<Self, String> {
+    pub fn new(
+        backend: (),
+        connection: &Connection,
+        options: &RendererOptions,
+        window: &Window,
+        clear_colour: Colour,
+    ) -> Result<Self, String> {
         Ok(Self(Box::new(match backend {
             () => opengl::RendererImpl::new(options, connection, window, clear_colour)?,
         })))
@@ -670,9 +676,7 @@ impl Renderer {
         y4: f64,
         alpha: f64,
     ) {
-        self.0.draw_sprite_pos(
-            texture, x1, y1, x2, y2, x3, y3, x4, y4, alpha
-        )
+        self.0.draw_sprite_pos(texture, x1, y1, x2, y2, x3, y3, x4, y4, alpha)
     }
 
     pub fn set_view_matrix(&mut self, view: [f32; 16]) {

@@ -2140,7 +2140,9 @@ pub const FUNCTIONS: phf::OrderedMap<&'static str, Function> = phf_ordered_map! 
 
 #[inline(always)]
 pub fn find_function_by_address<T>(func: &gml::FunctionPtr<T>) -> Option<(usize, &str)> {
-    FUNCTIONS.entries().enumerate()
+    FUNCTIONS
+        .entries()
+        .enumerate()
         .find(|(_, (_, &v))| v.addr() == std::ptr::from_ref(&func.0) as *const ())
         .map(|(i, (&k, _))| (i, k))
 }
