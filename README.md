@@ -17,10 +17,10 @@ There are unfortunately no pre-built binaries available to download.
 In order to use **GM8Decompiler** or **GM8Emulator**, you need to compile it yourself:
 
 1. Install the [Rust toolchain](https://rustup.rs).
-2. Open a terminal (On Windows: Press <kbd>Win</kbd>+<kbd>R</kbd> type "powershell", hit <kbd>Enter</kbd>)
-3. Clone the repository: `git clone --recurse-submodules https://github.com/OpenGMK/OpenGMK`
-4. Go into the repository: `cd OpenGMK`
-5. Compile the crates: `cargo b -r` (ignore the warnings)
+2. Open a terminal (On Windows: Press <kbd>Win</kbd>+<kbd>R</kbd>, type "powershell", hit <kbd>Enter</kbd>).
+3. Clone the repository: `git clone --recurse-submodules https://github.com/OpenGMK/OpenGMK`.
+4. Go into the repository: `cd OpenGMK`.
+5. Compile the crates: `cargo b -r` (ignore the warnings).
 6. The programs `gm8emulator` and `gm8decompiler` will be located in the `target/release` folder.
 
 Copy-pastable version for very lazy people:
@@ -62,15 +62,15 @@ The binary should either be manually copied to the same folder as `gm8emulator.e
 or the `OPENGMK_WOW64_BINARY` environment variable should be set with the path to the binary.
 
 Alternatively, you could build the project as 32-bit on Windows directly, eliminating the need for the WoW64 server.
-You should note that this will produce a slower program, as i686 sucks. In order to do this:
+You should note that this will produce a bit slower program, since 32-bit operating mode is no longer considered primary in today's processors, and the i686 instruction set is much older. In order to do this:
 
 ```sh
 # inside the OpenGMK folder
 rustup target add i686-pc-windows-msvc
 cargo build --release --target=i686-pc-windows-msvc
-./target/release/gm8decompiler
+./target/i686-pc-windows-msvc/release/gm8decompiler
 # or
-./target/release/gm8emulator
+./target/i686-pc-windows-msvc/release/gm8emulator
 ```
 
 Cross-platform extension emulation is planned for the long-term future.
@@ -86,8 +86,8 @@ gm8emulator path/to/game.exe
 To start record mode, or continue a previous recording, also pass a project name with `-n`.
 A folder for the project will be created in:
 
-- Windows: `projects/`
-- Linux (Near™ Future): `$XDG_DATA_HOME/opengmk/projects/` or `~/.local/share/opengmk/projects/`
+- Windows: `projects/`.
+- Linux (Near™ Future): `$XDG_DATA_HOME/opengmk/projects/` or `~/.local/share/opengmk/projects/`.
 
 ```sh
 gm8emulator path/to/game.exe -n project-name
