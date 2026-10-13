@@ -12,7 +12,12 @@ and libraries for working with gamedata yourself.
 
 ## Downloading
 
-You can download pre-built binaries for Windows x86 from the [Releases tab](https://github.com/OpenGMK/OpenGMK/releases).
+There are pre-built binaries for Windows x86:
+
+- <https://github.com/OpenGMK/OpenGMK/releases>
+- <https://github.com/OpenGMK/GM8Decompiler/releases> (only GM8Decompiler but newer)
+
+The release page hasn't been updated in a long time, so it's worth noting to **better build it yourself**.
 
 ## Compiling
 
