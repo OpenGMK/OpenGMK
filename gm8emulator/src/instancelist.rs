@@ -64,17 +64,17 @@ impl<T> ChunkList<T> {
                     Some((slot_idx, slot @ None)) => {
                         *slot = Some(t);
                         (idx * CHUNK_SIZE) + slot_idx
-                    },
+                    }
                     _ => unreachable!(),
                 }
-            },
+            }
             None => {
                 let mut chunk = Chunk::new();
                 chunk.vacant -= 1;
                 chunk.slots[0] = Some(t);
                 self.0.push(chunk);
                 (self.0.len() - 1) * CHUNK_SIZE
-            },
+            }
         }
     }
 

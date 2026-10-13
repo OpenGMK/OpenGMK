@@ -44,16 +44,16 @@ impl Window for ControlWindow {
 
             if (info.frame.button_with_size("Advance", [content_width, 20.0])
                 || info.keybind_pressed(Binding::Advance)
-                || run_until_frame
-              ) && *info.game_running
+                || run_until_frame)
+                && *info.game_running
                 && info.err_string.is_none()
             {
                 self.advance_frame(info);
             }
 
             if (info.frame.button_with_size("Quick Save", [content_width, 20.0])
-                || info.keybind_pressed(Binding::Quicksave)
-              ) && *info.game_running
+                || info.keybind_pressed(Binding::Quicksave))
+                && *info.game_running
                 && info.err_string.is_none()
             {
                 info.savestate_save(info.config.quicksave_slot);
@@ -76,13 +76,13 @@ impl Window for ControlWindow {
                     Ok(()) => (),
                     Err(replay::WriteError::IOErr(err)) => {
                         *info.err_string = Some(format!("Failed to write save.gmtas: {}", err))
-                    },
+                    }
                     Err(replay::WriteError::CompressErr(err)) => {
                         *info.err_string = Some(format!("Failed to compress save.gmtas: {}", err))
-                    },
+                    }
                     Err(replay::WriteError::SerializeErr(err)) => {
                         *info.err_string = Some(format!("Failed to serialize save.gmtas: {}", err))
-                    },
+                    }
                 }
             }
 
@@ -191,7 +191,7 @@ impl Window for ControlWindow {
             DialogState::Submit => {
                 *info.new_rand = self.rng_select.get_result();
                 false
-            },
+            }
             DialogState::Open => true,
             _ => false,
         }
@@ -221,13 +221,13 @@ impl ControlWindow {
                         self.seed_base = (info.game.rand.seed(), amount, rng.seed());
                     }
                     format!("Seed: +{} ({})", self.seed_base.1, self.seed_base.2)
-                },
+                }
                 FrameRng::Override(new_seed) => {
                     if new_seed == info.game.rand.seed() {
                         *info.new_rand = None; // Unset new seed if the game's seed is already set to it
                     }
                     format!("Seed: {}", new_seed)
-                },
+                }
             }
         } else {
             self.seed_text = format!("Seed: {}", info.game.rand.seed());
@@ -316,11 +316,13 @@ impl ControlWindow {
 
         info.game.renderer.resize_framebuffer(info.config.ui_width.into(), info.config.ui_height.into(), true);
         info.game.renderer.set_view(
-            0, 0,
+            0,
+            0,
             info.config.ui_width.into(),
             info.config.ui_height.into(),
             0.0,
-            0, 0,
+            0,
+            0,
             info.config.ui_width.into(),
             info.config.ui_height.into(),
         );
@@ -354,28 +356,28 @@ impl ControlWindow {
             match state {
                 KeyState::NeutralWillPress => {
                     frame.inputs.push(replay::Input::MousePress(i));
-                },
+                }
                 KeyState::NeutralWillDouble | KeyState::NeutralDoubleEveryFrame => {
                     frame.inputs.push(replay::Input::MousePress(i));
                     frame.inputs.push(replay::Input::MouseRelease(i));
-                },
+                }
                 KeyState::NeutralWillTriple => {
                     frame.inputs.push(replay::Input::MousePress(i));
                     frame.inputs.push(replay::Input::MouseRelease(i));
                     frame.inputs.push(replay::Input::MousePress(i));
-                },
+                }
                 KeyState::HeldWillRelease | KeyState::NeutralWillCactus => {
                     frame.inputs.push(replay::Input::MouseRelease(i));
-                },
+                }
                 KeyState::HeldWillDouble | KeyState::HeldDoubleEveryFrame => {
                     frame.inputs.push(replay::Input::MouseRelease(i));
                     frame.inputs.push(replay::Input::MousePress(i));
-                },
+                }
                 KeyState::HeldWillTriple => {
                     frame.inputs.push(replay::Input::MouseRelease(i));
                     frame.inputs.push(replay::Input::MousePress(i));
                     frame.inputs.push(replay::Input::MouseRelease(i));
-                },
+                }
                 KeyState::Neutral | KeyState::Held => (),
             }
         }
@@ -408,7 +410,7 @@ impl ControlWindow {
                 Some(SceneChange::Load(ref mut path)) => {
                     let path = std::mem::take(path);
                     game.load_gm_save(path)
-                },
+                }
                 None => Ok(()),
             },
             Err(e) => Err(e.into()),

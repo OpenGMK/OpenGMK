@@ -32,7 +32,7 @@ struct LineIterator<'a> {
 impl<'a> LineIterator<'a> {
     fn next(&mut self) -> Option<(Vec<u8>, i32)> {
         if self.pos >= self.text.len() {
-            return None
+            return None;
         }
         let mut line = Vec::new();
         let mut line_width = 0;
@@ -49,12 +49,12 @@ impl<'a> LineIterator<'a> {
                         iter.next();
                     }
                     b'\n'
-                },
+                }
                 b'\\' if iter.peek().map(|t| t.1) == Some(b'#') => {
                     // '\#' is an escaped newline character, treat it as '#'
                     iter.next();
                     b'#'
-                },
+                }
                 _ if self.font.get_char(c).is_some() => c, // Normal character
                 _ => b' ',                                 // Character is not in the font, replace with space
             };
@@ -66,8 +66,8 @@ impl<'a> LineIterator<'a> {
                     line_width += self.word_width;
                     self.word_buf.clear();
                     self.word_width = 0;
-                    break
-                },
+                    break;
+                }
                 _ => {
                     // Normal character
                     if let Some(character) = self.font.get_char(c) {
@@ -80,13 +80,13 @@ impl<'a> LineIterator<'a> {
                             self.word_width += character.offset;
                         }
                     }
-                },
+                }
             };
 
             // Check if we're going over the max width
             if let Some(max_width) = self.max_width {
                 if line_width + self.word_width > max_width && line_width != 0 {
-                    break
+                    break;
                 }
             }
 
@@ -123,7 +123,7 @@ impl Game {
                 if let Some(handle) = match view.follow_target {
                     obj_id if obj_id < 100000 => {
                         self.room.instance_list.iter_by_identity(view.follow_target).next(&self.room.instance_list)
-                    },
+                    }
                     inst_id => self.room.instance_list.get_by_instid(inst_id),
                 } {
                     let inst = self.room.instance_list.get(handle);
@@ -316,7 +316,7 @@ impl Game {
         // Extent for drawing tiles in case view is rotated
         let tile_end_x = f64::from(src_x + src_w + src_h / 2);
         let tile_end_y = f64::from(src_y + src_h + src_w / 2);
-    
+
         // draw backgrounds
         self.renderer.set_depth(12000.0);
         for background in self.room.backgrounds.iter().filter(|x| x.visible && !x.is_foreground) {
@@ -354,22 +354,22 @@ impl Game {
                     while let Some(idx_inst) = iter_inst.next(&self.room.instance_list) {
                         draw_instance(self, idx_inst)?;
                     }
-                    break
-                },
+                    break;
+                }
                 (None, Some(idx_tile), None) => {
                     draw_tile(self, idx_tile);
                     while let Some(idx_tile) = iter_tile.next(&self.room.tile_list) {
                         draw_tile(self, idx_tile);
                     }
-                    break
-                },
+                    break;
+                }
                 (None, None, Some(idx_part)) => {
                     draw_part_syst(self, idx_part);
                     while let Some(idx_part) = iter_part.next(&self.particles) {
                         draw_part_syst(self, idx_part);
                     }
-                    break
-                },
+                    break;
+                }
                 (idx_opt_inst, idx_opt_tile, idx_opt_part) => {
                     let inst_depth = idx_opt_inst.map(|h| self.room.instance_list.get(h).depth.get());
                     let tile_depth = idx_opt_tile.map(|h| self.room.tile_list.get(h).depth.get());
@@ -386,7 +386,7 @@ impl Game {
                         draw_part_syst(self, idx_opt_part.unwrap());
                         iter_part_v = iter_part.next(&self.particles);
                     }
-                },
+                }
             }
         }
 
@@ -449,7 +449,7 @@ impl Game {
                 } else {
                     encoded_text.into_owned()
                 }
-            },
+            }
         };
         LineIterator { text: encoded_text, pos: 0, font, max_width, word_buf: Vec::new(), word_width: 0 }
     }
@@ -535,8 +535,8 @@ impl Game {
                         if let Some(character) = font.get_char(font.first) {
                             cursor_x += character.offset as i32;
                         }
-                        continue
-                    },
+                        continue;
+                    }
                 };
 
                 let xdiff = Real::from(character.distance as i32 + cursor_x);

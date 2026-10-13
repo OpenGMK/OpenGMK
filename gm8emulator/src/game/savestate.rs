@@ -1,8 +1,8 @@
 use crate::{
     game::{
         audio::AudioState, draw, external, includedfile::IncludedFile, model::Model, particle,
-        pathfinding::PotentialStepSettings, surface::Surface, transition::UserTransition, Assets,
-        Game, GameClock, Replay, RoomState, Version,
+        pathfinding::PotentialStepSettings, surface::Surface, transition::UserTransition, Assets, Game, GameClock,
+        Replay, RoomState, Version,
     },
     gml::{self, ds, rand::Random, Compiler},
     handleman::HandleList,
@@ -316,17 +316,17 @@ impl SaveState {
                                         unsafe { buffer.bin_buf.set_len(len) };
                                         bincode::deserialize::<'_, SaveState>(buffer.bin_buf.as_slice())
                                             .map_err(ReadError::DeserializeErr)
-                                    },
+                                    }
                                     Err(err) => Err(ReadError::DecompressErr(err)),
                                 }
-                            },
+                            }
                             (Ok(_), None) => Err(ReadError::IOErr(io::Error::from(io::ErrorKind::UnexpectedEof))),
                             (Err(err), _) => Err(ReadError::IOErr(err)),
                         }
-                    },
+                    }
                     Err(err) => Err(ReadError::IOErr(err)),
                 }
-            },
+            }
             Err(err) => Err(ReadError::IOErr(err)),
         }
     }
@@ -347,10 +347,10 @@ impl SaveState {
                             Ok(()) => Ok(()),
                             Err(e) => Err(WriteError::IOErr(e)),
                         }
-                    },
+                    }
                     Err(err) => Err(WriteError::CompressErr(err)),
                 }
-            },
+            }
             Err(err) => Err(WriteError::SerializeErr(err)),
         }
     }

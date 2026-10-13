@@ -54,40 +54,49 @@ pub enum Error {
 impl std::error::Error for Error {}
 impl Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", match self {
-            Error::IO(err) => format!("io error: {}", err),
-            Error::VersionError { expected, got } => format!(
+        match self {
+            Self::IO(err) => write!(f, "io error: {err}"),
+            Self::VersionError { expected, got } => write!(
+                f,
                 "version error: expected {} ({}), found {} ({})",
                 *expected,
                 *expected as f32 / 100.0,
                 *got,
                 *got as f32 / 100.0
             ),
-            Error::MalformedData => "malformed data while reading".into(),
-        })
+            Self::MalformedData => write!(f, "malformed data while reading"),
+        }
     }
 }
 
 impl From<io::Error> for Error {
     fn from(err: io::Error) -> Self {
-        Error::IO(err)
+        Self::IO(err)
     }
 }
 
 impl From<(u32, u32)> for Error {
     fn from(version_error: (u32, u32)) -> Self {
-        Error::VersionError { expected: version_error.0, got: version_error.1 }
+        Self::VersionError { expected: version_error.0, got: version_error.1 }
     }
 }
 
 #[inline(always)]
-fn assert_ver(got: u32, expected: u32) -> Result<(), Error> {
-    if got != expected { Err(Error::VersionError { expected, got }) } else { Ok(()) }
+const fn assert_ver(got: u32, expected: u32) -> Result<(), Error> {
+    if got == expected {
+        Ok(())
+    } else {
+        Err(Error::VersionError { expected, got })
+    }
 }
 
 #[inline(always)]
 fn assert_ver_multiple(got: u32, expected: &[u32]) -> Result<(), Error> {
-    if expected.contains(&got) { Ok(()) } else { Err(Error::VersionError { expected: expected[0], got }) }
+    if expected.contains(&got) {
+        Ok(())
+    } else {
+        Err(Error::VersionError { expected: expected[0], got })
+    }
 }
 
 /// A string of characters encoded as UTF-8.
@@ -112,7 +121,7 @@ impl Display for PascalString {
 
 impl From<&str> for PascalString {
     fn from(s: &str) -> Self {
-        PascalString(s.to_owned().into_boxed_str().into_boxed_bytes())
+        Self(s.to_owned().into_boxed_str().into_boxed_bytes())
     }
 }
 

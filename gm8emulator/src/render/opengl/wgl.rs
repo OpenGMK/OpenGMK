@@ -119,7 +119,7 @@ unsafe fn wapi_error_string() -> String {
         ptr::null_mut(),
     );
     if char_count == 0 || buf_ptr.is_null() {
-        return format!("Error code {:#X} (could not get error string due to error code {:#X})", error, GetLastError())
+        return format!("Error code {:#X} (could not get error string due to error code {:#X})", error, GetLastError());
     }
     let wchars = slice::from_raw_parts(buf_ptr, char_count as usize);
     let os_message = OsString::from_wide(wchars);
@@ -158,7 +158,7 @@ unsafe fn create_context_basic(device: HDC) -> Result<HGLRC, String> {
         Err(err) => {
             wglMakeCurrent(saved_device, saved_context);
             Err(err)
-        },
+        }
     }
 }
 
@@ -175,7 +175,7 @@ unsafe fn create_context_attribs(wgl: &wgl::Wgl, device: HDC) -> Result<HGLRC, S
         Err(err) => {
             wglMakeCurrent(saved_device, saved_context);
             Err(err)
-        },
+        }
     }
 }
 
@@ -261,7 +261,11 @@ impl PlatformImpl {
     }
 
     pub unsafe fn get_swap_interval(&self) -> u32 {
-        if self.wgl.GetSwapIntervalEXT.is_loaded() { self.wgl.GetSwapIntervalEXT() as u32 } else { 0 }
+        if self.wgl.GetSwapIntervalEXT.is_loaded() {
+            self.wgl.GetSwapIntervalEXT() as u32
+        } else {
+            0
+        }
     }
 
     pub unsafe fn wait_vsync(&self) {

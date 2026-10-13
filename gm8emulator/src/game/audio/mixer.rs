@@ -70,11 +70,11 @@ impl Source for Mixer {
                             self.exclusive_source = None;
                         }
                     }
-                },
+                }
                 Command::StopAll => {
                     self.sources.clear();
                     self.exclusive_source = None;
-                },
+                }
             }
         }
 

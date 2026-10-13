@@ -33,8 +33,7 @@ use crate::{
         trigger::{self, Trigger},
         Object, Script, Sound, Timeline,
     },
-    game::gm_save::GMSave,
-    game::replay::FrameRng,
+    game::{gm_save::GMSave, replay::FrameRng},
     gml::{self, ds, ev, file, rand::Random, runtime::Instruction, Compiler, Context},
     handleman::{HandleArray, HandleList, HandleManager},
     input::{self, Input},
@@ -217,7 +216,7 @@ pub struct Game {
 
     pub play_type: PlayType,
     pub stored_events: VecDeque<replay::Event>,
-    pub frame_limiter: bool, // whether to limit FPS of gameplay by room_speed
+    pub frame_limiter: bool,   // whether to limit FPS of gameplay by room_speed
     pub frame_limit_at: usize, // on which frame to start limiting FPS
     pub ffmpeg_recorder: Option<Child>,
 
@@ -321,7 +320,7 @@ macro_rules! handle_scene_change {
             Some(SceneChange::Load(ref mut path)) => {
                 let path = std::mem::take(path);
                 $self.load_gm_save(path)?
-            },
+            }
             None => (),
         }
     }};
@@ -422,7 +421,7 @@ impl Game {
         let decode_str_maybe = |bytes: Vec<u8>| match gm_version {
             Version::GameMaker8_0 => {
                 encoding.decode_without_bom_handling_and_without_replacement(&bytes).map(|x| x.into_owned())
-            },
+            }
             Version::GameMaker8_1 => String::from_utf8(bytes).ok(),
         };
 
@@ -463,11 +462,11 @@ impl Game {
                             eprintln!("Could not use game directory either: {}", e);
                             eprintln!("Trying to run anyway. If this game uses the temp folder, it will likely crash.");
                             dir = PathBuf::new();
-                        },
+                        }
                     }
                 }
                 dir
-            },
+            }
         };
 
         let included_files = included_files
@@ -482,7 +481,7 @@ impl Game {
                         Some(s) => includedfile::ExportSetting::CustomFolder(s),
                         None => {
                             panic!("could not decode includedfile export directory {}", String::from_utf8_lossy(&dir.0))
-                        },
+                        }
                     },
                 };
                 let mut i = IncludedFile {
@@ -490,7 +489,7 @@ impl Game {
                         Some(s) => s,
                         None => {
                             panic!("could not decode includedfile name {}", String::from_utf8_lossy(&i.file_name.0))
-                        },
+                        }
                     },
                     data: i.embedded_data,
                     export_settings,
@@ -598,11 +597,9 @@ impl Game {
 
         let connection = ramen::connection::Connection::new()?;
         #[cfg(unix)]
-        unsafe {
-            let display = connection.xdisplay();
-            let screen = connection.xscreenid();
-            crate::render::opengl::glx::glx_init(display, screen);
-        }
+        let display = connection.xdisplay();
+        let screen = connection.xscreenid();
+        crate::render::opengl::glx::glx_init(display, screen);
 
         #[allow(unused_mut)]
         let mut builder = connection
@@ -741,11 +738,11 @@ impl Game {
                                         function.name, dll_name, e
                                     );
                                     extension_functions.push(None);
-                                },
+                                }
                             }
                         }
                         temp_directory.pop();
-                    },
+                    }
                     FileKind::GmlScript => {
                         // GML - compile, then set up all the functions defined in it
                         // Note: GameMaker does a lazy search for #define to look for function definitions,
@@ -780,17 +777,17 @@ impl Game {
                                         &file.contents[start..]
                                     };
                                     extension_functions.push(Some(ExtensionFunction::Gml(compiler.compile(fn_code)?)));
-                                },
+                                }
                                 None => {
                                     println!(
                                         "WARNING: failed to load extension function {} (from {})",
                                         function.name, file.name
                                     );
                                     extension_functions.push(None);
-                                },
+                                }
                             }
                         }
-                    },
+                    }
                     FileKind::ActionLibrary => (), // Lib - don't think we need to do anything with this
                     FileKind::Other => {
                         // Other - just save this to disk
@@ -798,7 +795,7 @@ impl Game {
                         let mut f = File::create(&temp_directory)?;
                         f.write_all(&file.contents)?;
                         temp_directory.pop();
-                    },
+                    }
                 }
             }
 
@@ -822,7 +819,7 @@ impl Game {
                                         String::from_utf8_lossy(b.name.0.as_ref())
                                     );
                                     FileType::None
-                                },
+                                }
                             },
                             b".wav" => match audio.add_wav(
                                 data,
@@ -838,7 +835,7 @@ impl Game {
                                         String::from_utf8_lossy(b.name.0.as_ref())
                                     );
                                     FileType::None
-                                },
+                                }
                             },
                             _ => FileType::None,
                         },
@@ -1053,10 +1050,10 @@ impl Game {
                         match Tree::from_list(actions, &mut compiler) {
                             Ok(t) => {
                                 moments.insert(*moment as i32, Rc::new(RefCell::new(t)));
-                            },
+                            }
                             Err(e) => {
                                 return Err(format!("Compiler error in timeline {} moment {}: {}", b.name, moment, e))
-                            },
+                            }
                         };
                     }
                     Ok(Box::new(Timeline { name: b.name.into(), moments: Rc::new(RefCell::new(moments)) }))
@@ -1079,18 +1076,15 @@ impl Game {
                         for ((i, map), input) in events.iter_mut().enumerate().zip(b.events.iter()) {
                             map.reserve(input.len());
                             for (sub, actions) in input {
-                                map.insert(
-                                    *sub,
-                                    match Tree::from_list(actions, &mut compiler) {
-                                        Ok(t) => Rc::new(RefCell::new(t)),
-                                        Err(e) => {
-                                            return Err(format!(
-                                                "Compiler error in object {} event {},{}: {}",
-                                                b.name, i, sub, e
-                                            ))
-                                        },
-                                    },
-                                );
+                                map.insert(*sub, match Tree::from_list(actions, &mut compiler) {
+                                    Ok(t) => Rc::new(RefCell::new(t)),
+                                    Err(e) => {
+                                        return Err(format!(
+                                            "Compiler error in object {} event {},{}: {}",
+                                            b.name, i, sub, e
+                                        ))
+                                    }
+                                });
                             }
                         }
                         Ok(Box::new(Object {
@@ -1542,8 +1536,12 @@ impl Game {
         match self.gm_version {
             Version::GameMaker8_0 => {
                 let (encoded, _, is_bad) = self.encoding.encode(utf8);
-                if is_bad { None } else { Some(encoded) }
-            },
+                if is_bad {
+                    None
+                } else {
+                    Some(encoded)
+                }
+            }
             Version::GameMaker8_1 => Some(Cow::from(utf8.as_bytes())),
         }
     }
@@ -2084,7 +2082,7 @@ impl Game {
                             if let (Ok(x), Ok(y)) = (i32::try_from(x), i32::try_from(y)) {
                                 self.input.mouse_move_to((x, y));
                             }
-                        },
+                        }
                         Event::MouseDown(button) => self.input.mouse_press(input::ramen2mb(button), true),
                         Event::MouseUp(button) => self.input.mouse_release(input::ramen2mb(button), true),
                         Event::ScrollUp => self.input.mouse_scroll_up(),
@@ -2094,7 +2092,7 @@ impl Game {
                         _ => (),
                     }
                 }
-            },
+            }
             _ => (),
         }
     }
@@ -2113,7 +2111,7 @@ impl Game {
                         (gml::Value::Str(_), dll::ValueType::Real) => dll::Value::Real(0.0),
                         (gml::Value::Str(s), dll::ValueType::Str) => {
                             dll::Value::Str(dll::PascalString::new(s.as_ref()))
-                        },
+                        }
                         (gml::Value::Real(_), dll::ValueType::Str) => dll::Value::Str(dll::PascalString::empty()),
                     })
                     .collect::<Vec<_>>()
@@ -2124,11 +2122,11 @@ impl Game {
                 external::Call::Native(_) => {
                     let args = convert_args();
                     Ok(self.externals.call_native(id as _, &args).into())
-                },
+                }
                 external::Call::Ipc(_) => {
                     let args = convert_args();
                     Ok(self.externals.call_ipc(id as _, &args).into())
-                },
+                }
             }
         } else {
             Ok(Default::default()) // unfortunately required
@@ -2150,13 +2148,13 @@ impl Game {
                 self.call_external(id, context, &args[..arg_count])
                     .map(gml::Value::from)
                     .map_err(|err| gml::Error::ExternalFunction(sym, err.to_string()))
-            },
+            }
             Some(ExtensionFunction::Gml(gml)) => {
                 let instructions = gml.clone();
                 let mut context = Context::copy_with_args(context, args, arg_count);
                 self.execute(&instructions, &mut context)?;
                 Ok(context.return_value)
-            },
+            }
             None => Ok(Default::default()), // unfortunately required
         }
     }
@@ -2291,7 +2289,11 @@ impl Game {
         if let Some(seed) = &frame.new_seed {
             match seed {
                 FrameRng::Override(new_seed) => self.rand.set_seed(*new_seed),
-                FrameRng::Increment(count) => for _ in 0..*count { self.rand.cycle(); },
+                FrameRng::Increment(count) => {
+                    for _ in 0..*count {
+                        self.rand.cycle();
+                    }
+                }
             }
         }
 
@@ -2343,10 +2345,10 @@ impl Game {
                     frame_count = rep.frame_count();
                     clean_state = state.clean_state;
                     self.renderer.set_state(&ren);
-                },
+                }
                 Err(e) => {
                     panic!("(Fatal) Error loading savestate file: {:?}", e);
-                },
+                }
             }
         } else {
             for ev in replay.startup_events.iter() {
@@ -2366,7 +2368,11 @@ impl Game {
                     if start_save_path.is_some() {
                         // Store the current framebuffer since it's used by the savestate.
                         // Only matters if there already is a framebuffer stored which is the case when loading a savestate.
-                        self.renderer.resize_framebuffer(self.renderer.stored_size().0, self.renderer.stored_size().1, true);
+                        self.renderer.resize_framebuffer(
+                            self.renderer.stored_size().0,
+                            self.renderer.stored_size().1,
+                            true,
+                        );
                     }
                     let render_state = self.renderer.state();
                     let mut new_replay = replay.clone();
@@ -2407,7 +2413,7 @@ impl Game {
                 Some(SceneChange::Load(ref mut path)) => {
                     let path = std::mem::take(path);
                     self.load_gm_save(path)?
-                },
+                }
                 None => (),
             }
 
@@ -3017,11 +3023,11 @@ impl Game {
                             if pred(handle) {
                                 break Some(handle);
                             }
-                        },
+                        }
                         None => break None,
                     }
                 }
-            },
+            }
             _ if object_id < 0 => None,
             object_id if object_id < 100000 => {
                 let mut iter = self.room.instance_list.iter_by_identity(object_id);
@@ -3031,11 +3037,11 @@ impl Game {
                             if pred(handle) {
                                 break Some(handle);
                             }
-                        },
+                        }
                         None => break None,
                     }
                 }
-            },
+            }
             instance_id => {
                 if let Some(handle) = self.room.instance_list.get_by_instid(instance_id) {
                     if self.room.instance_list.get(handle).is_active() && pred(handle) {
@@ -3046,7 +3052,7 @@ impl Game {
                 } else {
                     None
                 }
-            },
+            }
         }
     }
 }

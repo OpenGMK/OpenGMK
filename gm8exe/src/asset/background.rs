@@ -42,7 +42,7 @@ impl Asset for Background {
 
             // sanity check
             if len != (width as usize * height as usize * 4) {
-                return Err(Error::MalformedData)
+                return Err(Error::MalformedData);
             }
 
             let data = Some(reader.read_chunk(len)?.into_boxed_slice());
@@ -60,7 +60,7 @@ impl Asset for Background {
         writer.write_u32::<LE>(self.height)?;
         if let Some(pixeldata) = &self.data {
             writer.write_u32::<LE>(pixeldata.len() as u32)?; // TODO: safety. also grep for casts
-            writer.write_all(&pixeldata)?;
+            writer.write_all(pixeldata)?;
         }
         Ok(())
     }

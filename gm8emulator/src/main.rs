@@ -30,13 +30,10 @@ const EXIT_FAILURE: i32 = 1;
 fn help(argv0: &str, opts: getopts::Options) {
     print!(
         "{}",
-        opts.usage(&format!(
-            "Usage: {} FILE [options]",
-            match Path::new(argv0).file_name() {
-                Some(file) => file.to_str().unwrap_or(argv0),
-                None => argv0,
-            }
-        ))
+        opts.usage(&format!("Usage: {} FILE [options]", match Path::new(argv0).file_name() {
+            Some(file) => file.to_str().unwrap_or(argv0),
+            None => argv0,
+        }))
     );
 }
 
@@ -74,7 +71,7 @@ fn xmain() -> i32 {
                 UnexpectedArgument(arg) => eprintln!("unexpected argument {}", arg),
             }
             return EXIT_FAILURE;
-        },
+        }
     };
 
     if args.len() < 2 || matches.opt_present("h") {
@@ -92,7 +89,7 @@ fn xmain() -> i32 {
             Ok(f) => f,
             Err(e) => {
                 panic!("{}", e);
-            },
+            }
         })
         .unwrap_or(0);
     let frame_limiter = !matches.opt_present("l");
@@ -165,7 +162,7 @@ fn xmain() -> i32 {
         Err(e) => {
             eprintln!("{}", e);
             return EXIT_FAILURE;
-        },
+        }
     };
 
     let input = {
@@ -191,7 +188,7 @@ fn xmain() -> i32 {
         Err(err) => {
             eprintln!("failed to open '{}': {}", input, err);
             return EXIT_FAILURE;
-        },
+        }
     };
 
     if verbose {
@@ -214,7 +211,7 @@ fn xmain() -> i32 {
         Err(err) => {
             eprintln!("failed to load '{}' - {}", input, err);
             return EXIT_FAILURE;
-        },
+        }
     };
 
     let absolute_path = match file_path.canonicalize() {
@@ -222,7 +219,7 @@ fn xmain() -> i32 {
         Err(e) => {
             eprintln!("Failed to resolve game path: {}", e);
             return EXIT_FAILURE;
-        },
+        }
     };
 
     let encoding = encoding_rs::SHIFT_JIS; // TODO: argument
@@ -250,7 +247,7 @@ fn xmain() -> i32 {
         Err(e) => {
             eprintln!("Failed to launch game: {}", e);
             return EXIT_FAILURE;
-        },
+        }
     };
 
     let time_now = GameClock::SpoofedNanos(gml::datetime::now_as_nanos());

@@ -360,12 +360,12 @@ impl Real {
     pub fn cmp_nan_first(&self, other: &Self) -> Ordering {
         if self.0.is_nan() {
             if other.0.is_nan() {
-                return Ordering::Equal
+                return Ordering::Equal;
             }
-            return Ordering::Less
+            return Ordering::Less;
         }
         if other.0.is_nan() {
-            return Ordering::Greater
+            return Ordering::Greater;
         }
         self.partial_cmp(other).unwrap()
     }
@@ -417,7 +417,7 @@ mod tests {
         loop {
             x += INCREMENT;
             if x == target {
-                break
+                break;
             } else if x > target {
                 panic!();
             }

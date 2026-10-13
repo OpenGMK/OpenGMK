@@ -82,7 +82,7 @@ fn main() {
                 pause(true);
             }
             process::exit(1);
-        },
+        }
     };
 
     // print help message if requested OR no input files
@@ -133,7 +133,7 @@ Options:
         Some(x) => {
             eprintln!("Invalid deobfuscator setting: {} (valid settings are on/off/auto)", x);
             process::exit(1);
-        },
+        }
     };
     let out_path = matches.opt_str("o");
     let preserve = matches.opt_present("p");
@@ -212,7 +212,7 @@ fn decompile(
                 || assets.sounds.iter().flatten().any(|s| s.name.0.is_empty())
                 || assets.sprites.iter().flatten().any(|s| s.name.0.is_empty())
                 || assets.timelines.iter().flatten().any(|s| s.name.0.is_empty())
-        },
+        }
     };
     if deobf_mode == deobfuscate::Mode::Auto && deobfuscate {
         println!("Note: GMK looks obfuscated, so de-obfuscation has been enabled by default");
@@ -272,16 +272,16 @@ fn decompile(
                         path.file_stem().and_then(|oss| oss.to_str()).unwrap_or("filename"),
                         out_expected_ext,
                     );
-                },
+                }
                 _ => (),
             }
             path
-        },
+        }
         None => {
             let mut path = PathBuf::from(in_path);
             path.set_extension(out_expected_ext);
             path
-        },
+        }
     };
 
     if deobfuscate {

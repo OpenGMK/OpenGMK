@@ -71,7 +71,7 @@ pub fn linear_step(x: Real, y: Real, step_size: Real, instance: &Instance, coll:
     let old_x = instance.x.get();
     let old_y = instance.y.get();
     if old_x == x && old_y == y {
-        return true
+        return true;
     }
     let xdist = x - old_x;
     let ydist = y - old_y;
@@ -107,7 +107,7 @@ pub fn potential_step(
     let old_x = instance.x.get();
     let old_y = instance.y.get();
     if old_x == x && old_y == y {
-        return true
+        return true;
     }
     // try to move into the given position, if it's colliding move back, return true if successful
     let try_move = |x, y| {
@@ -147,7 +147,7 @@ pub fn potential_step(
                     if try_move(old_x + x_step, old_y + y_step) {
                         instance.direction.set(direction);
                         res = true;
-                        break
+                        break;
                     } else {
                         // the position will be ahead, so put it back where it was
                         instance.x.set(old_x);

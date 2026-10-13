@@ -34,15 +34,21 @@ pub enum FrameRng {
 impl FrameRng {
     pub fn increase(&mut self) {
         *self = match self {
-            FrameRng::Increment(amount) => FrameRng::Increment(*amount+1),
-            FrameRng::Override(seed) => FrameRng::Override(seed.wrapping_add(1))
+            FrameRng::Increment(amount) => FrameRng::Increment(*amount + 1),
+            FrameRng::Override(seed) => FrameRng::Override(seed.wrapping_add(1)),
         }
     }
 
     pub fn decrease(&mut self) -> bool {
         *self = match self {
-            FrameRng::Increment(amount) => if *amount <= 1 { FrameRng::Increment(0) } else { FrameRng::Increment(*amount-1) }
-            FrameRng::Override(seed) => FrameRng::Override(seed.wrapping_sub(1))
+            FrameRng::Increment(amount) => {
+                if *amount <= 1 {
+                    FrameRng::Increment(0)
+                } else {
+                    FrameRng::Increment(*amount - 1)
+                }
+            }
+            FrameRng::Override(seed) => FrameRng::Override(seed.wrapping_sub(1)),
         };
 
         // Return false if we would not actually change the seed at all (0 increments).
@@ -124,16 +130,16 @@ impl Replay {
                                     unsafe { bin_buf.set_len(len) };
                                     bincode::deserialize::<'_, Self>(bin_buf.as_slice())
                                         .map_err(ReadError::DeserializeErr)
-                                },
+                                }
                                 Err(err) => Err(ReadError::DecompressErr(err)),
                             }
-                        },
+                        }
                         (Ok(_), None) => Err(ReadError::IOErr(io::Error::from(io::ErrorKind::UnexpectedEof))),
                         (Err(err), _) => Err(ReadError::IOErr(err)),
                     },
                     Err(err) => Err(ReadError::IOErr(err)),
                 }
-            },
+            }
             Ok(v) => Err(ReadError::UnknownVersion(v)),
             Err(e) => Err(ReadError::IOErr(e)),
         }
@@ -154,7 +160,7 @@ impl Replay {
                         Ok(()) => Ok(()),
                         Err(e) => Err(WriteError::IOErr(e)),
                     }
-                },
+                }
                 Err(err) => Err(WriteError::CompressErr(err)),
             },
             Err(err) => Err(WriteError::SerializeErr(err)),
@@ -184,7 +190,7 @@ impl Replay {
     // Mouse position will be the same as the previous frame unless this is the first frame,
     // in which case it will be (0, 0)
     pub fn insert_new_frame(&mut self, index: usize) -> &mut Frame {
-        let (mouse_x, mouse_y) = match self.frames.get(index-1) {
+        let (mouse_x, mouse_y) = match self.frames.get(index - 1) {
             Some(frame) => (frame.mouse_x, frame.mouse_y),
             None => (0, 0),
         };

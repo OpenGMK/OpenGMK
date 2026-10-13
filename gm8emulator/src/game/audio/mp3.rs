@@ -116,15 +116,15 @@ impl Mp3Player {
                     if self.channels.get() == audio.channels() {
                         self.buffer_off = 0;
                         self.buffer_len = usize::from(audio.channels()) * audio.sample_count();
-                        break true
+                        break true;
                     }
-                },
+                }
                 Some((rmp3::Frame::Other(_), bytes_consumed)) => self.offset += bytes_consumed,
                 None => {
                     self.buffer_off = 0;
                     self.buffer_len = 0;
-                    break false
-                },
+                    break false;
+                }
             }
         }
     }
@@ -147,7 +147,7 @@ impl Source for Mp3Player {
             // 😳
             let flushed = self.flush(buffer);
             if buffer.len() == flushed {
-                break samples_written + flushed
+                break samples_written + flushed;
             }
             buffer = &mut buffer[flushed..];
             samples_written += flushed;
@@ -155,7 +155,7 @@ impl Source for Mp3Player {
             // 🥤
             if self.buffer_len == 0 {
                 if !self.refill() {
-                    break samples_written
+                    break samples_written;
                 }
             }
         }
@@ -172,7 +172,7 @@ impl Source for Mp3Player {
 fn details(mut decoder: Decoder) -> Option<(u16, u32)> {
     while let Some(frame) = decoder.peek() {
         if let Frame::Audio(audio) = frame {
-            return Some((audio.channels(), audio.sample_rate()))
+            return Some((audio.channels(), audio.sample_rate()));
         } else {
             decoder.skip();
         }

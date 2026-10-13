@@ -1,12 +1,8 @@
 use crate::types::ArraySerde;
 use serde::{Deserialize, Serialize};
 use std::{
-    fmt::{
-        Display,
-        Error,
-        Formatter,
-    },
     convert::TryFrom,
+    fmt::{Display, Error, Formatter},
 };
 
 const KEY_MAX: usize = u8::max_value() as usize + 1;
@@ -1198,10 +1194,10 @@ impl Input {
         state.iter().enumerate().any(|(vk, flag)| match vk {
             vk if vk == Button::Shift as usize => {
                 state[Button::LeftShift as usize] || state[Button::RightShift as usize]
-            },
+            }
             vk if vk == Button::Control as usize => {
                 state[Button::LeftControl as usize] || state[Button::RightControl as usize]
-            },
+            }
             vk if vk == Button::Alt as usize => state[Button::LeftAlt as usize] || state[Button::RightAlt as usize],
             vk if !IS_DIRECT_ONLY[vk] => *flag,
             _ => false,
@@ -1340,12 +1336,12 @@ impl Input {
                 state[Button::MouseLeft as usize]
                     || state[Button::MouseRight as usize]
                     || state[Button::MouseMiddle as usize]
-            },
+            }
             MB_NONE => {
                 !state[Button::MouseLeft as usize]
                     && !state[Button::MouseRight as usize]
                     && !state[Button::MouseMiddle as usize]
-            },
+            }
 
             // unlike `mouse2button`, gm constants only
             x if x == MouseButton::Left as i8 => state[Button::MouseLeft as usize],

@@ -258,7 +258,7 @@ impl Asset for Room {
             GameVersion::GameMaker8_0 => writer.write_u32::<LE>(self.clear_screen.into())?,
             GameVersion::GameMaker8_1 => {
                 writer.write_u32::<LE>((u32::from(!self.clear_region) << 1) | u32::from(self.clear_screen))?
-            },
+            }
         };
         writer.write_pas_string(&self.creation_code)?;
         writer.write_u32::<LE>(self.backgrounds.len() as u32)?;

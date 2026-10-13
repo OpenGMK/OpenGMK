@@ -22,13 +22,13 @@ pub fn resolve_map(sprite: &Sprite) -> Option<GmkCollision> {
     let maps = &sprite.colliders;
     // Return None if empty
     if sprite.frames.is_empty() || maps.is_empty() {
-        return None
+        return None;
     }
 
     // Return None if there are less colliders than there should be
     let n_colliders = if sprite.per_frame_colliders { sprite.frames.len() } else { 1 };
     if sprite.colliders.len() < n_colliders {
-        return None
+        return None;
     }
 
     // Each map has its own bounds, so we need to find out the outmost bounds
@@ -102,7 +102,11 @@ pub fn resolve_map(sprite: &Sprite) -> Option<GmkCollision> {
         let ratio = (collision_count as f64)
             / (((map.bbox_right + 1 - map.bbox_left) * (map.bbox_bottom + 1 - map.bbox_top)) as f64);
         // Highest diamond ratio I've seen is 0.5454.. Lowest disk ratio I've seen is 0.777..
-        if ratio < 0.65 { (Shape::Diamond, 0) } else { (Shape::Disk, 0) }
+        if ratio < 0.65 {
+            (Shape::Diamond, 0)
+        } else {
+            (Shape::Disk, 0)
+        }
     };
 
     Some(GmkCollision {

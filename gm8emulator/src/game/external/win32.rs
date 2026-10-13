@@ -85,13 +85,18 @@ impl NativeManager {
             let dll_wchar = wstrz(&signature.dll);
             let dll_handle = LoadLibraryW(dll_wchar.as_ptr());
             if dll_handle.is_null() {
-                return Err(format!("failed to load dll '{}' (err {})", signature.dll, GetLastError()))
+                return Err(format!("failed to load dll '{}' (err {})", signature.dll, GetLastError()));
             }
             let symbol_c = CString::new(signature.symbol.clone()).unwrap();
             let function = GetProcAddress(dll_handle, symbol_c.as_ptr());
             if function.is_null() {
                 FreeLibrary(dll_handle);
-                return Err(format!("failed to GetProcAddress for '{}' in '{}' (err {})", signature.symbol, signature.dll, GetLastError()))
+                return Err(format!(
+                    "failed to GetProcAddress for '{}' in '{}' (err {})",
+                    signature.symbol,
+                    signature.dll,
+                    GetLastError()
+                ));
             }
 
             // compatibility hacks
@@ -135,7 +140,7 @@ impl NativeManager {
             match external.type_return {
                 dll::ValueType::Real => {
                     dll::Value::Real(external.cif.call::<f64>(external.code_ptr, &self.buf_ffi_arg))
-                },
+                }
                 dll::ValueType::Str => dll::Value::Str({
                     let char_ptr = external.cif.call::<*const c_char>(external.code_ptr, &self.buf_ffi_arg);
                     if *char_ptr != 0 {
@@ -157,10 +162,10 @@ unsafe fn apply_fmod_hack(handle: HMODULE) -> Result<(), String> {
         loop {
             let len = GetModuleFileNameW(handle, fname.as_mut_ptr(), fname.capacity() as _);
             if len == 0 {
-                return Err(format!("couldn't get FMOD dll filename: error code {:#X}", GetLastError()))
+                return Err(format!("couldn't get FMOD dll filename: error code {:#X}", GetLastError()));
             } else if len < fname.capacity() as u32 {
                 fname.set_len(len as usize);
-                break
+                break;
             } else {
                 fname.reserve(len as usize * 2);
             }
@@ -183,7 +188,7 @@ unsafe fn apply_fmod_hack(handle: HMODULE) -> Result<(), String> {
             // if it's null it tries to extract them, which obviously doesn't work with the emulator
             // so make it not null : )
             handle.add(0x852d0).write(1);
-        },
+        }
         0xD914E241 => {
             // the 2009 build
             eprintln!("Applying hack for GMFMODSimple with hash {:#X}", file_hash);
@@ -197,7 +202,7 @@ unsafe fn apply_fmod_hack(handle: HMODULE) -> Result<(), String> {
             target_byte.write(0xc3);
             VirtualProtect(target_byte.cast(), 1, old_protect, &mut old_protect);
             FlushInstructionCache(GetCurrentProcess(), target_byte.cast(), 1);
-        },
+        }
         0xB2FEC528 => (), // grix's fork v4.46, it doesn't have any runner hacks so it's safe
         0xA11E30FF => (), // above but upx'd (used by gm82snd v1.1.6 and earlier)
         0x04756676 => (), // above but with a fix for unicode paths (used by gm82snd v1.1.7 and later)
@@ -205,7 +210,7 @@ unsafe fn apply_fmod_hack(handle: HMODULE) -> Result<(), String> {
             eprintln!("WARNING: Unknown version of GMFMODSimple detected with hash {:#010X}", file_hash);
             eprintln!("GMFMODSimple requires a hack to work, and we weren't able to apply it.");
             eprintln!("The game is likely to crash.");
-        },
+        }
     }
     Ok(())
 }

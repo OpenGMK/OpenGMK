@@ -24,15 +24,13 @@ pub enum ReaderError {
 impl std::error::Error for ReaderError {}
 impl Display for ReaderError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", match self {
-            ReaderError::AssetError(err) => format!("asset data error: {}", err),
-            ReaderError::InvalidExeHeader => "invalid exe header".into(),
-            ReaderError::IO(err) => format!("io error: {}", err),
-            ReaderError::PartialUPXPacking => {
-                "looks upx protected, can't locate headers".into()
-            },
-            ReaderError::UnknownFormat => "unknown format, could not identify file".into(),
-        })
+        match self {
+            Self::AssetError(err) => write!(f, "asset data error: {err}"),
+            Self::InvalidExeHeader => write!(f, "invalid exe header"),
+            Self::IO(err) => write!(f, "io error: {err}"),
+            Self::PartialUPXPacking => write!(f, "looks upx protected, can't locate headers"),
+            Self::UnknownFormat => write!(f, "unknown format, could not identify file"),
+        }
     }
 }
 
@@ -79,7 +77,7 @@ where
     // verify executable header
     // Windows EXE must always start with "MZ"
     if exe.get_ref().get(0..2).unwrap_or(b"XX") != b"MZ" {
-        return Err(ReaderError::InvalidExeHeader)
+        return Err(ReaderError::InvalidExeHeader);
     }
     // Dword at 0x3C indicates the start of the PE header
     exe.set_position(0x3C);
@@ -121,18 +119,18 @@ where
                 // UPX0 section
                 upx0_virtual_len = Some(virtual_size);
                 log!(logger, "UPX0 section found, virtual len: {}", virtual_size);
-            },
+            }
             [0x55, 0x50, 0x58, 0x31, 0x00, 0x00, 0x00, 0x00] => {
                 // UPX1 section
                 upx1_data = Some((virtual_size, disk_address));
                 log!(logger, "UPX1 section found, virtual len: {}", virtual_size);
-            },
+            }
             [0x2E, 0x72, 0x73, 0x72, 0x63, 0x00, 0x00, 0x00] => {
                 // .rsrc section
                 log!(logger, "Found .rsrc section beginning at {}", disk_address);
                 rsrc_location = Some(disk_address);
-            },
-            _ => {},
+            }
+            _ => {}
         }
         sections.push(PESection { virtual_size, virtual_address, disk_size, disk_address })
     }
@@ -442,7 +440,7 @@ where
             // Skip block if it's just a deflated `00 00 00 00` (normal compression level, as GM8 does).
             // This will short circuit on length, but it checks against this literal to make sure.
             if data == [0x78, 0x9C, 0x63, 0x60, 0x60, 0x60, 0x00, 0x00, 0x00, 0x04, 0x00, 0x01] {
-                return Ok(None)
+                return Ok(None);
             }
             let mut data = inflate(data);
 
@@ -529,10 +527,7 @@ where
     if logger.is_some() {
         sprites.iter().flatten().for_each(|sprite| {
             let framecount = sprite.frames.len();
-            let (width, height) = match sprite.frames.first() {
-                Some(frame) => (frame.width, frame.height),
-                None => (0, 0),
-            };
+            let (width, height) = sprite.frames.first().map_or((0, 0), |f| (f.width, f.height));
             log!(
                 logger,
                 " + Added sprite '{}' ({}x{}, {} frame{})",

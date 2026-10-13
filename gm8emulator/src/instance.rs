@@ -264,7 +264,11 @@ impl Instance {
     // Sets direction and speed based on hspeed and vspeed
     fn update_speed_direction(&self) {
         let direction = (-self.vspeed.get()).arctan2(self.hspeed.get()).to_degrees().rem_euclid(Real::from(360.0));
-        self.direction.set(if (direction - direction.round()).abs() < 0.0001.into() { direction.round() } else { direction });
+        self.direction.set(if (direction - direction.round()).abs() < 0.0001.into() {
+            direction.round()
+        } else {
+            direction
+        });
         self.speed.set((self.hspeed.get() * self.hspeed.get() + self.vspeed.get() * self.vspeed.get()).sqrt());
     }
 
@@ -372,7 +376,7 @@ impl Field {
                 let mut array = HashMap::new();
                 array.insert(i, value);
                 Self::Array(array)
-            },
+            }
         }
     }
 
@@ -387,7 +391,7 @@ impl Field {
                     } else {
                         None
                     }
-                },
+                }
             },
             _ => None,
         }
@@ -398,17 +402,17 @@ impl Field {
             Self::Single(v) => match index {
                 0 => {
                     *v = value;
-                },
+                }
                 i => {
                     let mut array = HashMap::with_capacity(2);
                     array.insert(0, v.clone());
                     array.insert(i, value);
                     *self = Self::Array(array);
-                },
+                }
             },
             Self::Array(m) => {
                 m.insert(index, value);
-            },
+            }
         }
     }
 }

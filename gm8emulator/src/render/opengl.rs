@@ -8,7 +8,13 @@ use crate::{
 };
 use ramen::{connection::Connection, window::Window};
 use rect_packer::DensePacker;
-use std::{any::Any, f64::consts::PI, ffi::CStr, mem::{offset_of, size_of}, ptr};
+use std::{
+    any::Any,
+    f64::consts::PI,
+    ffi::CStr,
+    mem::{offset_of, size_of},
+    ptr,
+};
 
 /// Auto-generated OpenGL bindings from gl_generator
 pub mod gl {
@@ -55,7 +61,11 @@ impl From<GLBool> for bool {
 
 impl From<bool> for GLBool {
     fn from(b: bool) -> Self {
-        if b { GLBool::True } else { GLBool::False }
+        if b {
+            GLBool::True
+        } else {
+            GLBool::False
+        }
     }
 }
 
@@ -391,7 +401,12 @@ impl ShapeBuilder {
 // the process termination time - but can be quite useful for Debug ones.
 
 impl RendererImpl {
-    pub fn new(options: &RendererOptions, connection: &Connection, window: &Window, clear_colour: Colour) -> Result<Self, String> {
+    pub fn new(
+        options: &RendererOptions,
+        connection: &Connection,
+        window: &Window,
+        clear_colour: Colour,
+    ) -> Result<Self, String> {
         unsafe {
             let imp = native_gl::PlatformImpl::new(connection, window)?;
 
@@ -429,7 +444,7 @@ impl RendererImpl {
             let mut success = gl::FALSE as GLint;
             gl.GetShaderiv(vertex_shader, gl::COMPILE_STATUS, &mut success);
             if success != gl::TRUE as GLint {
-                return Err(shader_info_log(&gl, "vertex", vertex_shader))
+                return Err(shader_info_log(&gl, "vertex", vertex_shader));
             }
 
             // Compile fragment shader
@@ -440,7 +455,7 @@ impl RendererImpl {
             // Check for fragment shader compile errors
             gl.GetShaderiv(fragment_shader, gl::COMPILE_STATUS, &mut success);
             if success != gl::TRUE as GLint {
-                return Err(shader_info_log(&gl, "fragment", fragment_shader))
+                return Err(shader_info_log(&gl, "fragment", fragment_shader));
             }
 
             // Link shaders
@@ -461,7 +476,7 @@ impl RendererImpl {
                 return Err(format!(
                     "Failed to link shaders, compiler output:\n{}",
                     std::str::from_utf8(&info).unwrap_or("<INVALID UTF-8>")
-                ))
+                ));
             }
             gl.DeleteShader(vertex_shader);
             gl.DeleteShader(fragment_shader);
@@ -767,7 +782,7 @@ impl RendererImpl {
 
     fn draw_buffer(&mut self, atlas_id: u32, shape: PrimitiveShape, buffer: &[Vertex]) {
         if buffer.is_empty() {
-            return
+            return;
         }
 
         unsafe {
@@ -1424,9 +1439,7 @@ impl RendererTrait for RendererImpl {
 
     fn dump_sprite_part(&self, atlas_ref: AtlasRef, part_x: i32, part_y: i32, part_w: i32, part_h: i32) -> Box<[u8]> {
         let rect = match self.get_rect(atlas_ref) {
-            Some(rect) => {
-                AtlasRect { x: rect.x + part_x, y: rect.y + part_y, w: part_w, h: part_h, ..*rect }
-            },
+            Some(rect) => AtlasRect { x: rect.x + part_x, y: rect.y + part_y, w: part_w, h: part_h, ..*rect },
             None => return Box::new([]),
         };
         unsafe {
@@ -1600,7 +1613,7 @@ impl RendererTrait for RendererImpl {
                             None
                         };
                         Some(SavedTexture { width, height, pixels: pixels.into_boxed_slice(), zbuf })
-                    },
+                    }
                     None => None,
                 });
             }
@@ -1814,9 +1827,7 @@ impl RendererTrait for RendererImpl {
         let depth = self.depth;
 
         // correct for gm offset
-        let correct = |xoff, yoff| {
-            [(xoff-0.5) as f32, (yoff-0.5) as f32, depth]
-        };
+        let correct = |xoff, yoff| [(xoff - 0.5) as f32, (yoff - 0.5) as f32, depth];
 
         // push the vertices
         self.push_primitive(
@@ -1996,11 +2007,7 @@ impl RendererTrait for RendererImpl {
 
     fn reset_primitive_2d(&mut self, ptype: PrimitiveType, atlas_ref: Option<AtlasRef>) {
         let ar = atlas_ref.and_then(|ar| self.get_rect(ar).copied());
-        self.primitive_2d = PrimitiveBuilder::new(
-            ar.unwrap_or(self.white_pixel),
-            ptype,
-            ar.is_some(),
-        );
+        self.primitive_2d = PrimitiveBuilder::new(ar.unwrap_or(self.white_pixel), ptype, ar.is_some());
     }
 
     fn vertex_2d(&mut self, x: f64, y: f64, xtex: f64, ytex: f64, col: i32, alpha: f64) {
@@ -2028,11 +2035,7 @@ impl RendererTrait for RendererImpl {
 
     fn reset_primitive_3d(&mut self, ptype: PrimitiveType, atlas_ref: Option<AtlasRef>) {
         let ar = atlas_ref.and_then(|ar| self.get_rect(ar).copied());
-        self.primitive_3d = PrimitiveBuilder::new(
-            ar.unwrap_or(self.white_pixel),
-            ptype,
-            ar.is_some(),
-        );
+        self.primitive_3d = PrimitiveBuilder::new(ar.unwrap_or(self.white_pixel), ptype, ar.is_some());
     }
 
     fn vertex_3d(
@@ -2421,13 +2424,13 @@ impl RendererTrait for RendererImpl {
                 self.next_render_state.lights[id].is_point = false.into();
                 self.next_render_state.lights[id].pos[0..3].copy_from_slice(&direction);
                 self.next_render_state.lights[id].colour = split_colour(colour, 1.0);
-            },
+            }
             Light::Point { position, range, colour } => {
                 self.next_render_state.lights[id].is_point = true.into();
                 self.next_render_state.lights[id].pos[0..3].copy_from_slice(&position);
                 self.next_render_state.lights[id].colour = split_colour(colour, 1.0);
                 self.next_render_state.lights[id].range = range;
-            },
+            }
         }
         self.render_state_updated = true;
     }
@@ -2435,7 +2438,7 @@ impl RendererTrait for RendererImpl {
     fn present(&mut self, window_width: u32, window_height: u32, scaling: Scaling) {
         if window_width == 0 || window_height == 0 {
             // if we continue, intel will dereference a null pointer
-            return
+            return;
         }
         unsafe {
             // Finish drawing frame
@@ -2456,7 +2459,7 @@ impl RendererTrait for RendererImpl {
                     let w = (f64::from(fb_width) * scale) as i32;
                     let h = (f64::from(fb_height) * scale) as i32;
                     ((window_width - w) / 2, (window_height - h) / 2, w, h)
-                },
+                }
                 Scaling::Aspect(_) => {
                     if fb_width > 0 && fb_height > 0 {
                         let fixed_width = window_height * fb_width / fb_height;
@@ -2472,7 +2475,7 @@ impl RendererTrait for RendererImpl {
                         // can never be too careful
                         (0, 0, fb_width, fb_height)
                     }
-                },
+                }
                 Scaling::Full => (0, 0, window_width, window_height),
             };
 
@@ -2525,7 +2528,7 @@ impl RendererTrait for RendererImpl {
 
     fn draw_stored(&mut self, x: i32, y: i32, w: u32, h: u32) {
         if w == 0 || h == 0 {
-            return
+            return;
         }
 
         let framebuffer = match self.stored_framebuffer {

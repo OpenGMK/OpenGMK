@@ -101,7 +101,7 @@ pub fn process_image(image: &mut RgbaImage, removeback: bool, smooth: bool, fill
                     } else if y < image.height() - 1 && image.get_pixel(x, y + 1)[3] != 0 {
                         (x, y + 1)
                     } else {
-                        continue
+                        continue;
                     };
                     let src = *image.get_pixel(sx, sy);
                     let dst = image.get_pixel_mut(x, y);
@@ -126,7 +126,7 @@ fn make_bbox(coll: impl Fn(u32, u32) -> bool, frame_width: u32, frame_height: u3
         if let Some(y) = (0..frame_height).find(|&y| coll(x, y)) {
             left = x;
             top = y;
-            break
+            break;
         }
     }
     // Set bbox_top to the highest pixel in the remaining columns, if there's one above the one we already found.
@@ -139,7 +139,7 @@ fn make_bbox(coll: impl Fn(u32, u32) -> bool, frame_width: u32, frame_height: u3
         if let Some(y) = (top..frame_height).rfind(|&y| coll(x, y)) {
             right = x;
             bottom = y;
-            break
+            break;
         }
     }
     // Set bbox_bottom to the lowest pixel between bbox_left and bbox_right, if there's one below the one we found.
@@ -231,7 +231,7 @@ pub fn make_colliders_shaped(
                             data[(y * width + x) as usize] = true;
                         }
                     }
-                },
+                }
                 Some(ColliderShape::Ellipse) => {
                     let xcenter = f64::from(bbox.right - bbox.left) / 2.0;
                     let xrad = xcenter - f64::from(bbox.left) + 0.5; // GM8 adds 0.5, no idea why
@@ -244,7 +244,7 @@ pub fn make_colliders_shaped(
                             data[(y * width + x) as usize] = x_scaled * x_scaled + y_scaled * y_scaled < 1.0;
                         }
                     }
-                },
+                }
                 Some(ColliderShape::Diamond) => {
                     let xcenter = f64::from(bbox.right - bbox.left) / 2.0;
                     let xrad = xcenter - f64::from(bbox.left) + 0.5;
@@ -258,7 +258,7 @@ pub fn make_colliders_shaped(
                             data[(y * width + x) as usize] = x_scaled.abs() + y_scaled.abs() < 1.0;
                         }
                     }
-                },
+                }
             }
             Collider {
                 width,
@@ -314,7 +314,19 @@ impl Sprite {
 
 impl Collider {
     // collision_point but it checks the collider's precise hitbox only, no AABB
-    pub fn check_collision_point_precise(&self, x: i32, y: i32, inst_x: i32, inst_y: i32, origin_x: i32, origin_y: i32, xscale: Real, yscale: Real, angle_sin: f64, angle_cos: f64) -> bool {
+    pub fn check_collision_point_precise(
+        &self,
+        x: i32,
+        y: i32,
+        inst_x: i32,
+        inst_y: i32,
+        origin_x: i32,
+        origin_y: i32,
+        xscale: Real,
+        yscale: Real,
+        angle_sin: f64,
+        angle_cos: f64,
+    ) -> bool {
         let mut x = Real::from(x - inst_x);
         let mut y = Real::from(y - inst_y);
         util::rotate_around_center(x.as_mut_ref(), y.as_mut_ref(), angle_sin, angle_cos);

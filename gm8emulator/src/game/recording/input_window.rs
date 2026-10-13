@@ -48,10 +48,7 @@ impl Window for InputWindows {
 // Keyboard window
 impl InputWindows {
     pub fn new() -> Self {
-        InputWindows {
-            context_menu_type: None,
-            request_context_menu: false,
-        }
+        InputWindows { context_menu_type: None, request_context_menu: false }
     }
 
     fn request_context_menu(&mut self, menu_type: ContextMenuType) {
@@ -475,12 +472,7 @@ impl InputWindows {
         y: f32,
         code: ramen::input::Key,
     ) {
-        let EmulatorContext {
-            frame,
-            keyboard_state,
-            config,
-            ..
-        } = info;
+        let EmulatorContext { frame, keyboard_state, config, .. } = info;
 
         let vk = input::ramen2vk(code);
         let imgui_key = input::ramen2imgui(code).unwrap(); // We only display keys that actually have a mapping
@@ -500,14 +492,14 @@ impl InputWindows {
                     frame.focus_current_window();
                     *state = if state.is_held() { KeyState::HeldWillDouble } else { KeyState::NeutralWillDouble };
                 }
-            },
+            }
             InputMode::Direct => {
                 if frame.is_key_pressed(imgui_key) {
                     *state = match state {
                         // if neutral and setting would stay neutral => will press
                         KeyState::Neutral | KeyState::NeutralWillDouble | KeyState::NeutralWillCactus => {
                             KeyState::NeutralWillPress
-                        },
+                        }
                         // if held but would release => keep held
                         KeyState::HeldWillRelease | KeyState::HeldWillTriple => KeyState::Held,
                         // otherwise just keep the state
@@ -518,14 +510,14 @@ impl InputWindows {
                         // if held and setting would stay held => will release
                         KeyState::Held | KeyState::HeldWillDouble | KeyState::HeldDoubleEveryFrame => {
                             KeyState::HeldWillRelease
-                        },
+                        }
                         // if neutral but would press => keep neutral
                         KeyState::NeutralWillPress | KeyState::NeutralWillTriple => KeyState::Neutral,
                         // otherwise just keep the state
                         _ => *state,
                     };
                 }
-            },
+            }
         }
         state.draw_keystate(*frame, Vec2(x, y), size);
         frame.text_centered(name, Vec2(x, y) + Vec2(size.0 / 2.0, size.1 / 2.0));
@@ -545,11 +537,7 @@ impl InputWindows {
         y: f32,
         button: i8,
     ) {
-        let EmulatorContext {
-            frame,
-            mouse_state,
-            ..
-        } = info;
+        let EmulatorContext { frame, mouse_state, .. } = info;
 
         let state: &mut KeyState = &mut mouse_state[button as usize];
         if frame.invisible_button_with_size_and_pos(name, size, Vec2(x, y)) {
@@ -586,11 +574,11 @@ impl InputWindows {
             Some(ContextMenuType::Key(key)) => {
                 let key_state = &mut info.keyboard_state[usize::from(input::ramen2vk(key))];
                 key_state.menu(info.frame)
-            },
+            }
             Some(ContextMenuType::Mouse(button)) => {
                 let key_state = &mut info.mouse_state[button as usize];
                 key_state.menu(info.frame)
-            },
+            }
             None => false,
         }
     }

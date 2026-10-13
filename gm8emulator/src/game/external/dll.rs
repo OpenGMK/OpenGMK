@@ -32,7 +32,7 @@ impl PascalString {
 
     pub fn new(bytes: &[u8]) -> Self {
         if bytes.is_empty() {
-            return Self::empty()
+            return Self::empty();
         }
 
         assert!(bytes.len() <= u32::max_value() as usize);

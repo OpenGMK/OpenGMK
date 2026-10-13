@@ -16,7 +16,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     if !aa_macro_path.is_file() {
         let i_char = |i| char::from(b'a' + i);
         let mut aa_macro = String::with_capacity(16384);
-        aa_macro += &"macro_rules! _apply_args {\n    ($args: expr,) => { Ok(()) };\n".to_string();
+        aa_macro += "macro_rules! _apply_args {\n    ($args: expr,) => { Ok(()) };\n";
         for i in 1..=16 {
             aa_macro += "    ($args: expr, ";
             for j in 0..i {
@@ -41,13 +41,13 @@ fn main() -> Result<(), Box<dyn Error>> {
     }
 
     // opengl bindings
-    let mut bindings = File::create(&Path::new(&out).join("gl_bindings.rs"))?;
-    Registry::new(Api::Gl, (3, 3), Profile::Core, Fallbacks::All, &OPENGL_EXTENSIONS)
+    let mut bindings = File::create(Path::new(&out).join("gl_bindings.rs"))?;
+    Registry::new(Api::Gl, (3, 3), Profile::Core, Fallbacks::All, OPENGL_EXTENSIONS)
         .write_bindings(StructGenerator, &mut bindings)?;
 
     // WGL (Windows OpenGL) Bindings
     if cfg!(target_os = "windows") {
-        let mut file = File::create(&Path::new(&out).join("wgl_bindings.rs"))?;
+        let mut file = File::create(Path::new(&out).join("wgl_bindings.rs"))?;
         Registry::new(Api::Wgl, (1, 0), Profile::Core, Fallbacks::All, [
             "WGL_ARB_create_context",
             "WGL_ARB_create_context_profile",
@@ -65,7 +65,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         target_os = "netbsd",
         target_os = "openbsd",
     )) {
-        let mut file = File::create(&Path::new(&out).join("glx_bindings.rs"))?;
+        let mut file = File::create(Path::new(&out).join("glx_bindings.rs"))?;
         Registry::new(Api::Glx, (1, 4), Profile::Core, Fallbacks::All, [
             "GLX_ARB_create_context",
             "GLX_ARB_create_context_profile",
@@ -96,11 +96,11 @@ fn main() -> Result<(), Box<dyn Error>> {
                         } else {
                             None
                         }
-                    },
+                    }
                     _ => {
                         last = x;
                         Some(x)
-                    },
+                    }
                 })
                 .collect::<String>()
         };

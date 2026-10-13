@@ -85,7 +85,7 @@ impl Compiler {
 
     /// Compile a GML string into instructions.
     pub fn compile(&mut self, source: &[u8]) -> Result<Rc<[Instruction]>, ast::Error> {
-        let ast = ast::AST::new(source)?;
+        let ast = ast::Ast::new(source)?;
 
         let mut instructions = Vec::new();
         let mut locals: Vec<&[u8]> = Vec::new();
@@ -97,7 +97,7 @@ impl Compiler {
 
     /// Compile an expression into a format which can be evaluated.
     pub fn compile_expression(&mut self, source: &[u8]) -> Result<Node, ast::Error> {
-        let expr = ast::AST::expression(source)?;
+        let expr = ast::Ast::expression(source)?;
         Ok(self.compile_ast_expr(&expr, &[]))
     }
 
@@ -107,22 +107,22 @@ impl Compiler {
             // Line of code identified by an assignment operator
             ast::Expr::Binary(binary_expr) => {
                 output.push(self.binary_to_instruction(binary_expr.as_ref(), &locals));
-            },
+            }
 
             // Break
             ast::Expr::Break => {
                 output.push(Instruction::Return { return_type: ReturnType::Break });
-            },
+            }
 
             // Continue
             ast::Expr::Continue => {
                 output.push(Instruction::Return { return_type: ReturnType::Continue });
-            },
+            }
 
             // Exit
             ast::Expr::Exit => {
                 output.push(Instruction::Return { return_type: ReturnType::Exit });
-            },
+            }
 
             // For loop
             ast::Expr::For(for_expr) => {
@@ -137,19 +137,19 @@ impl Compiler {
                     body: body.into_boxed_slice(),
                     step: step.into_boxed_slice(),
                 });
-            },
+            }
 
             // Function or Script
             f @ ast::Expr::Function(_) => {
                 output.push(Instruction::EvalExpression { node: self.compile_ast_expr(f, locals) });
-            },
+            }
 
             // Group of expressions
             ast::Expr::Group(group) => {
                 for expr in group {
                     self.compile_ast_line(expr, output, locals);
                 }
-            },
+            }
 
             // If/else body
             ast::Expr::If(if_expr) => {
@@ -174,7 +174,7 @@ impl Compiler {
                         else_body: else_body.into_boxed_slice(),
                     });
                 }
-            },
+            }
 
             // "repeat" block
             ast::Expr::Repeat(repeat_expr) => {
@@ -182,14 +182,14 @@ impl Compiler {
                 let mut body = Vec::new();
                 self.compile_ast_line(&repeat_expr.body, &mut body, locals);
                 output.push(Instruction::Repeat { count, body: body.into_boxed_slice() });
-            },
+            }
 
             // Return
             ast::Expr::Return(expr) => {
                 let value = self.compile_ast_expr(&expr, locals);
                 output.push(Instruction::SetReturnValue { value });
                 output.push(Instruction::Return { return_type: ReturnType::Exit });
-            },
+            }
 
             // "switch" block
             ast::Expr::Switch(switch_expr) => {
@@ -222,7 +222,7 @@ impl Compiler {
                         error: gml::Error::InvalidSwitchBody(switch_expr.body.to_string()),
                     });
                 }
-            },
+            }
 
             // "do-until" block
             ast::Expr::DoUntil(while_expr) => {
@@ -230,18 +230,18 @@ impl Compiler {
                 let mut body = Vec::new();
                 self.compile_ast_line(&while_expr.body, &mut body, locals);
                 output.push(Instruction::LoopUntil { cond, body: body.into_boxed_slice() });
-            },
+            }
 
             // "var" declaration
             ast::Expr::Var(var_expr) => {
                 locals.extend_from_slice(&var_expr.vars);
-            },
+            }
 
             ast::Expr::GlobalVar(globalvar_expr) => {
                 // globalvar doesn't work on builtins
                 let fields = globalvar_expr.vars.iter().map(|x| self.get_field_id(x)).collect();
                 output.push(Instruction::GlobalVar { fields });
-            },
+            }
 
             // "while" block
             ast::Expr::While(while_expr) => {
@@ -249,7 +249,7 @@ impl Compiler {
                 let mut body = Vec::new();
                 self.compile_ast_line(&while_expr.body, &mut body, locals);
                 output.push(Instruction::LoopWhile { cond, body: body.into_boxed_slice() });
-            },
+            }
 
             // "with" block
             ast::Expr::With(with_expr) => {
@@ -257,12 +257,12 @@ impl Compiler {
                 let mut body = Vec::new();
                 self.compile_ast_line(&with_expr.body, &mut body, locals);
                 output.push(Instruction::With { target, body: body.into_boxed_slice() });
-            },
+            }
 
             // Unknown/invalid AST
             _ => {
                 output.push(Instruction::RuntimeError { error: gml::Error::UnexpectedASTExpr(line.to_string()) });
-            },
+            }
         }
     }
 
@@ -283,14 +283,14 @@ impl Compiler {
                 } else {
                     self.identifier_to_variable(string, None, ArrayAccessor::None, locals)
                 }
-            },
+            }
 
             ast::Expr::Binary(binary_expr) => match &binary_expr.op {
                 Operator::Deref => match &binary_expr.right {
                     ast::Expr::LiteralIdentifier(var_name) => {
                         let owner = self.make_instance_identifier(&binary_expr.left, locals);
                         self.identifier_to_variable(var_name, Some(owner), ArrayAccessor::None, locals)
-                    },
+                    }
                     _ => Node::RuntimeError { error: gml::Error::InvalidDeref(binary_expr.right.to_string()) },
                 },
 
@@ -303,7 +303,7 @@ impl Compiler {
                         match &binary_expr.left {
                             ast::Expr::LiteralIdentifier(string) => {
                                 self.identifier_to_variable(string, None, accessor, locals)
-                            },
+                            }
                             ast::Expr::Binary(binary_expr) => {
                                 if let ast::BinaryExpr {
                                     left,
@@ -318,12 +318,12 @@ impl Compiler {
                                         error: gml::Error::InvalidIndexLhs(format!("{:?}", binary_expr)),
                                     }
                                 }
-                            },
+                            }
                             _ => {
                                 Node::RuntimeError { error: gml::Error::InvalidIndexLhs(binary_expr.left.to_string()) }
-                            },
+                            }
                         }
-                    },
+                    }
                     _ => Node::RuntimeError { error: gml::Error::InvalidArrayAccessor(binary_expr.right.to_string()) },
                 },
 
@@ -361,7 +361,7 @@ impl Compiler {
                                 Ok(value) => Node::Literal { value },
                                 Err(error) => Node::RuntimeError { error },
                             }
-                        },
+                        }
                         (left, right) => Node::Binary {
                             left: Box::new(left),
                             right: Box::new(right),
@@ -369,7 +369,7 @@ impl Compiler {
                             type_unsafe: false,
                         },
                     }
-                },
+                }
             },
 
             ast::Expr::Function(function) => {
@@ -390,8 +390,9 @@ impl Compiler {
                     match function {
                         gml::Function::Runtime(f) => Node::ContextFunction { args, function: gml::FunctionPtr(*f) },
                         gml::Function::Engine(f) => Node::StateFunction { args, function: gml::FunctionPtr(*f) },
-                        gml::Function::Volatile(f) |
-                        gml::Function::Constant(f) => Node::RoutineFunction { args, function: gml::FunctionPtr(*f) },
+                        gml::Function::Volatile(f) | gml::Function::Constant(f) => {
+                            Node::RoutineFunction { args, function: gml::FunctionPtr(*f) }
+                        }
                         gml::Function::Pure(f) => Node::ValueFunction { args, function: gml::FunctionPtr(*f) },
                     }
                 } else {
@@ -399,7 +400,7 @@ impl Compiler {
                         error: gml::Error::UnknownFunction(String::from_utf8_lossy(function.name).into()),
                     }
                 }
-            },
+            }
 
             ast::Expr::Unary(unary_expr) => {
                 let new_node = self.compile_ast_expr(&unary_expr.child, locals);
@@ -417,7 +418,7 @@ impl Compiler {
                     },
                     node => Node::Unary { child: Box::new(node), operator },
                 }
-            },
+            }
 
             _ => Node::RuntimeError { error: gml::Error::UnexpectedASTExpr(expr.to_string()) },
         }
@@ -466,7 +467,7 @@ impl Compiler {
                 } else {
                     self.make_set_instruction(string, None, ArrayAccessor::None, value, locals)
                 }
-            },
+            }
             ast::Expr::Binary(binary_expr) if binary_expr.op == Operator::Deref => {
                 if let ast::Expr::LiteralIdentifier(string) = binary_expr.right {
                     let owner = self.make_instance_identifier(&binary_expr.left, locals);
@@ -478,7 +479,7 @@ impl Compiler {
                 } else {
                     Instruction::RuntimeError { error: gml::Error::InvalidDeref(binary_expr.right.to_string()) }
                 }
-            },
+            }
             ast::Expr::Binary(binary_expr) if binary_expr.op == Operator::Index => {
                 if let ast::Expr::Group(dimensions) = &binary_expr.right {
                     let accessor = match self.make_array_accessor(dimensions, locals) {
@@ -492,7 +493,7 @@ impl Compiler {
                             } else {
                                 self.make_set_instruction(string, None, accessor, value, locals)
                             }
-                        },
+                        }
                         ast::Expr::Binary(binary_expr) if binary_expr.op == Operator::Deref => {
                             if let ast::Expr::LiteralIdentifier(string) = binary_expr.right {
                                 let owner = self.make_instance_identifier(&binary_expr.left, locals);
@@ -506,7 +507,7 @@ impl Compiler {
                                     error: gml::Error::InvalidDeref(binary_expr.right.to_string()),
                                 }
                             }
-                        },
+                        }
                         _ => Instruction::RuntimeError {
                             error: gml::Error::InvalidIndexLhs(binary_expr.left.to_string()),
                         },
@@ -514,7 +515,7 @@ impl Compiler {
                 } else {
                     Instruction::RuntimeError { error: gml::Error::InvalidIndex(binary_expr.right.to_string()) }
                 }
-            },
+            }
             _ => Instruction::RuntimeError { error: gml::Error::InvalidAssignment(binary_expr.left.to_string()) },
         }
     }
@@ -536,7 +537,7 @@ impl Compiler {
                 } else {
                     InstanceIdentifier::Unknown
                 }
-            },
+            }
         };
 
         if let Some(var) = mappings::get_instance_variable_by_name(identifier) {
@@ -565,7 +566,7 @@ impl Compiler {
                 } else {
                     InstanceIdentifier::Unknown
                 }
-            },
+            }
         };
 
         if let Some(var) = mappings::get_instance_variable_by_name(identifier) {
@@ -595,7 +596,7 @@ impl Compiler {
                 } else {
                     InstanceIdentifier::Unknown
                 }
-            },
+            }
         };
 
         if let Some(var) = mappings::get_instance_variable_by_name(identifier) {

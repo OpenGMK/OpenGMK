@@ -56,7 +56,7 @@ impl ExternalManager {
 
     fn make_call(&mut self, signature: &dll::ExternalSignature) -> Result<Call, String> {
         if let Some(dummy) = self.should_dummy(&signature) {
-            return Ok(Call::Dummy(dummy))
+            return Ok(Call::Dummy(dummy));
         }
         if cfg!(all(target_os = "windows", target_arch = "x86")) {
             Ok(Call::Native(self.native_manager.define(&signature)?))

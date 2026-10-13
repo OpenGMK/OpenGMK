@@ -65,7 +65,7 @@ impl Binding {
             Self::NextRand => Some(KeyCombination::from(&vec![imgui::Key::ModCtrl, imgui::Key::R])),
             Self::ExportGmtas => {
                 Some(KeyCombination::from(&vec![imgui::Key::ModCtrl, imgui::Key::ModShift, imgui::Key::E]))
-            },
+            }
             Self::ToggleMacros => Some(KeyCombination::from(&vec![imgui::Key::ModCtrl, imgui::Key::Alpha1])),
             Self::SetMouse => Some(KeyCombination::from(&vec![imgui::Key::ModCtrl, imgui::Key::M])),
             //_ => None,
@@ -186,7 +186,7 @@ impl Keybindings {
                 Err(_) => {
                     println!("Warning: Couldn't parse key bindings. Using default bindings.");
                     default_keybindings
-                },
+                }
             }
         } else {
             bincode::serialize_into(File::create(&path).expect("Couldn't write key bindings"), &default_keybindings)
@@ -203,11 +203,7 @@ impl Default for Keybindings {
     fn default() -> Self {
         let mut bindings = BTreeMap::new();
         Self::set_default_bindings(&mut bindings);
-        Self {
-            disable_bindings: false,
-            bindings_disabled: false,
-            bindings,
-        }
+        Self { disable_bindings: false, bindings_disabled: false, bindings }
     }
 }
 
@@ -276,19 +272,14 @@ impl Window for KeybindWindow {
 
 impl KeybindWindow {
     const CANCEL_COLOR: [f32; 4] = [0.5, 0.6, 0.7, 1.0];
-    const CONTROL_BUTTON_WIDTH: f32 = 60.0;
     const CONTROL_BUTTON_HEIGHT: f32 = 20.0;
+    const CONTROL_BUTTON_WIDTH: f32 = 60.0;
 
     pub fn new() -> Self {
         Self {
             last_keycodes: Vec::new(),
             current_binding: None,
-            current_keys: KeyCombination {
-                ctrl: false,
-                alt: false,
-                shift: false,
-                keycodes: Vec::new(),
-            },
+            current_keys: KeyCombination { ctrl: false, alt: false, shift: false, keycodes: Vec::new() },
             is_open: true,
         }
     }
@@ -310,10 +301,10 @@ impl KeybindWindow {
         };
 
         frame.table_next_column();
-        if frame.button_with_size(
-            format!("{}###{}", text, binding),
-            [Self::CONTROL_BUTTON_WIDTH, Self::CONTROL_BUTTON_HEIGHT],
-        ) {
+        if frame.button_with_size(format!("{}###{}", text, binding), [
+            Self::CONTROL_BUTTON_WIDTH,
+            Self::CONTROL_BUTTON_HEIGHT,
+        ]) {
             if !is_setting_binding {
                 self.current_binding = Some(*binding);
                 self.last_keycodes.clear();
@@ -324,10 +315,10 @@ impl KeybindWindow {
         }
 
         frame.table_next_column();
-        if frame.button_with_size(
-            format!("Default###default{}", binding),
-            [Self::CONTROL_BUTTON_WIDTH, Self::CONTROL_BUTTON_HEIGHT],
-        ) {
+        if frame.button_with_size(format!("Default###default{}", binding), [
+            Self::CONTROL_BUTTON_WIDTH,
+            Self::CONTROL_BUTTON_HEIGHT,
+        ]) {
             *keys = binding.default_binding();
             self.current_binding = None;
         }
@@ -408,7 +399,7 @@ impl From<&Vec<imgui::Key>> for KeyCombination {
         let shift = keys.iter().any(|b| match b {
             imgui::Key::LeftShift | imgui::Key::RightShift | imgui::Key::ModShift | imgui::Key::ReservedForModShift => {
                 true
-            },
+            }
             _ => false,
         });
         let alt = keys.iter().any(|b| match b {

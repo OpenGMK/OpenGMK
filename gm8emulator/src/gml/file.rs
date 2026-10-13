@@ -72,7 +72,7 @@ where
         let byte = byte_maybe?;
         out.push(byte);
         if end_pred(byte) {
-            break
+            break;
         }
     }
     Ok(out)
@@ -85,7 +85,7 @@ where
 {
     for byte in file.bytes() {
         if end_pred(byte?) {
-            return Ok(true)
+            return Ok(true);
         }
     }
     Ok(false)
@@ -232,7 +232,7 @@ impl BinaryHandle {
             // We don't return on other errors (that is, not AlreadyExists) here
             // because the second call to .open() may give us a more exact one.
             if let r @ Ok(_) = opts.create_new(true).read(true).write(true).open(path) {
-                return r
+                return r;
             };
 
             opts.create_new(false);
@@ -329,7 +329,7 @@ pub fn read_real(mut f: impl Read + Seek) -> io::Result<f64> {
     let mut bytes = read_until(&mut f, |b| {
         // If you read spaces or dashes at the start, skip them
         if b == 0x20 || b == 0x2d {
-            return nonspace_seen
+            return nonspace_seen;
         }
         nonspace_seen = true;
         // Comma or period
@@ -366,7 +366,7 @@ pub fn read_real(mut f: impl Read + Seek) -> io::Result<f64> {
     text.retain(|c| {
         if c == '-' {
             if minus_seen {
-                return false
+                return false;
             }
             minus_seen = true;
         }

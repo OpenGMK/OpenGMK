@@ -70,14 +70,7 @@ impl Window for SetMouseDialog {
 
 impl SetMouseDialog {
     pub fn new() -> Self {
-        Self {
-            is_open: false,
-
-            x: 0,
-            y: 0,
-
-            result: None,
-        }
+        Self { is_open: false, x: 0, y: 0, result: None }
     }
 
     fn draw_text_sameline_validated(frame: &imgui::Ui, valid: bool, text: &str) {

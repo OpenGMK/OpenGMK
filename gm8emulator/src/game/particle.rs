@@ -341,7 +341,7 @@ impl Manager {
                         pt.speed_incr = fps_mod * (-0.1).into();
                         pt.life_min = (Real::from(10) / fps_mod).round().to_i32();
                         pt.life_max = (Real::from(15) / fps_mod).round().to_i32();
-                    },
+                    }
                     EffectSize::Medium => {
                         pt.size_min = 0.3.into();
                         pt.size_incr = fps_mod * 0.1.into();
@@ -349,7 +349,7 @@ impl Manager {
                         pt.speed_incr = fps_mod * (-0.18).into();
                         pt.life_min = (Real::from(12) / fps_mod).round().to_i32();
                         pt.life_max = (Real::from(17) / fps_mod).round().to_i32();
-                    },
+                    }
                     EffectSize::Large => {
                         pt.size_min = 0.4.into();
                         pt.size_incr = fps_mod * 0.2.into();
@@ -357,7 +357,7 @@ impl Manager {
                         pt.speed_incr = fps_mod * (-0.2).into();
                         pt.life_min = (Real::from(15) / fps_mod).round().to_i32();
                         pt.life_max = (Real::from(20) / fps_mod).round().to_i32();
-                    },
+                    }
                 }
                 pt.size_max = pt.size_min;
                 pt.speed_max = pt.speed_min;
@@ -384,24 +384,24 @@ impl Manager {
                         pt.size_min = 0.1.into();
                         pt.size_incr = fps_mod * 0.1.into();
                         pt.life_min = (Real::from(15) / fps_mod).round().to_i32();
-                    },
+                    }
                     EffectSize::Medium => {
                         pt.size_min = 0.3.into();
                         pt.size_incr = fps_mod * 0.2.into();
                         pt.life_min = (Real::from(17) / fps_mod).round().to_i32();
-                    },
+                    }
                     EffectSize::Large => {
                         pt.size_min = 0.4.into();
                         pt.size_incr = fps_mod * 0.4.into();
                         pt.life_min = (Real::from(20) / fps_mod).round().to_i32();
-                    },
+                    }
                 }
 
                 pt.size_max = pt.size_min;
                 pt.life_max = pt.life_min;
                 self.system_create_particles(system, x, y, id1, Some(col), 20, rand);
                 self.system_create_particles(system, x, y, id2, Some(0), 1, rand);
-            },
+            }
             EffectType::Ring => {
                 let id = effects.ring_types[size_num];
                 let pt = self.get_type_mut(id).unwrap();
@@ -417,20 +417,20 @@ impl Manager {
                         pt.size_incr = fps_mod * 0.15.into();
                         pt.life_min = (Real::from(10) / fps_mod).round().to_i32();
                         pt.life_max = (Real::from(12) / fps_mod).round().to_i32();
-                    },
+                    }
                     EffectSize::Medium => {
                         pt.size_incr = fps_mod * 0.25.into();
                         pt.life_min = (Real::from(13) / fps_mod).round().to_i32();
                         pt.life_max = (Real::from(15) / fps_mod).round().to_i32();
-                    },
+                    }
                     EffectSize::Large => {
                         pt.size_incr = fps_mod * 0.4.into();
                         pt.life_min = (Real::from(18) / fps_mod).round().to_i32();
                         pt.life_max = (Real::from(20) / fps_mod).round().to_i32();
-                    },
+                    }
                 }
                 self.system_create_particles(system, x, y, id, Some(col), 1, rand);
-            },
+            }
             EffectType::Ellipse => {
                 let id = effects.ellipse_types[size_num];
                 let pt = self.get_type_mut(id).unwrap();
@@ -448,20 +448,20 @@ impl Manager {
                         pt.size_incr = fps_mod * 0.2.into();
                         pt.life_min = (Real::from(10) / fps_mod).round().to_i32();
                         pt.life_max = (Real::from(12) / fps_mod).round().to_i32();
-                    },
+                    }
                     EffectSize::Medium => {
                         pt.size_incr = fps_mod * 0.35.into();
                         pt.life_min = (Real::from(13) / fps_mod).round().to_i32();
                         pt.life_max = (Real::from(15) / fps_mod).round().to_i32();
-                    },
+                    }
                     EffectSize::Large => {
                         pt.size_incr = fps_mod * 0.6.into();
                         pt.life_min = (Real::from(18) / fps_mod).round().to_i32();
                         pt.life_max = (Real::from(20) / fps_mod).round().to_i32();
-                    },
+                    }
                 }
                 self.system_create_particles(system, x, y, id, Some(col), 1, rand);
-            },
+            }
             EffectType::Firework => {
                 let id = effects.firework_types[size_num];
                 let pt = self.get_type_mut(id).unwrap();
@@ -488,24 +488,24 @@ impl Manager {
                         pt.life_max = (Real::from(25) / fps_mod).round().to_i32();
                         pt.grav_amount = 0.1.into();
                         75
-                    },
+                    }
                     EffectSize::Medium => {
                         pt.speed_max = fps_mod * 6.into();
                         pt.life_min = (Real::from(20) / fps_mod).round().to_i32();
                         pt.life_max = (Real::from(30) / fps_mod).round().to_i32();
                         pt.grav_amount = 0.15.into();
                         150
-                    },
+                    }
                     EffectSize::Large => {
                         pt.speed_max = fps_mod * 8.into();
                         pt.life_min = (Real::from(30) / fps_mod).round().to_i32();
                         pt.life_max = (Real::from(40) / fps_mod).round().to_i32();
                         pt.grav_amount = 0.17.into();
                         250
-                    },
+                    }
                 };
                 self.system_create_particles(system, x, y, id, Some(col), number, rand);
-            },
+            }
             EffectType::Smoke => {
                 let id = effects.smoke_types[size_num];
                 let pt = self.get_type_mut(id).unwrap();
@@ -526,7 +526,7 @@ impl Manager {
                             let dy = rand.next_int(9) - 5;
                             self.system_create_particles(system, x + dx.into(), y + dy.into(), id, Some(col), 1, rand);
                         }
-                    },
+                    }
                     EffectSize::Medium => {
                         pt.size_min = 0.4.into();
                         pt.size_max = 0.7.into();
@@ -537,7 +537,7 @@ impl Manager {
                             let dy = rand.next_int(29) - 15;
                             self.system_create_particles(system, x + dx.into(), y + dy.into(), id, Some(col), 1, rand);
                         }
-                    },
+                    }
                     EffectSize::Large => {
                         pt.size_min = 0.4.into();
                         pt.size_max = 1.into();
@@ -548,9 +548,9 @@ impl Manager {
                             let dy = rand.next_int(59) - 30;
                             self.system_create_particles(system, x + dx.into(), y + dy.into(), id, Some(col), 1, rand);
                         }
-                    },
+                    }
                 }
-            },
+            }
             EffectType::SmokeUp => {
                 let id = effects.smokeup_types[size_num];
                 let pt = self.get_type_mut(id).unwrap();
@@ -579,7 +579,7 @@ impl Manager {
                             let dy = rand.next_int(9) - 5;
                             self.system_create_particles(system, x + dx.into(), y + dy.into(), id, Some(col), 1, rand);
                         }
-                    },
+                    }
                     EffectSize::Medium => {
                         pt.size_min = 0.4.into();
                         pt.size_max = 0.7.into();
@@ -592,7 +592,7 @@ impl Manager {
                             let dy = rand.next_int(29) - 15;
                             self.system_create_particles(system, x + dx.into(), y + dy.into(), id, Some(col), 1, rand);
                         }
-                    },
+                    }
                     EffectSize::Large => {
                         pt.size_min = 0.4.into();
                         pt.size_max = 1.into();
@@ -605,9 +605,9 @@ impl Manager {
                             let dy = rand.next_int(59) - 30;
                             self.system_create_particles(system, x + dx.into(), y + dy.into(), id, Some(col), 1, rand);
                         }
-                    },
+                    }
                 }
-            },
+            }
             EffectType::Star => {
                 let id = effects.star_types[size_num];
                 let pt = self.get_type_mut(id).unwrap();
@@ -625,24 +625,24 @@ impl Manager {
                         pt.size_incr = fps_mod * (-0.02).into();
                         pt.life_min = (Real::from(20) / fps_mod).round().to_i32();
                         pt.life_max = pt.life_min;
-                    },
+                    }
                     EffectSize::Medium => {
                         pt.size_min = 0.75.into();
                         pt.size_max = 0.75.into();
                         pt.size_incr = fps_mod * (-0.03).into();
                         pt.life_min = (Real::from(25) / fps_mod).round().to_i32();
                         pt.life_max = pt.life_min;
-                    },
+                    }
                     EffectSize::Large => {
                         pt.size_min = 1.2.into();
                         pt.size_max = 1.2.into();
                         pt.size_incr = fps_mod * (-0.04).into();
                         pt.life_min = (Real::from(30) / fps_mod).round().to_i32();
                         pt.life_max = pt.life_min;
-                    },
+                    }
                 }
                 self.system_create_particles(system, x, y, id, Some(col), 1, rand);
-            },
+            }
             EffectType::Spark | EffectType::Flare => {
                 let id = if kind == EffectType::Spark {
                     effects.spark_types[size_num]
@@ -663,22 +663,22 @@ impl Manager {
                         pt.size_min = 0.4.into();
                         pt.size_incr = Real::from(-0.02) / fps_mod;
                         pt.life_min = (Real::from(20) / fps_mod).round().to_i32();
-                    },
+                    }
                     EffectSize::Medium => {
                         pt.size_min = 0.75.into();
                         pt.size_incr = Real::from(-0.03) / fps_mod;
                         pt.life_min = (Real::from(25) / fps_mod).round().to_i32();
-                    },
+                    }
                     EffectSize::Large => {
                         pt.size_min = 1.2.into();
                         pt.size_incr = Real::from(-0.04) / fps_mod;
                         pt.life_min = (Real::from(30) / fps_mod).round().to_i32();
-                    },
+                    }
                 }
                 pt.size_max = pt.size_min;
                 pt.life_max = pt.life_min;
                 self.system_create_particles(system, x, y, id, Some(col), 1, rand);
-            },
+            }
             EffectType::Cloud => {
                 let id = effects.cloud_types[size_num];
                 let pt = self.get_type_mut(id).unwrap();
@@ -699,7 +699,7 @@ impl Manager {
                 };
                 pt.size_max = pt.size_min;
                 self.system_create_particles(system, x, y, id, Some(col), 1, rand);
-            },
+            }
             EffectType::Rain => {
                 let id = effects.rain_type;
                 let pt = self.get_type_mut(id).unwrap();
@@ -742,7 +742,7 @@ impl Manager {
                         rand,
                     );
                 }
-            },
+            }
             EffectType::Snow => {
                 let id = effects.snow_type;
                 let pt = self.get_type_mut(id).unwrap();
@@ -785,7 +785,7 @@ impl Manager {
                         rand,
                     );
                 }
-            },
+            }
         }
     }
 
@@ -1008,23 +1008,23 @@ impl Distribution {
                     let x = loop {
                         let x = Real::from(rand.next(6.0) - 3.0);
                         if (-x * x * Real::from(0.5)).exp() > Real::from(rand.next(1.0)) {
-                            break x
+                            break x;
                         }
                     };
                     min + (max - min) * (x + Real::from(3.0)) / Real::from(6.0)
-                },
+                }
                 Distribution::InvGaussian => {
                     let mut x = loop {
                         let x = Real::from(rand.next(6.0) - 3.0);
                         if (-x * x * Real::from(0.5)).exp() > Real::from(rand.next(1.0)) {
-                            break x
+                            break x;
                         }
                     };
                     if x < Real::from(0.0) {
                         x += Real::from(6.0);
                     }
                     min + (max - min) * x / Real::from(6.0)
-                },
+                }
             }
         } else {
             min
@@ -1043,7 +1043,7 @@ pub enum Shape {
 impl Shape {
     fn contains(&self, x: Real, y: Real, x1: Real, y1: Real, x2: Real, y2: Real) -> bool {
         if x1 > x || x > x2 || y1 > y || y > y2 {
-            return false
+            return false;
         }
         let xcenter = (x1 + x2) / Real::from(2.0);
         let ycenter = (y1 + y2) / Real::from(2.0);
@@ -1275,7 +1275,7 @@ impl Particle {
                 let g = Distribution::Linear.range(rand, (*gmin).into(), (*gmax).into()).round().to_i32();
                 let b = Distribution::Linear.range(rand, (*bmin).into(), (*bmax).into()).round().to_i32();
                 r | (g << 8) | (b << 16)
-            },
+            }
             ParticleColour::HSV { hmin, hmax, smin, smax, vmin, vmax } => {
                 let h = Distribution::Linear.range(rand, (*hmin).into(), (*hmax).into()).round().to_i32();
                 let s = Distribution::Linear.range(rand, (*smin).into(), (*smax).into()).round().to_i32();
@@ -1303,7 +1303,7 @@ impl Particle {
                 let out_g = ((g + m) * Real::from(255.0)).round().to_i32();
                 let out_b = ((b + m) * Real::from(255.0)).round().to_i32();
                 out_r | (out_g << 8) | (out_b << 16)
-            },
+            }
             ParticleColour::Mix(c1, c2) => colour_lerp(*c1, *c2, rand.next(1.0).into()),
         }
     }
@@ -1392,7 +1392,7 @@ impl Particle {
                     } else {
                         colour_lerp(c2, c3, halflife_elapsed - Real::from(1.0))
                     }
-                },
+                }
                 _ => self.colour,
             };
             if halflife_elapsed >= Real::from(1.0) {
@@ -1415,7 +1415,7 @@ impl Particle {
     ) {
         let ptype = types.get_asset(self.ptype);
         if ptype.is_none() {
-            return
+            return;
         }
         let ptype = ptype.unwrap();
         let atlas_ref = match ptype.graphic {
@@ -1424,17 +1424,14 @@ impl Particle {
                     let frames = asset.frames.len() as i32;
                     let mut subimage = self.subimage;
                     if animat {
-                        subimage += if stretch && self.lifetime > 0 {
-                            frames * self.timer / self.lifetime
-                        } else {
-                            self.timer
-                        }
+                        subimage +=
+                            if stretch && self.lifetime > 0 { frames * self.timer / self.lifetime } else { self.timer }
                     }
                     asset.get_atlas_ref(subimage)
                 } else {
                     None
                 }
-            },
+            }
             ParticleGraphic::Shape(s) => usize::try_from(s).ok().and_then(|s| shapes.get(s).copied()),
         };
         let mut angle_wiggle_factor = ((self.timer + self.random_start * 2) % 16) as f64 / 4.0;
@@ -1504,11 +1501,11 @@ impl Deflector {
                         DeflectorKind::Horizontal => {
                             particle.direction = (Real::from(180) - particle.direction).rem_euclid(360.into());
                             particle.x = particle.xprevious - (particle.x - particle.xprevious);
-                        },
+                        }
                         DeflectorKind::Vertical => {
                             particle.direction = (Real::from(360) - particle.direction).rem_euclid(360.into());
                             particle.y = particle.yprevious - (particle.y - particle.yprevious);
-                        },
+                        }
                     }
                     particle.speed = (particle.speed - self.friction).max(Real::from(0.0));
                 }
@@ -1543,14 +1540,14 @@ impl Changer {
                             ChangerKind::Motion => {
                                 particle.speed = new_part.speed;
                                 particle.direction = new_part.direction;
-                            },
+                            }
                             ChangerKind::Shape => {
                                 particle.colour = new_part.colour;
                                 particle.alpha = new_part.alpha;
                                 particle.size = new_part.size;
                                 particle.subimage = new_part.subimage;
                                 particle.image_angle = new_part.image_angle;
-                            },
+                            }
                             ChangerKind::All => *particle = new_part,
                         }
                     }
@@ -1601,7 +1598,11 @@ impl Emitter {
         types: &dyn GetAsset<Box<ParticleType>>,
     ) {
         let number = if number < 0 {
-            if rand.next_int(-number as u32) == 0 { 1 } else { return }
+            if rand.next_int(-number as u32) == 0 {
+                1
+            } else {
+                return;
+            }
         } else {
             number
         };
@@ -1627,7 +1628,7 @@ impl Emitter {
                     if self.shape == Shape::Line {
                         yspawn = xspawn;
                     }
-                    break (xspawn, yspawn)
+                    break (xspawn, yspawn);
                 }
             };
             if let Some(particle) = Particle::new(

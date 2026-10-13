@@ -61,7 +61,7 @@ impl ChildProcess {
             return Err(format!(
                 "{} was not found, please extract it into your gm8emulator directory",
                 PROCESS_DEFAULT_NAME
-            ))
+            ));
         }
         let mut child = if cfg!(windows) {
             process::Command::new(process_path)
@@ -80,7 +80,8 @@ impl ChildProcess {
                 .stdin(process::Stdio::piped())
                 .stdout(process::Stdio::piped())
                 .spawn()
-        }.map_err(|e| format!("failed to spawn child process: {}", e))?;
+        }
+        .map_err(|e| format!("failed to spawn child process: {}", e))?;
         let stdin = child.stdin.take().unwrap();
         let mut stdout = child.stdout.take().unwrap();
         // make sure we're talking to the right version
@@ -88,7 +89,7 @@ impl ChildProcess {
         stdout.read_exact(&mut version).map_err(|e| format!("couldn't receive gm8emulator-wow64 version: {}", e))?;
         let version = u16::from_le_bytes(version);
         if version != dll::PROTOCOL_VERSION {
-            return Err(format!("gm8emulator-wow64 version mismatch (expected {}, got {})", PROTOCOL_VERSION, version))
+            return Err(format!("gm8emulator-wow64 version mismatch (expected {}, got {})", PROTOCOL_VERSION, version));
         }
         Ok(Self { child, msgbuf: Vec::new(), stdin, stdout })
     }

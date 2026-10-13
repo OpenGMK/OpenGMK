@@ -79,7 +79,7 @@ impl Asset for Font {
                 let charset = (range_start & 0x00FF0000) >> 16;
                 range_start &= 0x0000FFFF;
                 (aa_level, charset)
-            },
+            }
         };
 
         let mut dmap = [0u32; 0x600];
